@@ -25,7 +25,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-iconv"
              "${MINGW_PACKAGE_PREFIX}-ncurses"
              "${MINGW_PACKAGE_PREFIX}-xz"
              "git")
-options=('staticlibs' '!distcc' '!ccache' 'debug' '!strip')
+options=('staticlibs' '!distcc' '!ccache') # 'debug' '!strip'
 source=("${_realname}"::"git://sourceware.org/git/binutils-gdb.git#branch=master"
         gdbinit
         0001-MinGW-w64-Two-fixes-for-unusual-files.patch
