@@ -34,7 +34,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-bzip2"
          "${MINGW_PACKAGE_PREFIX}-wavpack"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 options=(!libtool strip staticlibs)
-source=("${_realname}::git+https://anongit.freedesktop.org/git/gstreamer/gst-plugins-good.git")
+source=("${_realname}::git+git://anongit.freedesktop.org/gstreamer/gst-plugins-good")
 sha256sums=('SKIP')
 
 pkgver() {

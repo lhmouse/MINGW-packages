@@ -7,7 +7,7 @@ pkgver=3.4.1
 pkgrel=1
 pkgdesc="Open Source Computer Vision Library (mingw-w64)"
 arch=('any')
-url="https://opencv.org/"
+url="http://opencv.org/"
 license=("BSD")
 depends=(#"${MINGW_PACKAGE_PREFIX}-gst-plugins-base
          "${MINGW_PACKAGE_PREFIX}-intel-tbb"

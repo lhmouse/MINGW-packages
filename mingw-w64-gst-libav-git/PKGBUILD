@@ -17,7 +17,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-gobject-introspection"
 depends=("${MINGW_PACKAGE_PREFIX}-gst-plugins-base"
          "${MINGW_PACKAGE_PREFIX}-ffmpeg")
 options=(!libtool strip staticlibs)
-source=("${_realname}::git+https://anongit.freedesktop.org/git/gstreamer/gst-libav.git")
+source=("${_realname}::git+git://anongit.freedesktop.org/gstreamer/gst-libav")
 sha256sums=('SKIP')
 
 pkgver() {

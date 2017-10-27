@@ -17,7 +17,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-gcc"
              "${MINGW_PACKAGE_PREFIX}-pkg-config")
 depends=("${MINGW_PACKAGE_PREFIX}-gst-plugins-base-git")
 options=(!libtool strip staticlibs)
-source=("${_realname}::git+https://anongit.freedesktop.org/git/gstreamer/gst-editing-services.git")
+source=("${_realname}::git+git://anongit.freedesktop.org/gstreamer/gst-editing-services")
 sha256sums=('SKIP')
 
 pkgver() {

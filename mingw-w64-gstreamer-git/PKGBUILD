@@ -24,7 +24,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-gcc-libs"
          "${MINGW_PACKAGE_PREFIX}-gmp"
          "${MINGW_PACKAGE_PREFIX}-gsl")
 options=(!libtool strip staticlibs)
-source=("${_realname}::git+https://anongit.freedesktop.org/git/gstreamer/gstreamer.git")
+source=("${_realname}::git+git://anongit.freedesktop.org/gstreamer/gstreamer")
 sha256sums=('SKIP')
 
 pkgver() {
