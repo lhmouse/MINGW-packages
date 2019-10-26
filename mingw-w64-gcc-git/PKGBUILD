@@ -4,13 +4,14 @@
 # Contributor: Renato Silva <br.renatosilva@gmail.com>
 # Contributor: Liu Hao <lh_mouse@126.com>
 # Contributor: Tim Stahlhut <stahta01@gmail.com>
+# Contributor: cqwrteur <euloanty@live.com>
 
 _realname=gcc
 _sourcedir=${_realname}-git
 pkgbase=mingw-w64-${_realname}-mcf
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}-mcf"
          "${MINGW_PACKAGE_PREFIX}-${_realname}-mcf-libs")
-pkgver=9.2.1.d20190916.c11.g7561ace647b
+pkgver=10.0.0.d20191026.c11.g541ec0fe275
 pkgrel=1
 pkgdesc="GNU Compiler Collection (C,C++,OpenMP) for MinGW-w64 with MCF thread model"
 depends=("${MINGW_PACKAGE_PREFIX}-binutils"
@@ -45,7 +46,7 @@ optdepends=()
 options=('staticlibs' '!emptydirs') # '!strip' 'debug'
 
 #_branch=gcc-7-branch
-_branch=gcc-9-branch
+_branch=master
 _realpkgver="$(git archive --remote=git://gcc.gnu.org/git/gcc.git refs/heads/${_branch}:gcc/ BASE-VER | tar -xO)"
 
 # git+https://gcc.gnu.org/git/gcc.git#branch=${_branch}
@@ -65,9 +66,12 @@ source=(${_sourcedir}::"git://gcc.gnu.org/git/gcc.git#branch=${_branch}"
         "0017-gcc-7-branch-Enable-std-experimental-filesystem.patch"
         "0018-gcc-7-branch-Enable-a-native-GCC-to-color-diagnostic-messages-sen.patch"
         "0019-gcc-8-branch-Backport-patches-for-std-filesystem-from-master.patch"
+        "0020-gcc-10-devel-master-Windows-Don-t-ignore-native-syst.patch"
+        "0021-gcc-10-devel-master-Fix-using-large-PCH.patch"
         "9000-gcc-7-branch-Added-mcf-thread-model-support-from-mcfgthread.patch"
         "9000-gcc-8-branch-Added-mcf-thread-model-support-from-mcfgthread.patch"
-        "9000-gcc-9-branch-Added-mcf-thread-model-support-from-mcfgthread.patch")
+        "9000-gcc-9-branch-Added-mcf-thread-model-support-from-mcfgthread.patch"
+        "9000-master-Added-mcf-thread-model-support-from-mcfgthread.patch")
 sha256sums=('SKIP'
             '83e9c6f76f728ae3e2f2eabb588b0d6cea7a3eda03cd5e77aed9d613143b7348'
             '6033acda690786397059536787a6577e1a9f2b39f8a66276821917066094f43c'
@@ -84,9 +88,12 @@ sha256sums=('SKIP'
             'b1c3c20bf501cebbcb02b4a50f117a4f90eb4fb79eac7aa99c85e2c54c106790'
             '33392651e17b81609718873ff32606deee5f3fc5176c197bb96eedc3dada8912'
             'bf83cbc79de4c86f02664c8a624e26b12f570e3c31116fc7c46ecf655696f9a6'
+            'e793c491f83e460e50df5b72672518649fbfe5088bddbe5163cf7aeb7d28411a'
+            '98134921a38554b53d65fb97d698465d86728a340ccfcc8ed6ca90691a8fb01e'
             'bd2eb0241ff406cfc40c864cbc2229666dca7341199ffbfebc11fef8c4ed24fe'
             'f22282601f9d55b11354153dcfc1b3465a10949e0104a50145a7cb2d131f2ae5'
-            'f22282601f9d55b11354153dcfc1b3465a10949e0104a50145a7cb2d131f2ae5')
+            'f22282601f9d55b11354153dcfc1b3465a10949e0104a50145a7cb2d131f2ae5'
+            '66038b785a6f56b2fb3442adc7b5be1af62e9a11ad9fe142104d6ee9760aeee5')
 
 _threads="mcf"
 _git_base_commit=
@@ -107,16 +114,24 @@ prepare() {
   ${GIT_AM} ${srcdir}/0002-Relocate-libintl.patch
   ${GIT_AM} ${srcdir}/0003-Windows-Follow-Posix-dir-exists-semantics-more-close.patch
   ${GIT_AM} ${srcdir}/0004-Windows-Use-not-in-progpath-and-leave-case-as-is.patch
-  ${GIT_AM} ${srcdir}/0005-Windows-Don-t-ignore-native-system-header-dir.patch
+  if [ "${_branch}" == "gcc-10-branch" ] || [ "${_branch}" == "master" ]; then
+    ${GIT_AM} ${srcdir}/0020-gcc-10-devel-master-Windows-Don-t-ignore-native-syst.patch
+  else
+    ${GIT_AM} ${srcdir}/0005-Windows-Don-t-ignore-native-system-header-dir.patch
+  fi
   ${GIT_AM} ${srcdir}/0006-Windows-New-feature-to-allow-overriding.patch
   ${GIT_AM} ${srcdir}/0007-Build-EXTRA_GNATTOOLS-for-Ada.patch
   ${GIT_AM} ${srcdir}/0008-Prettify-linking-no-undefined.patch
-  ${GIT_AM} ${srcdir}/0010-Fix-using-large-PCH.patch
-  ${GIT_AM} ${srcdir}/0011-Enable-shared-gnat-implib.patch
-  if [ "${_branch}" != "gcc-9-branch" ]; then
-    ${GIT_AM} ${srcdir}/0014-clone_function_name_1-Retain-any-stdcall-suffix.patch
+  if [ "${_branch}" == "gcc-10-branch" ] || [ "${_branch}" == "master" ]; then
+    ${GIT_AM} ${srcdir}/0021-gcc-10-devel-master-Fix-using-large-PCH.patch
   else
+    ${GIT_AM} ${srcdir}/0010-Fix-using-large-PCH.patch
+  fi
+  ${GIT_AM} ${srcdir}/0011-Enable-shared-gnat-implib.patch
+  if [ "${_branch}" == "gcc-9-branch" ] || [ "${_branch}" == "gcc-10-branch" ] || [ "${_branch}" == "master" ]; then
     ${GIT_AM} ${srcdir}/0014-gcc-9-branch-clone_function_name_1-Retain-any-stdcall-suffix.patch
+  else
+    ${GIT_AM} ${srcdir}/0014-clone_function_name_1-Retain-any-stdcall-suffix.patch
   fi
   if [ "${_branch}" == "gcc-7-branch" ]; then
     ${GIT_AM} ${srcdir}/0016-gcc-7-branch-disable-weak-refs-in-libstdc++.patch
