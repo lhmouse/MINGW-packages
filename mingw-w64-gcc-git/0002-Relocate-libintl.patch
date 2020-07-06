@@ -1,4 +1,4 @@
-From f19f89a461ef411497a5131c1d40e62ca4633b6f Mon Sep 17 00:00:00 2001
+From 0ffad792b09dc699db44948381fa038222139567 Mon Sep 17 00:00:00 2001
 From: Erwin Waterlander <waterlan@xs4all.nl>
 Date: Wed, 5 Aug 2015 23:36:03 +0100
 Subject: [PATCH] Relocate libintl
@@ -851,5 +851,5 @@ index 00000000000..5cc7c5174a9
 +
 +#endif /* __RELOCATE_H__ */
 -- 
-2.26.2
+2.27.0
 
