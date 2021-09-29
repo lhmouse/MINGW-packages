@@ -3,9 +3,8 @@
 _realname=crt
 pkgbase=mingw-w64-${_realname}-git
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}-git"
-pkgver=12.0.0.r81.g90abf784a
+pkgver=11.0.0.r769.gcff4b8fda
 pkgrel=1
-_commit='90abf784ac344fe558e7e22cb5411d807862888d'
 pkgdesc='MinGW-w64 CRT for Windows (mingw-w64)'
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clang32' 'clangarm64')
@@ -21,12 +20,32 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
 provides=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 conflicts=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 options=('!strip' '!buildflags' '!emptydirs')
-source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#commit=$_commit")
-sha256sums=('6823f6166c6858a603d1ceda016f3fc0cf5318e48705fa1064277a0269640899')
+source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64"
+        9001-crt-Mark-atexit-as-DATA-because-it-s-always-overridd.patch
+        9002-crt-Provide-wrappers-for-exit-in-libmingwex.patch
+        9003-crt-Implement-standard-conforming-termination-suppor.patch
+        9004-crt-Copy-clock-and-nanosleep-from-winpthreads.patch)
+sha256sums=('SKIP'
+            'a8c5ce90154c9e02877660f044cfd4e312788d3a5a88a4f27131e511c58a25c1'
+            '86f6dd6b451ea30b742d5a1cc7c2f3b8b43e131d0a16663264d22ee40996e328'
+            '169dd1b05a7622ab6d87bd69b8446584975002553668a529d437cecb0735802d'
+            '8d21a3916f39455f1b422031bfb21308f8e90fdb272f6e09d54f1a522f53a491')
 
 pkgver() {
   cd "${srcdir}/mingw-w64"
-  git describe --long ${_commit} | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
+  git describe --long HEAD | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
+}
+
+prepare() {
+  cd ${srcdir}/mingw-w64
+  git reset --hard
+  git clean -fdx
+
+  git apply "${srcdir}/9001-crt-Mark-atexit-as-DATA-because-it-s-always-overridd.patch"
+  git apply "${srcdir}/9002-crt-Provide-wrappers-for-exit-in-libmingwex.patch"
+  git apply "${srcdir}/9003-crt-Implement-standard-conforming-termination-suppor.patch"
+  git apply "${srcdir}/9004-crt-Copy-clock-and-nanosleep-from-winpthreads.patch"
+  (cd mingw-w64-crt && autoreconf)
 }
 
 build() {

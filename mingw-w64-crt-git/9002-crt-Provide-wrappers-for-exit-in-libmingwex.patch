@@ -1,0 +1,772 @@
+From 9a0d2a9f3ed417ab1c9241970c2171998577c93e Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Fri, 7 Oct 2022 22:46:50 +0800
+Subject: [PATCH 3/5] crt: Provide wrappers for `*exit()` in libmingwex
+
+This should have no effect on functionality, but allows further
+customization of them.
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ mingw-w64-crt/Makefile.am                     |  2 +-
+ mingw-w64-crt/crt/exit_wrappers.c             | 25 +++++++++++++++++
+ mingw-w64-crt/crt/ucrt_exit_wrappers.c        | 27 +++++++++++++++++++
+ mingw-w64-crt/crt/ucrtbase_compat.c           |  4 ++-
+ .../api-ms-win-crt-runtime-l1-1-0.def.in      |  8 +++---
+ mingw-w64-crt/lib-common/msvcr120_app.def.in  |  4 +--
+ mingw-w64-crt/lib-common/msvcrt.def.in        |  4 +--
+ mingw-w64-crt/lib-common/ucrtbase.def.in      |  8 +++---
+ mingw-w64-crt/lib32/crtdll.def.in             |  4 +--
+ mingw-w64-crt/lib32/msvcr100.def.in           |  4 +--
+ mingw-w64-crt/lib32/msvcr110.def.in           |  4 +--
+ mingw-w64-crt/lib32/msvcr120.def.in           |  4 +--
+ mingw-w64-crt/lib32/msvcr120d.def.in          |  4 +--
+ mingw-w64-crt/lib32/msvcr70.def.in            |  4 +--
+ mingw-w64-crt/lib32/msvcr71.def.in            |  4 +--
+ mingw-w64-crt/lib32/msvcr80.def.in            |  4 +--
+ mingw-w64-crt/lib32/msvcr90.def.in            |  4 +--
+ mingw-w64-crt/lib32/msvcr90d.def.in           |  4 +--
+ mingw-w64-crt/lib32/msvcrt10.def.in           |  4 +--
+ mingw-w64-crt/lib32/msvcrt20.def.in           |  4 +--
+ mingw-w64-crt/lib32/msvcrt40.def.in           |  4 +--
+ mingw-w64-crt/lib64/msvcr100.def.in           |  4 +--
+ mingw-w64-crt/lib64/msvcr110.def.in           |  4 +--
+ mingw-w64-crt/lib64/msvcr120.def.in           |  4 +--
+ mingw-w64-crt/lib64/msvcr120d.def.in          |  4 +--
+ mingw-w64-crt/lib64/msvcr80.def.in            |  4 +--
+ mingw-w64-crt/lib64/msvcr90.def.in            |  4 +--
+ mingw-w64-crt/lib64/msvcr90d.def.in           |  4 +--
+ mingw-w64-crt/libarm32/kernelbase.def         |  4 +--
+ mingw-w64-crt/libarm32/msvcr110.def           |  4 +--
+ mingw-w64-crt/libarm32/msvcr120_clr0400.def   |  4 +--
+ 31 files changed, 114 insertions(+), 60 deletions(-)
+ create mode 100644 mingw-w64-crt/crt/exit_wrappers.c
+ create mode 100644 mingw-w64-crt/crt/ucrt_exit_wrappers.c
+
+diff --git a/mingw-w64-crt/Makefile.am b/mingw-w64-crt/Makefile.am
+index 70336b6f9..695d0f901 100644
+--- a/mingw-w64-crt/Makefile.am
++++ b/mingw-w64-crt/Makefile.am
+@@ -117,7 +117,7 @@ src_libmingw32=include/oscalls.h include/internal.h include/sect_attribs.h \
+   crt/usermatherr.c   \
+   crt/xtxtmode.c      crt/crt_handler.c    \
+   crt/tlsthrd.c       crt/tlsmthread.c     crt/tlsmcrt.c   \
+-  crt/cxa_atexit.c    crt/cxa_thread_atexit.c crt/tls_atexit.c
++  crt/cxa_atexit.c    crt/cxa_thread_atexit.c   crt/tls_atexit.c   crt/exit_wrappers.c   crt/ucrt_exit_wrappers.c
+ 
+ src_libscrnsave=libsrc/scrnsave.c
+ src_libscrnsavw=libsrc/scrnsave.c
+diff --git a/mingw-w64-crt/crt/exit_wrappers.c b/mingw-w64-crt/crt/exit_wrappers.c
+new file mode 100644
+index 000000000..256c26d07
+--- /dev/null
++++ b/mingw-w64-crt/crt/exit_wrappers.c
+@@ -0,0 +1,25 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++
++#include <_mingw.h>
++
++/* `exit()`, C89  */
++void exit(int status) __attribute__((__noreturn__));
++extern void (*__MINGW_IMP_SYMBOL(exit))(int) __attribute__((__noreturn__));
++
++void exit(int status)
++{
++  (*__MINGW_IMP_SYMBOL(exit))(status);
++}
++
++/* `_exit()`, POSIX  */
++void _exit(int status) __attribute__((__noreturn__));
++extern void (*__MINGW_IMP_SYMBOL(_exit))(int) __attribute__((__noreturn__));
++
++void _exit(int status)
++{
++  (*__MINGW_IMP_SYMBOL(_exit))(status);
++}
+diff --git a/mingw-w64-crt/crt/ucrt_exit_wrappers.c b/mingw-w64-crt/crt/ucrt_exit_wrappers.c
+new file mode 100644
+index 000000000..112d8e3c7
+--- /dev/null
++++ b/mingw-w64-crt/crt/ucrt_exit_wrappers.c
+@@ -0,0 +1,27 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++
++#undef __MSVCRT_VERSION__
++#define _UCRT
++#include <_mingw.h>
++
++/* `quick_exit()`, C99  */
++void quick_exit(int status) __attribute__((__noreturn__));
++extern void (*__MINGW_IMP_SYMBOL(quick_exit))(int) __attribute__((__noreturn__));
++
++void quick_exit(int status)
++{
++  (*__MINGW_IMP_SYMBOL(quick_exit))(status);
++}
++
++/* `_Exit()`, C99  */
++void _Exit(int status) __attribute__((__noreturn__));
++extern void (*__MINGW_IMP_SYMBOL(_Exit))(int) __attribute__((__noreturn__));
++
++void _Exit(int status)
++{
++  (*__MINGW_IMP_SYMBOL(_Exit))(status);
++}
+diff --git a/mingw-w64-crt/crt/ucrtbase_compat.c b/mingw-w64-crt/crt/ucrtbase_compat.c
+index 31a3ee3f1..9eb33e534 100644
+--- a/mingw-w64-crt/crt/ucrtbase_compat.c
++++ b/mingw-w64-crt/crt/ucrtbase_compat.c
+@@ -102,9 +102,11 @@ int __cdecl at_quick_exit(void (__cdecl *func)(void))
+ 
+ int __cdecl (*__MINGW_IMP_SYMBOL(at_quick_exit))(void (__cdecl *)(void)) = at_quick_exit;
+ 
++extern void (*__MINGW_IMP_SYMBOL(_exit))(int) __attribute__((__noreturn__));
++
+ void __cdecl __MINGW_ATTRIB_NORETURN _amsg_exit(int ret) {
+   fprintf(stderr, "runtime error %d\n", ret);
+-  _exit(255);
++  (*__MINGW_IMP_SYMBOL(_exit))(255);
+ }
+ 
+ unsigned int __cdecl _get_output_format(void)
+diff --git a/mingw-w64-crt/lib-common/api-ms-win-crt-runtime-l1-1-0.def.in b/mingw-w64-crt/lib-common/api-ms-win-crt-runtime-l1-1-0.def.in
+index ea310d426..33e4f5504 100644
+--- a/mingw-w64-crt/lib-common/api-ms-win-crt-runtime-l1-1-0.def.in
++++ b/mingw-w64-crt/lib-common/api-ms-win-crt-runtime-l1-1-0.def.in
+@@ -4,7 +4,7 @@ EXPORTS
+ 
+ #include "func.def.in"
+ 
+-_Exit
++_Exit DATA
+ F_I386(__control87_2)
+ __doserrno
+ __fpe_flt_rounds
+@@ -42,7 +42,7 @@ _endthread
+ _endthreadex
+ _errno
+ _execute_onexit_table
+-_exit
++_exit DATA
+ F_NON_I386(_fpieee_flt)
+ ; DATA added manually
+ _fpreset DATA
+@@ -96,7 +96,7 @@ _wcserror_s
+ _wperror
+ _wsystem
+ abort
+-exit
++exit DATA
+ ; Don't use the float env functions from UCRT; fesetround doesn't seem to have
+ ; any effect on the FPU control word as required by other libmingwex math
+ ; routines.
+@@ -110,7 +110,7 @@ fesetexceptflag DATA
+ fesetround DATA
+ fetestexcept DATA
+ perror
+-quick_exit
++quick_exit DATA
+ raise
+ set_terminate
+ signal
+diff --git a/mingw-w64-crt/lib-common/msvcr120_app.def.in b/mingw-w64-crt/lib-common/msvcr120_app.def.in
+index 1b1310fd5..182cc8f30 100644
+--- a/mingw-w64-crt/lib-common/msvcr120_app.def.in
++++ b/mingw-w64-crt/lib-common/msvcr120_app.def.in
+@@ -1076,7 +1076,7 @@ F_ARM32(_execv)
+ F_ARM32(_execve)
+ F_ARM32(_execvp)
+ F_ARM32(_execvpe)
+-_exit
++_exit DATA
+ F_X86_ANY(_exit_app)
+ _expand
+ F_X86_ANY(_fclose_nolock)
+@@ -2106,7 +2106,7 @@ erfcl
+ erff
+ erfl
+ #endif
+-exit
++exit DATA
+ exp
+ exp2
+ exp2f
+diff --git a/mingw-w64-crt/lib-common/msvcrt.def.in b/mingw-w64-crt/lib-common/msvcrt.def.in
+index 69068ae4b..cb4dd5f80 100644
+--- a/mingw-w64-crt/lib-common/msvcrt.def.in
++++ b/mingw-w64-crt/lib-common/msvcrt.def.in
+@@ -487,7 +487,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fcloseall
+ _fcvt
+@@ -863,7 +863,7 @@ cosh
+ ctime
+ difftime
+ div
+-exit
++exit DATA
+ exp F_X86_ANY(DATA)
+ fabs DATA
+ fclose
+diff --git a/mingw-w64-crt/lib-common/ucrtbase.def.in b/mingw-w64-crt/lib-common/ucrtbase.def.in
+index 914936f4f..ed0580ff6 100644
+--- a/mingw-w64-crt/lib-common/ucrtbase.def.in
++++ b/mingw-w64-crt/lib-common/ucrtbase.def.in
+@@ -28,7 +28,7 @@ _CreateFrameInfo
+ F_I386(_CxxThrowException@8)
+ F_NON_I386(_CxxThrowException)
+ F_I386(_EH_prolog)
+-_Exit
++_Exit DATA
+ _FCbuild
+ _FCmulcc
+ _FCmulcr
+@@ -297,7 +297,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fclose_nolock
+ _fcloseall
+@@ -2290,7 +2290,7 @@ erfcf
+ erfcl F_X86_ANY(DATA)
+ erff
+ erfl F_X86_ANY(DATA)
+-exit
++exit DATA
+ exp
+ exp2
+ exp2f
+@@ -2480,7 +2480,7 @@ putwc
+ putwchar
+ qsort
+ qsort_s
+-quick_exit
++quick_exit DATA
+ raise
+ rand
+ rand_s
+diff --git a/mingw-w64-crt/lib32/crtdll.def.in b/mingw-w64-crt/lib32/crtdll.def.in
+index 57e722b9d..d42bc2aec 100644
+--- a/mingw-w64-crt/lib32/crtdll.def.in
++++ b/mingw-w64-crt/lib32/crtdll.def.in
+@@ -167,7 +167,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fcloseall
+ _fcvt
+@@ -447,7 +447,7 @@ cosh
+ ctime
+ difftime
+ div
+-exit
++exit DATA
+ exp DATA
+ fabs DATA
+ fclose
+diff --git a/mingw-w64-crt/lib32/msvcr100.def.in b/mingw-w64-crt/lib32/msvcr100.def.in
+index 67f8e4cfd..1b19ea09c 100644
+--- a/mingw-w64-crt/lib32/msvcr100.def.in
++++ b/mingw-w64-crt/lib32/msvcr100.def.in
+@@ -829,7 +829,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fclose_nolock
+ _fcloseall
+@@ -1671,7 +1671,7 @@ cos DATA
+ ; If we implement cosh too, we can set it to DATA only.
+ cosh
+ div
+-exit
++exit DATA
+ exp DATA
+ fabs DATA
+ fclose
+diff --git a/mingw-w64-crt/lib32/msvcr110.def.in b/mingw-w64-crt/lib32/msvcr110.def.in
+index 7ece206eb..8387c4432 100644
+--- a/mingw-w64-crt/lib32/msvcr110.def.in
++++ b/mingw-w64-crt/lib32/msvcr110.def.in
+@@ -951,7 +951,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fclose_nolock
+ _fcloseall
+@@ -1803,7 +1803,7 @@ cos DATA
+ ; If we implement cosh, we can set it to DATA only.
+ cosh
+ div
+-exit
++exit DATA
+ exp DATA
+ fabs DATA
+ fclose
+diff --git a/mingw-w64-crt/lib32/msvcr120.def.in b/mingw-w64-crt/lib32/msvcr120.def.in
+index f8bb9a212..ef42d5a27 100644
+--- a/mingw-w64-crt/lib32/msvcr120.def.in
++++ b/mingw-w64-crt/lib32/msvcr120.def.in
+@@ -971,7 +971,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fclose_nolock
+ _fcloseall
+@@ -1942,7 +1942,7 @@ erfcf
+ erfcl
+ erff
+ erfl
+-exit
++exit DATA
+ exp
+ exp2
+ exp2f
+diff --git a/mingw-w64-crt/lib32/msvcr120d.def.in b/mingw-w64-crt/lib32/msvcr120d.def.in
+index fd9c9da42..28ff92c65 100644
+--- a/mingw-w64-crt/lib32/msvcr120d.def.in
++++ b/mingw-w64-crt/lib32/msvcr120d.def.in
+@@ -1024,7 +1024,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _expand_dbg
+ _fclose_nolock
+@@ -2009,7 +2009,7 @@ erfcf
+ erfcl
+ erff
+ erfl
+-exit
++exit DATA
+ exp
+ exp2
+ exp2f
+diff --git a/mingw-w64-crt/lib32/msvcr70.def.in b/mingw-w64-crt/lib32/msvcr70.def.in
+index 672c4e489..9ed144f21 100644
+--- a/mingw-w64-crt/lib32/msvcr70.def.in
++++ b/mingw-w64-crt/lib32/msvcr70.def.in
+@@ -313,7 +313,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fcloseall
+ _fcvt
+@@ -724,7 +724,7 @@ cosh
+ ctime
+ difftime
+ div
+-exit
++exit DATA
+ exp
+ fabs
+ fclose
+diff --git a/mingw-w64-crt/lib32/msvcr71.def.in b/mingw-w64-crt/lib32/msvcr71.def.in
+index 296ce780b..23e52ce57 100644
+--- a/mingw-w64-crt/lib32/msvcr71.def.in
++++ b/mingw-w64-crt/lib32/msvcr71.def.in
+@@ -305,7 +305,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fcloseall
+ _fcvt
+@@ -718,7 +718,7 @@ cosh
+ ctime
+ difftime
+ div
+-exit
++exit DATA
+ exp
+ fabs
+ fclose
+diff --git a/mingw-w64-crt/lib32/msvcr80.def.in b/mingw-w64-crt/lib32/msvcr80.def.in
+index 72cc4cc37..d78c155ca 100644
+--- a/mingw-w64-crt/lib32/msvcr80.def.in
++++ b/mingw-w64-crt/lib32/msvcr80.def.in
+@@ -457,7 +457,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fclose_nolock
+ _fcloseall
+@@ -1312,7 +1312,7 @@ clock
+ cos DATA
+ cosh ; If we implement cosh, we can set it to DATA only.
+ div
+-exit
++exit DATA
+ exp DATA
+ fabs DATA
+ fclose
+diff --git a/mingw-w64-crt/lib32/msvcr90.def.in b/mingw-w64-crt/lib32/msvcr90.def.in
+index 998fb4faa..13799b86f 100644
+--- a/mingw-w64-crt/lib32/msvcr90.def.in
++++ b/mingw-w64-crt/lib32/msvcr90.def.in
+@@ -456,7 +456,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fclose_nolock
+ _fcloseall
+@@ -1305,7 +1305,7 @@ cos DATA
+ ; If we have cosh implementation, we can set it to DATA only.
+ cosh
+ div
+-exit
++exit DATA
+ exp DATA
+ fabs DATA
+ fclose
+diff --git a/mingw-w64-crt/lib32/msvcr90d.def.in b/mingw-w64-crt/lib32/msvcr90d.def.in
+index d592ab7ff..9ba14d714 100644
+--- a/mingw-w64-crt/lib32/msvcr90d.def.in
++++ b/mingw-w64-crt/lib32/msvcr90d.def.in
+@@ -513,7 +513,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _expand_dbg
+ _fclose_nolock
+@@ -1377,7 +1377,7 @@ cos DATA
+ ; If we implement cosh too, we can set it to DATA only.
+ cosh
+ div
+-exit
++exit DATA
+ exp DATA
+ fabs DATA
+ fclose
+diff --git a/mingw-w64-crt/lib32/msvcrt10.def.in b/mingw-w64-crt/lib32/msvcrt10.def.in
+index 20a89a347..9b86396cb 100644
+--- a/mingw-w64-crt/lib32/msvcrt10.def.in
++++ b/mingw-w64-crt/lib32/msvcrt10.def.in
+@@ -943,7 +943,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fcloseall
+ _fcvt
+@@ -1126,7 +1126,7 @@ cosh
+ ctime
+ difftime
+ div
+-exit
++exit DATA
+ exp
+ fabs
+ fclose
+diff --git a/mingw-w64-crt/lib32/msvcrt20.def.in b/mingw-w64-crt/lib32/msvcrt20.def.in
+index 918375b3f..7551a7353 100644
+--- a/mingw-w64-crt/lib32/msvcrt20.def.in
++++ b/mingw-w64-crt/lib32/msvcrt20.def.in
+@@ -981,7 +981,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fcloseall
+ _fcvt
+@@ -1343,7 +1343,7 @@ cosh
+ ctime
+ difftime
+ div
+-exit
++exit DATA
+ exp
+ fabs
+ fclose
+diff --git a/mingw-w64-crt/lib32/msvcrt40.def.in b/mingw-w64-crt/lib32/msvcrt40.def.in
+index a4d3639ce..7e765bd3e 100644
+--- a/mingw-w64-crt/lib32/msvcrt40.def.in
++++ b/mingw-w64-crt/lib32/msvcrt40.def.in
+@@ -1099,7 +1099,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fcloseall
+ _fcvt
+@@ -1443,7 +1443,7 @@ cosh
+ ctime
+ difftime
+ div
+-exit
++exit DATA
+ exp
+ fabs
+ fclose
+diff --git a/mingw-w64-crt/lib64/msvcr100.def.in b/mingw-w64-crt/lib64/msvcr100.def.in
+index 37d88f150..5f8cf0421 100644
+--- a/mingw-w64-crt/lib64/msvcr100.def.in
++++ b/mingw-w64-crt/lib64/msvcr100.def.in
+@@ -783,7 +783,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fclose_nolock
+ _fcloseall
+@@ -1623,7 +1623,7 @@ cosf DATA
+ cosh
+ coshf DATA
+ div
+-exit
++exit DATA
+ exp DATA
+ expf DATA
+ fabs DATA
+diff --git a/mingw-w64-crt/lib64/msvcr110.def.in b/mingw-w64-crt/lib64/msvcr110.def.in
+index fc5e3b5e0..51f7b53f1 100644
+--- a/mingw-w64-crt/lib64/msvcr110.def.in
++++ b/mingw-w64-crt/lib64/msvcr110.def.in
+@@ -908,7 +908,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fclose_nolock
+ _fcloseall
+@@ -1747,7 +1747,7 @@ cosf
+ cosh
+ coshf
+ div
+-exit
++exit DATA
+ exp
+ expf
+ fabs
+diff --git a/mingw-w64-crt/lib64/msvcr120.def.in b/mingw-w64-crt/lib64/msvcr120.def.in
+index faac91e29..e8f21fb5a 100644
+--- a/mingw-w64-crt/lib64/msvcr120.def.in
++++ b/mingw-w64-crt/lib64/msvcr120.def.in
+@@ -925,7 +925,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fclose_nolock
+ _fcloseall
+@@ -1887,7 +1887,7 @@ erfcf
+ erfcl
+ erff
+ erfl
+-exit
++exit DATA
+ exp
+ exp2
+ exp2f
+diff --git a/mingw-w64-crt/lib64/msvcr120d.def.in b/mingw-w64-crt/lib64/msvcr120d.def.in
+index 02d1930af..f3f9a2a83 100644
+--- a/mingw-w64-crt/lib64/msvcr120d.def.in
++++ b/mingw-w64-crt/lib64/msvcr120d.def.in
+@@ -976,7 +976,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _expand_dbg
+ _fclose_nolock
+@@ -1952,7 +1952,7 @@ erfcf
+ erfcl
+ erff
+ erfl
+-exit
++exit DATA
+ exp
+ exp2
+ exp2f
+diff --git a/mingw-w64-crt/lib64/msvcr80.def.in b/mingw-w64-crt/lib64/msvcr80.def.in
+index f827e3265..2959d651e 100644
+--- a/mingw-w64-crt/lib64/msvcr80.def.in
++++ b/mingw-w64-crt/lib64/msvcr80.def.in
+@@ -397,7 +397,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fclose_nolock
+ _fcloseall
+@@ -1247,7 +1247,7 @@ cosf
+ cosh
+ coshf
+ div
+-exit
++exit DATA
+ exp DATA
+ expf DATA
+ fabs
+diff --git a/mingw-w64-crt/lib64/msvcr90.def.in b/mingw-w64-crt/lib64/msvcr90.def.in
+index f9997351e..7de581b7f 100644
+--- a/mingw-w64-crt/lib64/msvcr90.def.in
++++ b/mingw-w64-crt/lib64/msvcr90.def.in
+@@ -400,7 +400,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fclose_nolock
+ _fcloseall
+@@ -1243,7 +1243,7 @@ cosf DATA
+ cosh
+ coshf DATA
+ div
+-exit
++exit DATA
+ exp DATA
+ expf DATA
+ fabs DATA
+diff --git a/mingw-w64-crt/lib64/msvcr90d.def.in b/mingw-w64-crt/lib64/msvcr90d.def.in
+index 499d600e7..5e0305e2e 100644
+--- a/mingw-w64-crt/lib64/msvcr90d.def.in
++++ b/mingw-w64-crt/lib64/msvcr90d.def.in
+@@ -451,7 +451,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _expand_dbg
+ _fclose_nolock
+@@ -1309,7 +1309,7 @@ cosf
+ cosh
+ coshf
+ div
+-exit
++exit DATA
+ exp DATA
+ expf DATA
+ fabs
+diff --git a/mingw-w64-crt/libarm32/kernelbase.def b/mingw-w64-crt/libarm32/kernelbase.def
+index d6a487db1..f6626c5df 100644
+--- a/mingw-w64-crt/libarm32/kernelbase.def
++++ b/mingw-w64-crt/libarm32/kernelbase.def
+@@ -1882,7 +1882,7 @@ __wgetmainargs
+ _amsg_exit
+ _c_exit
+ _cexit
+-_exit
++_exit DATA
+ _initterm
+ _initterm_e
+ _invalid_parameter
+@@ -1890,7 +1890,7 @@ _onexit
+ _purecall
+ _time64
+ atexit DATA
+-exit
++exit DATA
+ hgets
+ hwprintf
+ lstrcmp
+diff --git a/mingw-w64-crt/libarm32/msvcr110.def b/mingw-w64-crt/libarm32/msvcr110.def
+index 9e1593a60..6c5b51428 100644
+--- a/mingw-w64-crt/libarm32/msvcr110.def
++++ b/mingw-w64-crt/libarm32/msvcr110.def
+@@ -574,7 +574,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fclose_nolock
+ _fcloseall
+@@ -1410,7 +1410,7 @@ cosf
+ cosh
+ coshf
+ div
+-exit
++exit DATA
+ exp
+ expf
+ fabs
+diff --git a/mingw-w64-crt/libarm32/msvcr120_clr0400.def b/mingw-w64-crt/libarm32/msvcr120_clr0400.def
+index 2e6831aca..cea359203 100644
+--- a/mingw-w64-crt/libarm32/msvcr120_clr0400.def
++++ b/mingw-w64-crt/libarm32/msvcr120_clr0400.def
+@@ -573,7 +573,7 @@ _execv
+ _execve
+ _execvp
+ _execvpe
+-_exit
++_exit DATA
+ _expand
+ _fclose_nolock
+ _fcloseall
+@@ -1409,7 +1409,7 @@ cosf
+ cosh
+ coshf
+ div
+-exit
++exit DATA
+ exp
+ expf
+ fabs
+-- 
+2.45.1
+
