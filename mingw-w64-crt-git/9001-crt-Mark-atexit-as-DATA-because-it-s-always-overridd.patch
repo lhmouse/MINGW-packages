@@ -1,0 +1,195 @@
+From f6b09f922a1503c501eca03a23b7c39bf6525199 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Fri, 7 Oct 2022 22:42:04 +0800
+Subject: [PATCH 9001/9004] crt: Mark `atexit()` as DATA because it's always
+ overridden
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ mingw-w64-crt/lib-common/msvcr120_app.def.in | 2 +-
+ mingw-w64-crt/lib32/msvcr120.def.in          | 2 +-
+ mingw-w64-crt/lib32/msvcr120d.def.in         | 2 +-
+ mingw-w64-crt/lib32/msvcr70.def.in           | 2 +-
+ mingw-w64-crt/lib32/msvcr71.def.in           | 2 +-
+ mingw-w64-crt/lib32/msvcrt10.def.in          | 2 +-
+ mingw-w64-crt/lib32/msvcrt20.def.in          | 2 +-
+ mingw-w64-crt/lib32/msvcrt40.def.in          | 2 +-
+ mingw-w64-crt/lib64/msvcr120.def.in          | 2 +-
+ mingw-w64-crt/lib64/msvcr120d.def.in         | 2 +-
+ mingw-w64-crt/libarm32/kernelbase.def        | 2 +-
+ mingw-w64-crt/libarm32/msvcr110.def.in       | 2 +-
+ mingw-w64-crt/libarm32/msvcr120.def.in       | 2 +-
+ 13 files changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/mingw-w64-crt/lib-common/msvcr120_app.def.in b/mingw-w64-crt/lib-common/msvcr120_app.def.in
+index 67f8f8a57..1788601f4 100644
+--- a/mingw-w64-crt/lib-common/msvcr120_app.def.in
++++ b/mingw-w64-crt/lib-common/msvcr120_app.def.in
+@@ -1870,7 +1870,7 @@ F_NON_I386(atanf)
+ atanh
+ atanhf
+ F_ARM32(atanhl) ; Can't use long double functions from the CRT on x86
+-atexit
++atexit DATA
+ atof
+ atoi
+ atol
+diff --git a/mingw-w64-crt/lib32/msvcr120.def.in b/mingw-w64-crt/lib32/msvcr120.def.in
+index f45289898..24c3126ae 100644
+--- a/mingw-w64-crt/lib32/msvcr120.def.in
++++ b/mingw-w64-crt/lib32/msvcr120.def.in
+@@ -1846,7 +1846,7 @@ atan2
+ atanh
+ atanhf
+ ; atanhl ; Can't use long double functions from the CRT on x86
+-atexit
++atexit DATA
+ atof
+ atoi
+ atol
+diff --git a/mingw-w64-crt/lib32/msvcr120d.def.in b/mingw-w64-crt/lib32/msvcr120d.def.in
+index f30ae72e1..8b46a9725 100644
+--- a/mingw-w64-crt/lib32/msvcr120d.def.in
++++ b/mingw-w64-crt/lib32/msvcr120d.def.in
+@@ -1913,7 +1913,7 @@ atan2
+ atanh
+ atanhf
+ ; atanhl ; Can't use long double functions from the CRT on x86
+-atexit
++atexit DATA
+ atof
+ atoi
+ atol
+diff --git a/mingw-w64-crt/lib32/msvcr70.def.in b/mingw-w64-crt/lib32/msvcr70.def.in
+index c167523e7..6a302611f 100644
+--- a/mingw-w64-crt/lib32/msvcr70.def.in
++++ b/mingw-w64-crt/lib32/msvcr70.def.in
+@@ -711,7 +711,7 @@ asctime
+ asin
+ atan
+ atan2
+-atexit
++atexit DATA
+ atof
+ atoi
+ atol
+diff --git a/mingw-w64-crt/lib32/msvcr71.def.in b/mingw-w64-crt/lib32/msvcr71.def.in
+index c1b7ce2d1..63e63bf06 100644
+--- a/mingw-w64-crt/lib32/msvcr71.def.in
++++ b/mingw-w64-crt/lib32/msvcr71.def.in
+@@ -705,7 +705,7 @@ asctime
+ asin
+ atan
+ atan2
+-atexit
++atexit DATA
+ atof
+ atoi
+ atol
+diff --git a/mingw-w64-crt/lib32/msvcrt10.def.in b/mingw-w64-crt/lib32/msvcrt10.def.in
+index 66cb07c15..f5e58a273 100644
+--- a/mingw-w64-crt/lib32/msvcrt10.def.in
++++ b/mingw-w64-crt/lib32/msvcrt10.def.in
+@@ -1112,7 +1112,7 @@ asctime
+ asin
+ atan
+ atan2
+-atexit
++atexit DATA
+ atof
+ atoi
+ atol
+diff --git a/mingw-w64-crt/lib32/msvcrt20.def.in b/mingw-w64-crt/lib32/msvcrt20.def.in
+index 7330274d6..df69e69ca 100644
+--- a/mingw-w64-crt/lib32/msvcrt20.def.in
++++ b/mingw-w64-crt/lib32/msvcrt20.def.in
+@@ -1329,7 +1329,7 @@ asctime
+ asin
+ atan
+ atan2
+-atexit
++atexit DATA
+ atof
+ atoi
+ atol
+diff --git a/mingw-w64-crt/lib32/msvcrt40.def.in b/mingw-w64-crt/lib32/msvcrt40.def.in
+index 26a7453cc..98dc2015e 100644
+--- a/mingw-w64-crt/lib32/msvcrt40.def.in
++++ b/mingw-w64-crt/lib32/msvcrt40.def.in
+@@ -1429,7 +1429,7 @@ asctime
+ asin
+ atan
+ atan2
+-atexit
++atexit DATA
+ atof
+ atoi
+ atol
+diff --git a/mingw-w64-crt/lib64/msvcr120.def.in b/mingw-w64-crt/lib64/msvcr120.def.in
+index 65637518b..ab4912db4 100644
+--- a/mingw-w64-crt/lib64/msvcr120.def.in
++++ b/mingw-w64-crt/lib64/msvcr120.def.in
+@@ -1788,7 +1788,7 @@ atanf
+ atanh
+ atanhf
+ ; atanhl ; Can't use long double functions from the CRT on x86
+-atexit
++atexit DATA
+ atof
+ atoi
+ atol
+diff --git a/mingw-w64-crt/lib64/msvcr120d.def.in b/mingw-w64-crt/lib64/msvcr120d.def.in
+index 5d975164d..f61eb41f6 100644
+--- a/mingw-w64-crt/lib64/msvcr120d.def.in
++++ b/mingw-w64-crt/lib64/msvcr120d.def.in
+@@ -1853,7 +1853,7 @@ atanf
+ atanh
+ atanhf
+ ; atanhl ; Can't use long double functions from the CRT on x86
+-atexit
++atexit DATA
+ atof
+ atoi
+ atol
+diff --git a/mingw-w64-crt/libarm32/kernelbase.def b/mingw-w64-crt/libarm32/kernelbase.def
+index 954ea2dc1..d6a487db1 100644
+--- a/mingw-w64-crt/libarm32/kernelbase.def
++++ b/mingw-w64-crt/libarm32/kernelbase.def
+@@ -1889,7 +1889,7 @@ _invalid_parameter
+ _onexit
+ _purecall
+ _time64
+-atexit
++atexit DATA
+ exit
+ hgets
+ hwprintf
+diff --git a/mingw-w64-crt/libarm32/msvcr110.def.in b/mingw-w64-crt/libarm32/msvcr110.def.in
+index 8f30767a8..84f46eca3 100644
+--- a/mingw-w64-crt/libarm32/msvcr110.def.in
++++ b/mingw-w64-crt/libarm32/msvcr110.def.in
+@@ -1716,7 +1716,7 @@ atan
+ atan2
+ atan2f
+ atanf
+-atexit
++atexit DATA
+ atof
+ atoi
+ atol
+diff --git a/mingw-w64-crt/libarm32/msvcr120.def.in b/mingw-w64-crt/libarm32/msvcr120.def.in
+index 4483a2093..f94ac44f3 100644
+--- a/mingw-w64-crt/libarm32/msvcr120.def.in
++++ b/mingw-w64-crt/libarm32/msvcr120.def.in
+@@ -1753,7 +1753,7 @@ atanf
+ atanh
+ atanhf
+ atanhl
+-atexit
++atexit DATA
+ atof
+ atoi
+ atol
+-- 
+2.46.0
+
