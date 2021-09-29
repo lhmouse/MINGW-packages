@@ -4,14 +4,13 @@ _realname=mcfgthread
 pkgbase=mingw-w64-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
          "${MINGW_PACKAGE_PREFIX}-${_realname}"-libs)
-pkgver=1.7.alpha.1
+pkgver=1.7.alpha.1.68.ge422ccc
 pkgrel=1
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64' 'clang32')
 url="https://github.com/lhmouse/mcfgthread"
 license=('spdx:LGPL-3.0-or-later' 'custom')
 options=('staticlibs' 'strip' '!buildflags')
-_commit='04dff4107f4ac1bafe70ebf6810178fb6b43cdbb'
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
   "${MINGW_PACKAGE_PREFIX}-meson"
@@ -19,8 +18,19 @@ makedepends=(
   "${MINGW_PACKAGE_PREFIX}-headers"
   "git"
 )
-source=("git+https://github.com/lhmouse/mcfgthread.git#commit=${_commit}")
+source=("git+https://github.com/lhmouse/mcfgthread.git")
 sha256sums=('SKIP')
+
+pkgver() {
+  cd "${_realname}"
+  git describe --tags | sed -E 's,^[^0-9]*,,;s,[-:/],.,g'
+}
+
+prepare() {
+  cd "${srcdir}/${_realname}"
+  git reset --hard
+  git clean -fdx
+}
 
 build() {
   [[ -d "${srcdir}/build-${MSYSTEM}" ]] && rm -rf "${srcdir}/build-${MSYSTEM}"

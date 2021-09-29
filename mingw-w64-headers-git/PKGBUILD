@@ -4,9 +4,8 @@ _realname=headers
 pkgbase=mingw-w64-${_realname}-git
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}-git"
 pkgdesc="MinGW-w64 headers for Windows (mingw-w64)"
-pkgver=11.0.0.r655.gdbfdf8025
+pkgver=11.0.0.r112.g53d58c15f
 pkgrel=1
-_commit='dbfdf802580c0d6b90b91995dab019f2a7787a8e'
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clang32' 'clangarm64')
 url="https://www.mingw-w64.org/"
@@ -19,7 +18,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-tools"
 provides=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 conflicts=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 options=('!strip' '!emptydirs')
-source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#commit=$_commit"
+source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64"
         0001-Allow-to-use-bessel-and-complex-functions-without-un.patch
         0002-heades-add-full-name-winrt.patch)
 sha256sums=('SKIP'
@@ -28,11 +27,13 @@ sha256sums=('SKIP'
 
 pkgver() {
   cd "${srcdir}/mingw-w64"
-  git describe --long ${_commit} | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
+  git describe --long HEAD | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
 }
 
 prepare() {
   cd ${srcdir}/mingw-w64
+  git reset --hard
+  git clean -fdx
 
   git apply "${srcdir}/0001-Allow-to-use-bessel-and-complex-functions-without-un.patch"
   git apply "${srcdir}/0002-heades-add-full-name-winrt.patch"
