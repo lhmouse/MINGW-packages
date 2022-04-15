@@ -21,9 +21,17 @@ provides=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 conflicts=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 options=('!strip' '!buildflags' '!emptydirs')
 source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64"
-        0001-Allow-to-use-bessel-and-complex-functions-without-un.patch)
+        0001-Allow-to-use-bessel-and-complex-functions-without-un.patch
+        9001-crt-Mark-atexit-as-DATA-because-it-s-always-overridd.patch
+        9002-crt-Provide-wrappers-for-exit-in-libmingwex.patch
+        9003-crt-Implement-standard-conforming-termination-suppor.patch
+        9004-crt-Copy-clock-and-nanosleep-from-winpthreads.patch)
 sha256sums=('SKIP'
-            'd641257f7e1469aff89adc33e57702b75fe9667ca035978f890eae1020b6814c')
+            'd641257f7e1469aff89adc33e57702b75fe9667ca035978f890eae1020b6814c'
+            '789d9aa9fef7b1770619a634e487e622e16ef06ae5647199932979d99abda0ff'
+            '1cbccc612b881a888d7b677d5af5014dbf106e2e3d85d1e0bd5e3d4ee645f998'
+            '2cb912d68266b38333c25176ea6bcf88cace228d35de9533994e0680dea0cf65'
+            '4d17b708c2fb4e2523c5e31e662888ab0dde470d84ddd03c09bb08e0df2df7b7')
 
 pkgver() {
   cd "${srcdir}/mingw-w64"
@@ -34,6 +42,12 @@ prepare() {
   cd ${srcdir}/mingw-w64
   git reset --hard
   git clean -fdx
+
+  git apply "${srcdir}/9001-crt-Mark-atexit-as-DATA-because-it-s-always-overridd.patch"
+  git apply "${srcdir}/9002-crt-Provide-wrappers-for-exit-in-libmingwex.patch"
+  git apply "${srcdir}/9003-crt-Implement-standard-conforming-termination-suppor.patch"
+  git apply "${srcdir}/9004-crt-Copy-clock-and-nanosleep-from-winpthreads.patch"
+  (cd mingw-w64-crt && automake)
 
   git apply "${srcdir}/0001-Allow-to-use-bessel-and-complex-functions-without-un.patch"
 }
