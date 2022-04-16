@@ -5,10 +5,10 @@
 # Contributor: wirx6 <wirx654@gmail.com>
 # Contributor: Kirill Müller <krlmlr@mailbox.org>
 
-_enable_ada=yes
-_enable_objc=yes
-_enable_jit=yes
-_threads="posix"
+_enable_ada=no
+_enable_objc=no
+_enable_jit=no
+_threads="mcf"
 _realname=gcc
 pkgbase=mingw-w64-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
@@ -20,10 +20,9 @@ pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
          $([[ "$_enable_jit" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-libgccjit")
         )
 #_snapshot=20181214
-pkgver=12.2.0
-#_majorver=${pkgver:0:1}
-#_sourcedir=${_realname}-${_majorver}-${_snapshot}
-_sourcedir=${_realname}-${pkgver}
+pkgver=12.1.1+20220527
+_branch=releases/gcc-12
+_sourcedir=${_realname}
 pkgrel=1
 pkgdesc="GCC for the MinGW-w64"
 arch=('any')
@@ -47,8 +46,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-${_realname}"
              "${MINGW_PACKAGE_PREFIX}-zstd"
              "${MINGW_PACKAGE_PREFIX}-autotools")
 options=('staticlibs' '!emptydirs') # '!strip' 'debug')
-source=("https://ftp.gnu.org/gnu/gcc/${_realname}-${pkgver%%+*}/${_realname}-${pkgver}.tar.xz"{,.sig}
-        #https://www.mirrorservice.org/sites/sourceware.org/pub/gcc/snapshots/${_majorver}-${_snapshot}/gcc-${_majorver}-${_snapshot}.tar.xz
+source=(${_sourcedir}::"git://gcc.gnu.org/git/gcc.git#branch=${_branch}"
         "gdbinit"
         0002-Relocate-libintl.patch
         0003-Windows-Follow-Posix-dir-exists-semantics-more-close.patch
@@ -65,9 +63,12 @@ source=("https://ftp.gnu.org/gnu/gcc/${_realname}-${pkgver%%+*}/${_realname}-${p
         0021-PR14940-Allow-a-PCH-to-be-mapped-to-a-different-addr.patch
         0140-gcc-8.2.0-diagnostic-color.patch
         0200-add-m-no-align-vector-insn-option-for-i386.patch
-        0300-override-builtin-printf-format.patch)
-sha256sums=('e549cf9cf3594a00e27b6589d4322d70e0720cdd213f39beb4181e06926230ff'
-            'SKIP'
+        0300-override-builtin-printf-format.patch
+        1001-libgomp-use-_aligned_free-in-gomp_aligned_free-if-ne.patch
+        1002-libgomp-don-t-use-GOMP_USE_ALIGNED_WORK_SHARES-on-Wi.patch
+        9000-Add-mcf-thread-model-support-from-mcfgthread.patch
+        9001-libgfortran-Use-the-proper-type-alias-for-async_unit.patch)
+sha256sums=('SKIP'
             'bce81824fc89e5e62cca350de4c17a27e27a18a1a1ad5ca3492aec1fc5af3234'
             '7ba56b5ce1a63246115b36e1763ac802b8db9817872f6944eae96bf261c77edc'
             'a5e06776c16723af33dde37d4c95b8635188669a5ca675abb5ba7b3da1c8c562'
@@ -84,7 +85,11 @@ sha256sums=('e549cf9cf3594a00e27b6589d4322d70e0720cdd213f39beb4181e06926230ff'
             'a4b4f7e97635ddf0443ee17cd093b9d10953f97eb290466999585d02ef8bf72d'
             '9faee4294ca31e272c597e8d0f224f5c24700aa99474c9f0549800ae91e9ced1'
             'ce832a1be7271a2249e4dd46647474b37cf51f578678d9bd9433b32aacefb528'
-            '0d82cf1d748c9f1d4d3c7ee43ca3be1b6efbd431dc13ce652ae00ee489d67eec')
+            '0d82cf1d748c9f1d4d3c7ee43ca3be1b6efbd431dc13ce652ae00ee489d67eec'
+            'cc36ba5232ac15520dd20a466faec00098d558a1d4b5057f36ee957c69508223'
+            '5ea3dcd6a0050607ebea7efb2e42b06995b85e7ad33777ecf359940bd0beda36'
+            '18df6a5101ed43fb29ace1a7245b585195506a80e97d5c853ffa3e63ef4ed492'
+            '96833714aca0f0fe830554f64a88cfcbb1dd6f645961eda0ff4977b0407ddca4')
 validpgpkeys=(F3691687D867B81B51CE07D9BBE43771487328A9  # bpiotrowski@archlinux.org
               86CFFCA918CF3AF47147588051E8B148A9999C34  # evangelos@foutrelis.com
               13975A70E63C361C73AE69EF6EEB81F8981C74C7  # richard.guenther@gmail.com
@@ -110,10 +115,16 @@ del_file_exists() {
 # =========================================== #
 
 
+pkgver() {
+  cd ${srcdir}/${_sourcedir}
+  _gcc_version=$(head -n 34 gcc/BASE-VER | sed -e 's/.* //' | tr -d '"\n')
+  _gcc_date=$(head -n 34 gcc/DATESTAMP | sed -e 's/.* //' | tr -d '"\n')
+  printf "%s+%s" "$_gcc_version" "$_gcc_date"
+}
+
 prepare() {
   cd ${srcdir}/${_sourcedir}
-  del_file_exists intl/canonicalize.c intl/canonicalize.h \
-    intl/relocatex.c intl/relocatex.h
+  git clean -fdx
 
   apply_patch_with_msg \
     0002-Relocate-libintl.patch \
@@ -148,6 +159,11 @@ prepare() {
   # Related bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95130
   apply_patch_with_msg \
     0300-override-builtin-printf-format.patch
+
+  # build mcf thread model
+  apply_patch_with_msg \
+    9000-Add-mcf-thread-model-support-from-mcfgthread.patch \
+    9001-libgfortran-Use-the-proper-type-alias-for-async_unit.patch
 
   # do not expect ${prefix}/mingw symlink - this should be superceded by
   # 0005-Windows-Don-t-ignore-native-system-header-dir.patch .. but isn't!
@@ -242,8 +258,8 @@ build() {
     --with-libiconv \
     --with-system-zlib \
     --with-{gmp,mpfr,mpc,isl}=${MINGW_PREFIX} \
-    --with-pkgversion="Rev${pkgrel}, Built by MSYS2 project" \
-    --with-bugurl="https://github.com/msys2/MINGW-packages/issues" \
+    --with-pkgversion="GCC with MCF thread model, built by LH_Mouse" \
+    --with-bugurl="https://github.com/lhmouse/MINGW-packages/issues" \
     --with-gnu-as \
     --with-gnu-ld \
     "${extra_config[@]}"

@@ -1,0 +1,27 @@
+From 990a1f5425bc26ee1fd964fb1d43d47fa3bc337d Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Fri, 27 May 2022 19:52:14 +0800
+Subject: [PATCH 2/2] libgfortran: Use the proper type alias for
+ `async_unit::thread`
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ libgfortran/io/async.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libgfortran/io/async.h b/libgfortran/io/async.h
+index efd542a45e82..d57722a95e44 100644
+--- a/libgfortran/io/async.h
++++ b/libgfortran/io/async.h
+@@ -351,7 +351,7 @@ typedef struct async_unit
+   struct adv_cond work;
+   struct adv_cond emptysignal;
+   struct st_parameter_dt *pdt;
+-  pthread_t thread;
++  __gthread_t thread;
+   struct transfer_queue *head;
+   struct transfer_queue *tail;
+ 
+-- 
+2.36.1
+
