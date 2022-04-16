@@ -4,7 +4,7 @@ _realname=mcfgthread
 pkgbase=mingw-w64-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
          "${MINGW_PACKAGE_PREFIX}-${_realname}"-libs)
-pkgver=1.1
+pkgver=1.2.alpha.1.28.g3768a1e
 pkgrel=1
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64')

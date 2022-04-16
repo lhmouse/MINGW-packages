@@ -246,14 +246,14 @@ index f39731ad7..ca6abd422 100644
 +    (void) dso;
 +    return __MCF_cxa_atexit(dtor, this, &__dso_handle);
 +  }
-+
++/*
 +int
 +__cxa_thread_atexit(__MCF_cxa_dtor_union dtor, void* this, void* dso)
 +  {
 +    (void) dso;
 +    return __MCF_cxa_thread_atexit(dtor, this, &__dso_handle);
 +  }
-+
++*/
 +void
 +__cxa_finalize(void* dso)
 +  {

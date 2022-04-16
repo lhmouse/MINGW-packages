@@ -1,0 +1,39 @@
+From 0376949aae74b92a7ba327881672e038c3c0d825 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Sun, 2 Oct 2022 00:57:08 +0800
+Subject: [PATCH 2/3] libstdc++/thread: Implement `_GLIBCXX_NPROCS` for Windows
+
+This makes `std::thread::hardware_concurrency()` return the number of
+logical processors, instead of zero.
+
+libstdc++-v3/ChangeLog:
+	* src/c++11/thread.cc (get_nprocs): Add new implementation
+	for native Windows targets
+
+---
+ libstdc++-v3/src/c++11/thread.cc | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/libstdc++-v3/src/c++11/thread.cc b/libstdc++-v3/src/c++11/thread.cc
+index 707a4ad415b9..b39d9f4a9e29 100644
+--- a/libstdc++-v3/src/c++11/thread.cc
++++ b/libstdc++-v3/src/c++11/thread.cc
+@@ -68,6 +68,15 @@ static inline int get_nprocs()
+ #elif defined(_GLIBCXX_USE_SC_NPROC_ONLN)
+ # include <unistd.h>
+ # define _GLIBCXX_NPROCS sysconf(_SC_NPROC_ONLN)
++#elif defined(_WIN32)
++# include <windows.h>
++static inline int get_nprocs()
++{
++  SYSTEM_INFO sysinfo;
++  GetSystemInfo(&sysinfo);
++  return (int)sysinfo.dwNumberOfProcessors;
++}
++# define _GLIBCXX_NPROCS get_nprocs()
+ #else
+ # define _GLIBCXX_NPROCS 0
+ #endif
+-- 
+2.37.3
+
