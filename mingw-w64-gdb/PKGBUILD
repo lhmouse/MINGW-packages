@@ -5,7 +5,9 @@ _realname=gdb
 pkgbase=mingw-w64-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
          "${MINGW_PACKAGE_PREFIX}-${_realname}-multiarch")
-pkgver=14.2
+pkgver=14.0.91+20231108
+_branch=gdb-14-branch
+_sourcedir=${_realname}
 pkgrel=1
 pkgdesc="GNU Debugger (mingw-w64)"
 arch=('any')
@@ -29,7 +31,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-autotools"
              "${MINGW_PACKAGE_PREFIX}-iconv"
              "${MINGW_PACKAGE_PREFIX}-xz")
-source=(https://ftp.gnu.org/gnu/${_realname}/${_realname}-${pkgver}.tar.xz{,.sig}
+source=(${_sourcedir}::"git://sourceware.org/git/binutils-gdb.git#branch=${_branch}"
         '0001-Workaround-performance-regression-in-info-func-var-t.patch'
         '0002-Fix-using-gnu-print.patch'
         '0003-configure-Disable-static-linking-with-standard-libs.patch'
@@ -37,8 +39,7 @@ source=(https://ftp.gnu.org/gnu/${_realname}/${_realname}-${pkgver}.tar.xz{,.sig
         '0005-W32-Always-check-USERPROFILE-if-HOME-is-not-set.patch'
         '0007-gdb-i386-tdep-Use-Intel-syntax-by-default.patch')
 validpgpkeys=('F40ADB902B24264AA42E50BF92EDB04BFF325CF3')
-sha256sums=('2d4dd8061d8ded12b6c63f55e45344881e8226105f4d2a9b234040efa5ce7772'
-            'SKIP'
+sha256sums=('SKIP'
             '428cda7dcc107c236225ae89704390b0f1e70c276b5ca6b1741988f384b21d62'
             'cf12bce0b988765ecac26a6895238c48ef9676d6fc01f986f75dcbc8bd8d3f07'
             '0eb291cd81f7392610d16a83f436a30d3384a99661c6b6ffd1bfb243d5aee6dd'
@@ -54,8 +55,16 @@ apply_patch_with_msg() {
   done
 }
 
+pkgver() {
+  cd ${srcdir}/${_sourcedir}
+  _gdb_date=$(sed -n -e 's/^.* BFD_VERSION_DATE \(.*\)$/\1/p'  bfd/version.h)
+  head -n 1 gdb/version.in | sed -n -e "s/\\.DATE.*$/+$_gdb_date/p"
+}
+
 prepare() {
-  cd ${srcdir}/${_realname}-${pkgver}
+  cd ${srcdir}/${_sourcedir}
+  git reset --hard
+  git clean -fdx
 
   # https://sourceware.org/bugzilla/show_bug.cgi?id=15412
   apply_patch_with_msg \
@@ -81,6 +90,7 @@ prepare() {
 
 do_build() {
   builddir=${srcdir}/build-${MSYSTEM}$1
+  [[ -d ${builddir} ]] && rm -rf ${builddir}
   mkdir ${builddir} && cd ${builddir}
 
   if [ "${CARCH}" != "x86_64" ]; then
@@ -96,7 +106,7 @@ do_build() {
   CFLAGS+=" -I${MINGW_PREFIX}/include/ncurses"
   CXXFLAGS+=" -I${MINGW_PREFIX}/include/ncurses"
 
-  ../${_realname}-${pkgver}/configure \
+  ../${_realname}/configure \
     --build=${MINGW_CHOST} \
     --host=${MINGW_CHOST} \
     --target=${MINGW_CHOST} \
@@ -117,7 +127,7 @@ do_build() {
     --enable-tui \
     --enable-source-highlight=no
 
-  make
+  make all-gdb all-gdbserver
 }
 
 build() {
@@ -127,7 +137,7 @@ build() {
 
 package_gdb() {
   cd ${srcdir}/build-${MSYSTEM}
-  make DESTDIR=${pkgdir} install
+  make DESTDIR=${pkgdir} install-gdb install-gdbserver
 
   # Remove unwanted files
   rm -rf ${pkgdir}${MINGW_PREFIX}/share/{man,info}
