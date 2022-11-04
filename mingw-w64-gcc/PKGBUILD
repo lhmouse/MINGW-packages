@@ -5,12 +5,12 @@
 # Contributor: wirx6 <wirx654@gmail.com>
 # Contributor: Kirill Müller <krlmlr@mailbox.org>
 
-_enable_ada=yes
+_enable_ada=no
 _enable_objc=yes
 _enable_rust=no
 _enable_jit=yes
 
-_threads="posix"
+_threads="mcf"
 
 _realname=gcc
 pkgbase=mingw-w64-${_realname}
@@ -25,12 +25,13 @@ pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
          $([[ "$_enable_jit" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-libgccjit")
         )
 #_snapshot=20181214
-pkgver=13.2.0
+pkgver=13.2.1+20240205
+_branch=releases/gcc-13
 #_majorver=${pkgver:0:1}
 #_sourcedir=${_realname}-${_majorver}-${_snapshot}
-_sourcedir=${_realname}-${pkgver}
+_sourcedir=${_realname}
 _libdir=lib/gcc/${CHOST}/${pkgver%%+*}
-pkgrel=5
+pkgrel=1
 pkgdesc="GCC for the MinGW-w64"
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64')
@@ -51,10 +52,10 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-${_realname}"
              "${MINGW_PACKAGE_PREFIX}-zlib"
              "${MINGW_PACKAGE_PREFIX}-zstd"
              "${MINGW_PACKAGE_PREFIX}-gperf"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "${MINGW_PACKAGE_PREFIX}-mcfgthread")
 options=('!emptydirs') # '!strip' 'debug')
-source=("https://ftp.gnu.org/gnu/gcc/${_realname}-${pkgver%%+*}/${_realname}-${pkgver}.tar.xz"{,.sig}
-        #https://www.mirrorservice.org/sites/sourceware.org/pub/gcc/snapshots/${_majorver}-${_snapshot}/gcc-${_majorver}-${_snapshot}.tar.xz
+source=(${_sourcedir}::"git://gcc.gnu.org/git/gcc.git#branch=${_branch}"
         "gdbinit"
         0002-Relocate-libintl.patch
         0003-Windows-Follow-Posix-dir-exists-semantics-more-close.patch
@@ -77,9 +78,8 @@ source=("https://ftp.gnu.org/gnu/gcc/${_realname}-${pkgver%%+*}/${_realname}-${p
         "2f7e7bfa3c6327793cdcdcb5c770b93cecd49bd0.patch"
         "3eeb4801d6f45f6250fc77a6d3ab4e0115f8cfdd.patch"
         "777aa930b106fea2dd6ed9fe22b42a2717f1472d.patch")
-sha256sums=('e275e76442a6067341a27f04c5c6b83d8613144004c0413528863dc6b5c743da'
-            'SKIP'
-            'bce81824fc89e5e62cca350de4c17a27e27a18a1a1ad5ca3492aec1fc5af3234'
+sha256sums=('SKIP'
+            '0acd5b088ae2c3e632f6c624cb8d240953181444c6ccdedd360711714dd999b9'
             '3fab890be4b0d4e9e309749c4de5ce00f069eee4fe6080baa100f768264e6218'
             '3fc35067823f87e48dd3bfd265e7593000dc110fa9ad5f16c81b896765fc897a'
             '57f0081655ba9a94ed7cc3d8b67a79aee8442a56613bd17f9809a7b0e68e43cd'
@@ -125,10 +125,17 @@ del_file_exists() {
 }
 # =========================================== #
 
+pkgver() {
+  cd ${srcdir}/${_sourcedir}
+  _gcc_version=$(head -n 34 gcc/BASE-VER | sed -e 's/.* //' | tr -d '"\n')
+  _gcc_date=$(head -n 34 gcc/DATESTAMP | sed -e 's/.* //' | tr -d '"\n')
+  printf "%s+%s" "$_gcc_version" "$_gcc_date"
+}
+
 prepare() {
   cd ${srcdir}/${_sourcedir}
-  del_file_exists intl/canonicalize.c intl/canonicalize.h \
-    intl/relocatex.c intl/relocatex.h
+  git reset --hard
+  git clean -fdx
 
   apply_patch_with_msg \
     0002-Relocate-libintl.patch \
@@ -181,10 +188,6 @@ prepare() {
     2f7e7bfa3c6327793cdcdcb5c770b93cecd49bd0.patch \
     3eeb4801d6f45f6250fc77a6d3ab4e0115f8cfdd.patch
 
-  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=110315#c7
-  apply_patch_with_msg \
-    777aa930b106fea2dd6ed9fe22b42a2717f1472d.patch
-
   # do not expect ${prefix}/mingw symlink - this should be superceded by
   # 0005-Windows-Don-t-ignore-native-system-header-dir.patch .. but isn't!
   sed -i 's/${prefix}\/mingw\//${prefix}\//g' configure
@@ -196,6 +199,7 @@ prepare() {
 }
 
 build() {
+  [[ -d build-${MSYSTEM} ]] && rm -rf build-${MSYSTEM}
   mkdir -p "${srcdir}"/build-${MSYSTEM} && cd "${srcdir}"/build-${MSYSTEM}
 
   declare -a extra_config
@@ -285,8 +289,8 @@ build() {
     --with-libiconv \
     --with-system-zlib \
     --with-{gmp,mpfr,mpc,isl}=${MINGW_PREFIX} \
-    --with-pkgversion="Rev${pkgrel}, Built by MSYS2 project" \
-    --with-bugurl="https://github.com/msys2/MINGW-packages/issues" \
+    --with-pkgversion="GCC with MCF thread model, built by LH_Mouse" \
+    --with-bugurl="https://github.com/lhmouse/MINGW-packages/issues" \
     --with-gnu-as \
     --with-gnu-ld \
     "${extra_config[@]}"
@@ -305,7 +309,8 @@ build() {
 
 package_gcc-libs() {
   pkgdesc="GNU Compiler Collection (libraries) for MinGW-w64"
-  depends=("${MINGW_PACKAGE_PREFIX}-libwinpthread")
+  depends=("${MINGW_PACKAGE_PREFIX}-libwinpthread"
+           "${MINGW_PACKAGE_PREFIX}-mcfgthread-libs")
   provides=("${MINGW_PACKAGE_PREFIX}-omp")
 
   # Licensing information
