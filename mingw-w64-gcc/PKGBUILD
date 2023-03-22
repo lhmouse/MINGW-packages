@@ -25,7 +25,7 @@ pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
          $([[ "$_enable_jit" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-libgccjit")
         )
 #_snapshot=20181214
-pkgver=14.0.1+20240427
+pkgver=14.0.1+20240430
 _branch=releases/gcc-14
 #_majorver=${pkgver:0:1}
 #_sourcedir=${_realname}-${_majorver}-${_snapshot}
@@ -71,9 +71,11 @@ source=(${_sourcedir}::"git://gcc.gnu.org/git/gcc.git#branch=${_branch}"
         0021-PR14940-Allow-a-PCH-to-be-mapped-to-a-different-addr.patch
         0100-rust-fix.patch
         0140-gcc-diagnostic-color.patch
-        0200-add-m-no-align-vector-insn-option-for-i386.patch)
+        0200-add-m-no-align-vector-insn-option-for-i386.patch
+        0400-gcc-Make-stupid-AT-T-syntax-not-default.patch
+        0401-Always-quote-labels-in-Intel-syntax.patch)
 sha256sums=('SKIP'
-            'bce81824fc89e5e62cca350de4c17a27e27a18a1a1ad5ca3492aec1fc5af3234'
+            '0acd5b088ae2c3e632f6c624cb8d240953181444c6ccdedd360711714dd999b9'
             'ac33767947dca9cce6065adf03c535b610ba9bd8f155b40d7aae0efcd67bbddb'
             '8f50e9bbc41933bd2dab311cdf0c3d3a91e4ffe6ec29e193afe1bf5c73ac9754'
             'bf6e5807781d976c7dfcdcba16cc50a96e21c11f8f77aa0a735fac054de23c7e'
@@ -85,7 +87,9 @@ sha256sums=('SKIP'
             '6c272078340a27b3f147e497115b0a6e9fc0da720a2602f12b086524522caa59'
             'd6ef86ffa5dfaea0ea4d1513a41ee870741d32f4a387ea00f32b23bfe4084174'
             '80640190971bdf3f781a466946916e83a72f561bad40e38dd2fb59298ac171fe'
-            '632a8de62c781cf325f36e546459601edd4118aa214449f3acb1c11f7a23424e')
+            '632a8de62c781cf325f36e546459601edd4118aa214449f3acb1c11f7a23424e'
+            'f3b3838a64e5d3c2ddab91015bebc0bbc626087f4d58198c966c5863f88dc099'
+            'b59f67cba1ba698d3bae2712f05b2d990e6d8f1f56cd85dc73de6e2afcf2d06a')
 validpgpkeys=(F3691687D867B81B51CE07D9BBE43771487328A9  # bpiotrowski@archlinux.org
               86CFFCA918CF3AF47147588051E8B148A9999C34  # evangelos@foutrelis.com
               13975A70E63C361C73AE69EF6EEB81F8981C74C7  # richard.guenther@gmail.com
@@ -149,6 +153,13 @@ prepare() {
   # https://github.com/msys2/MINGW-packages/pull/8317#issuecomment-824548411
   apply_patch_with_msg \
     0200-add-m-no-align-vector-insn-option-for-i386.patch
+
+  # ZZZ
+  if [[ "${CARCH}" == "x86_64" ]]; then
+    apply_patch_with_msg \
+      0400-gcc-Make-stupid-AT-T-syntax-not-default.patch \
+      0401-Always-quote-labels-in-Intel-syntax.patch
+  fi
 
   # do not expect ${prefix}/mingw symlink - this should be superceded by
   # 0005-Windows-Don-t-ignore-native-system-header-dir.patch .. but isn't!
