@@ -25,6 +25,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-autotools")
 source=(https://ftp.gnu.org/gnu/binutils/${_realname}-${pkgver}.tar.bz2{,.sig}
         0002-check-for-unusual-file-harder.patch
+        0003-opcodes-i386-dis-Use-Intel-syntax-by-default.patch
         0010-bfd-Increase-_bfd_coff_max_nscns-to-65279.patch
         0110-binutils-mingw-gnu-print.patch
         2001-ld-option-to-move-default-bases-under-4GB.patch
@@ -36,6 +37,7 @@ source=(https://ftp.gnu.org/gnu/binutils/${_realname}-${pkgver}.tar.bz2{,.sig}
 sha256sums=('becaac5d295e037587b63a42fad57fe3d9d7b83f478eb24b67f9eec5d0f1872f'
             'SKIP'
             '2c99345fc575c3a060d6677537f636c6c4154fac0fde508070f3b6296c1060d4'
+            '18fa935462f50d2588d121da20310c4479cc1d22328add1c768027b1e79e3aab'
             '4e8ac055df61b1b5d6ae29dc87e1154737c2e87c7b244b44866702cabf1a5d18'
             '5f3fc3949172d2d6e7cd595f9359077e012391a8c3c2aebc02e30fa656ded833'
             '0b6e1b4c72aa0af0627a75df2bd85774e21a8528deb684c0403c57ece1746199'
@@ -61,6 +63,10 @@ prepare() {
     0002-check-for-unusual-file-harder.patch \
     0010-bfd-Increase-_bfd_coff_max_nscns-to-65279.patch \
     0110-binutils-mingw-gnu-print.patch
+
+  # ZZZ
+  apply_patch_with_msg \
+    0003-opcodes-i386-dis-Use-Intel-syntax-by-default.patch
 
   # Add an option to change default bases back below 4GB to ease transition
   # https://github.com/msys2/MINGW-packages/issues/7027

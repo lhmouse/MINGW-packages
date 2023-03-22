@@ -89,10 +89,11 @@ source=(${_url}/${_sourcedir}.tar.xz{,.sig}
         0021-PR14940-Allow-a-PCH-to-be-mapped-to-a-different-addr.patch
         0140-gcc-diagnostic-color.patch
         0200-add-m-no-align-vector-insn-option-for-i386.patch
-        2001-fix-building-rust-on-mingw-w64.patch)
+        0400-gcc-Make-stupid-AT-T-syntax-not-default.patch
+        0401-Always-quote-labels-in-Intel-syntax.patch)
 sha256sums=('a7b39bc69cbf9e25826c5a60ab26477001f7c08d85cec04bc0e29cabed6f3cc9'
             'SKIP'
-            'bce81824fc89e5e62cca350de4c17a27e27a18a1a1ad5ca3492aec1fc5af3234'
+            '0acd5b088ae2c3e632f6c624cb8d240953181444c6ccdedd360711714dd999b9'
             '3fc35067823f87e48dd3bfd265e7593000dc110fa9ad5f16c81b896765fc897a'
             '57f0081655ba9a94ed7cc3d8b67a79aee8442a56613bd17f9809a7b0e68e43cd'
             '90d5cb570083f9dea4ac0f0f87e3e8d2230f5052e6f9b946061a20a224a9d195'
@@ -104,7 +105,8 @@ sha256sums=('a7b39bc69cbf9e25826c5a60ab26477001f7c08d85cec04bc0e29cabed6f3cc9'
             '6c272078340a27b3f147e497115b0a6e9fc0da720a2602f12b086524522caa59'
             'e0a5b470f49a29f20215cc9f9d04c1cb9969dff6f0e546542799d3a693ef1c84'
             'c34f9e71b5a092be1987ad4c65891742c74c9eb8ef6560100e751cd31375f579'
-            'ddc1538c2b9132bce5b3b2cad2a382762d58b46b31d2ae291f6e4d963b88dfd4')
+            'f3b3838a64e5d3c2ddab91015bebc0bbc626087f4d58198c966c5863f88dc099'
+            'b59f67cba1ba698d3bae2712f05b2d990e6d8f1f56cd85dc73de6e2afcf2d06a')
 validpgpkeys=(F3691687D867B81B51CE07D9BBE43771487328A9  # bpiotrowski@archlinux.org
               86CFFCA918CF3AF47147588051E8B148A9999C34  # evangelos@foutrelis.com
               13975A70E63C361C73AE69EF6EEB81F8981C74C7  # richard.guenther@gmail.com
@@ -147,6 +149,11 @@ prepare() {
   # based on https://github.com/BurntSushi/ripgrep/issues/94#issuecomment-261761687
   apply_patch_with_msg \
     0140-gcc-diagnostic-color.patch
+
+  # ZZZ
+  # XXX: GAS segfaults on i686?!
+  test "${CARCH}" != "i686" && apply_patch_with_msg 0400-gcc-Make-stupid-AT-T-syntax-not-default.patch
+  apply_patch_with_msg 0401-Always-quote-labels-in-Intel-syntax.patch
 
   # workaround for AVX misalignment issue for pass-by-value arguments
   #   cf. https://github.com/msys2/MSYS2-packages/issues/1209
