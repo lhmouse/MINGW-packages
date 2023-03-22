@@ -1,0 +1,69 @@
+From 4df0b33933c00adbb296af64358cc730bcf57d55 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Wed, 24 Jan 2024 00:16:47 +0800
+Subject: [PATCH] Always quote symbols in Intel syntax
+
+---
+ gcc/config/i386/i386.h | 46 ++++++++++++++++++++++++++++--------------
+ 1 file changed, 31 insertions(+), 15 deletions(-)
+
+diff --git a/gcc/config/i386/i386.h b/gcc/config/i386/i386.h
+index 539083f2fbf8..373d67fb7426 100644
+--- a/gcc/config/i386/i386.h
++++ b/gcc/config/i386/i386.h
+@@ -2173,21 +2173,37 @@ extern int const svr4_debugger_register_map[FIRST_PSEUDO_REGISTER];
+ 
+ #ifndef ASM_OUTPUT_SYMBOL_REF
+ #define ASM_OUTPUT_SYMBOL_REF(FILE, SYM) \
+-  do {							\
+-    const char *name					\
+-      = assemble_name_resolve (XSTR (x, 0));		\
+-    /* In -masm=att wrap identifiers that start with $	\
+-       into parens.  */					\
+-    if (ASSEMBLER_DIALECT == ASM_ATT			\
+-	&& name[0] == '$'				\
+-	&& user_label_prefix[0] == '\0')		\
+-      {							\
+-	fputc ('(', (FILE));				\
+-	assemble_name_raw ((FILE), name);		\
+-	fputc (')', (FILE));				\
+-      }							\
+-    else						\
+-      assemble_name_raw ((FILE), name);			\
++  do {								\
++    const char *name = assemble_name_resolve (XSTR (SYM, 0));	\
++    if (ASSEMBLER_DIALECT == ASM_ATT)				\
++      {								\
++	/* In -masm=att wrap identifiers that start with $	\
++	   into parens.  */					\
++	if (name[0] == '$' && user_label_prefix[0] == '\0')	\
++	  {							\
++	    fputc ('(', (FILE));				\
++	    assemble_name_raw ((FILE), name);			\
++	    fputc (')', (FILE));				\
++	  }							\
++	else							\
++	  assemble_name_raw ((FILE), name);			\
++      }								\
++    else							\
++      {								\
++	/* In -masm=intel, double-quote all identifiers. Note	\
++	   the symbol might start with an asterisk, followed	\
++	   by an expression.  */				\
++	const char* op = strpbrk (name, "+-");			\
++	if (name[0] != '*' || op == NULL)			\
++	  {							\
++	    fputc ('\"', (FILE));				\
++	    assemble_name_raw ((FILE), name);			\
++	    fputc ('\"', (FILE));				\
++	  }							\
++	else							\
++	  fprintf ((FILE), "\"%.*s\"%s",			\
++	    (int) (op - (name + 1)), name + 1, op);		\
++      }								\
+   } while (0)
+ #endif
+ 
+-- 
+2.43.0
+

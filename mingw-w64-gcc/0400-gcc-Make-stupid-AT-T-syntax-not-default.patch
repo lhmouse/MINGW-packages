@@ -1,0 +1,37 @@
+From 491d5be438dafffdc2b37468c2472ff8e629c43c Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Wed, 22 Mar 2023 16:14:58 +0800
+Subject: [PATCH] gcc: Make stupid AT&T syntax not default
+
+---
+ config/mh-mingw          | 3 +++
+ gcc/config/i386/i386.opt | 2 +-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/config/mh-mingw b/config/mh-mingw
+index e91367a71128..f2f7c2868768 100644
+--- a/config/mh-mingw
++++ b/config/mh-mingw
+@@ -13,3 +13,6 @@ STAGE4_CXXFLAGS += -D__USE_MINGW_ACCESS
+ # as GCC turns out to need that much more to pass all the limits-* tests.
+ LDFLAGS += -Wl,--stack,12582912
+ BOOT_LDFLAGS += -Wl,--stack,12582912
++
++# https://github.com/lhmouse/MINGW-packages/issues/15
++ADA_CFLAGS = -masm=att
+diff --git a/gcc/config/i386/i386.opt b/gcc/config/i386/i386.opt
+index 401acb201078..68400ab1be9d 100644
+--- a/gcc/config/i386/i386.opt
++++ b/gcc/config/i386/i386.opt
+@@ -263,7 +263,7 @@ Target RejectNegative Negative(march=) Joined Var(ix86_arch_string)
+ Generate code for given CPU.
+ 
+ masm=
+-Target RejectNegative Joined Enum(asm_dialect) Var(ix86_asm_dialect) Init(ASM_ATT)
++Target RejectNegative Joined Enum(asm_dialect) Var(ix86_asm_dialect) Init(ASM_INTEL)
+ Use given assembler dialect.
+ 
+ Enum
+-- 
+2.43.0
+

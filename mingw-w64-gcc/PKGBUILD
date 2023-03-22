@@ -70,6 +70,8 @@ source=("https://ftp.gnu.org/gnu/gcc/${_realname}-${pkgver%%+*}/${_realname}-${p
         0140-gcc-diagnostic-color.patch
         0200-add-m-no-align-vector-insn-option-for-i386.patch
         0300-override-builtin-printf-format.patch
+        0400-gcc-Make-stupid-AT-T-syntax-not-default.patch
+        0401-Always-quote-labels-in-Intel-syntax.patch
         2000-enable-rust.patch
         2001-fix-building-rust-on-mingw-w64.patch
         "2f7e7bfa3c6327793cdcdcb5c770b93cecd49bd0.patch"
@@ -92,6 +94,8 @@ sha256sums=('e275e76442a6067341a27f04c5c6b83d8613144004c0413528863dc6b5c743da'
             'e0a5b470f49a29f20215cc9f9d04c1cb9969dff6f0e546542799d3a693ef1c84'
             'c34f9e71b5a092be1987ad4c65891742c74c9eb8ef6560100e751cd31375f579'
             'f73c8d1701762fed7d8102d17d8e4416a4cc5e600e297a89c2e1fe09cd743a1c'
+            'f3b3838a64e5d3c2ddab91015bebc0bbc626087f4d58198c966c5863f88dc099'
+            'b59f67cba1ba698d3bae2712f05b2d990e6d8f1f56cd85dc73de6e2afcf2d06a'
             '693a91a863a706b3526af01c9de5ce8295c59ef0f56f009bcfbf79a93cba2728'
             'e78d51c908cd4e5c905c62e8350db1c609479bb95333c67f706b56974226fd94'
             '74c4693850f6c96992d43414f88e9f16ab1a5d1458f5e4dc76ac3ce435a80eef'
@@ -157,6 +161,10 @@ prepare() {
   # Related bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95130
   apply_patch_with_msg \
     0300-override-builtin-printf-format.patch
+
+  apply_patch_with_msg \
+    0400-gcc-Make-stupid-AT-T-syntax-not-default.patch \
+    0401-Always-quote-labels-in-Intel-syntax.patch
 
   # https://salsa.debian.org/toolchain-team/gcc/-/blob/b953a3f9/debian/patches/rust-enabled.diff
   apply_patch_with_msg \
