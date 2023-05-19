@@ -5,7 +5,9 @@
 _realname=binutils
 pkgbase=mingw-w64-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}")
-pkgver=2.43.1
+pkgver=2.43.1+20240923
+_branch=binutils-2_43-branch
+_sourcedir=${_realname}
 pkgrel=1
 pkgdesc="A set of programs to assemble and manipulate binary and object files (mingw-w64)"
 arch=('any')
@@ -23,7 +25,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime"
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-gettext-tools"
              "${MINGW_PACKAGE_PREFIX}-autotools")
-source=(https://ftp.gnu.org/gnu/binutils/${_realname}-${pkgver}.tar.bz2{,.sig}
+source=(${_sourcedir}::"git+https://sourceware.org/git/binutils-gdb.git#branch=${_branch}"
         0002-check-for-unusual-file-harder.patch
         0003-opcodes-i386-dis-Use-Intel-syntax-by-default.patch
         0010-bfd-Increase-_bfd_coff_max_nscns-to-65279.patch
@@ -34,8 +36,7 @@ source=(https://ftp.gnu.org/gnu/binutils/${_realname}-${pkgver}.tar.bz2{,.sig}
         libiberty-unlink-handle-windows-nul.patch
         3001-hack-libiberty-link-order.patch
 )
-sha256sums=('becaac5d295e037587b63a42fad57fe3d9d7b83f478eb24b67f9eec5d0f1872f'
-            'SKIP'
+sha256sums=('SKIP'
             '2c99345fc575c3a060d6677537f636c6c4154fac0fde508070f3b6296c1060d4'
             '18fa935462f50d2588d121da20310c4479cc1d22328add1c768027b1e79e3aab'
             '4e8ac055df61b1b5d6ae29dc87e1154737c2e87c7b244b44866702cabf1a5d18'
@@ -56,8 +57,16 @@ apply_patch_with_msg() {
   done
 }
 
+pkgver() {
+  cd ${srcdir}/${_sourcedir}
+  _bfd_date=$(sed -n -e 's/^.* BFD_VERSION_DATE \(.*\)$/\1/p'  bfd/version.h)
+  head -n 1 bfd/version.m4 | sed -E -n -e "s/^m4_define\\(\\[BFD_VERSION\\], \\[([^]]+)\\]\\)$/\1+$_bfd_date/p"
+}
+
 prepare() {
-  cd ${srcdir}/${_realname}-${pkgver}
+  cd ${srcdir}/${_sourcedir}
+  git reset --hard
+  git clean -fdx
 
   apply_patch_with_msg \
     0002-check-for-unusual-file-harder.patch \
@@ -98,6 +107,7 @@ prepare() {
 }
 
 build() {
+  [[ -d build-${MSYSTEM} ]] && rm -rf build-${MSYSTEM}
   mkdir -p build-${MSYSTEM} && cd build-${MSYSTEM}
 
   if check_option "debug" "y"; then
@@ -111,7 +121,7 @@ build() {
     LDFLAGS+=" -Wl,--large-address-aware"
   fi
 
-  ../${_realname}-${pkgver}/configure \
+  ../${_sourcedir}/configure \
     --prefix=${MINGW_PREFIX} \
     --build=${MINGW_CHOST} \
     --host=${MINGW_CHOST} \
@@ -128,6 +138,7 @@ build() {
     --with-libiconv-prefix=${MINGW_PREFIX} \
     --with-sysroot=${MINGW_PREFIX} \
     --with-system-zlib \
+    --disable-{gdb,gdbserver}  \
     "${extra_config[@]}"
 
   make
@@ -145,7 +156,7 @@ package() {
   cd ${srcdir}/build-${MSYSTEM}
   make DESTDIR=${pkgdir} install
 
-  install -Dm644 "${srcdir}/${_realname}-${pkgver}/COPYING"* -t "${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}"
+  install -Dm644 "${srcdir}/${_sourcedir}/COPYING"* -t "${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}"
 
   # https://github.com/msys2/MINGW-packages/issues/7890
   rm -f "${pkgdir}${MINGW_PREFIX}/lib/bfd-plugins/libdep.a"
