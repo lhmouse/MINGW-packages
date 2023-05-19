@@ -5,7 +5,9 @@
 _realname=binutils
 pkgbase=mingw-w64-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}")
-pkgver=2.42
+pkgver=2.41.0+20230807
+_branch=binutils-2_42-branch
+_sourcedir=${_realname}
 pkgrel=1
 pkgdesc="A set of programs to assemble and manipulate binary and object files (mingw-w64)"
 arch=('any')
@@ -17,7 +19,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-zstd" "${MINGW_PACKAGE_PREFIX}-zlib" "${MINGW_
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-gettext-tools"
              "${MINGW_PACKAGE_PREFIX}-autotools")
-source=(https://ftp.gnu.org/gnu/binutils/${_realname}-${pkgver}.tar.bz2{,.sig}
+source=(${_sourcedir}::"git://sourceware.org/git/binutils-gdb.git#branch=${_branch}"
         0002-check-for-unusual-file-harder.patch
         0003-opcodes-i386-dis-Use-Intel-syntax-by-default.patch
         0010-bfd-Increase-_bfd_coff_max_nscns-to-65279.patch
@@ -28,8 +30,7 @@ source=(https://ftp.gnu.org/gnu/binutils/${_realname}-${pkgver}.tar.bz2{,.sig}
         libiberty-unlink-handle-windows-nul.patch
         3001-hack-libiberty-link-order.patch
 )
-sha256sums=('aa54850ebda5064c72cd4ec2d9b056c294252991486350d9a97ab2a6dfdfaf12'
-            'SKIP'
+sha256sums=('SKIP'
             '2c99345fc575c3a060d6677537f636c6c4154fac0fde508070f3b6296c1060d4'
             '18fa935462f50d2588d121da20310c4479cc1d22328add1c768027b1e79e3aab'
             '4e8ac055df61b1b5d6ae29dc87e1154737c2e87c7b244b44866702cabf1a5d18'
@@ -50,8 +51,16 @@ apply_patch_with_msg() {
   done
 }
 
+pkgver() {
+  cd ${srcdir}/${_sourcedir}
+  _bfd_date=$(sed -n -e 's/^.* BFD_VERSION_DATE \(.*\)$/\1/p'  bfd/version.h)
+  head -n 1 bfd/version.m4 | sed -E -n -e "s/^m4_define\\(\\[BFD_VERSION\\], \\[([^]]+)\\]\\)$/\1+$_bfd_date/p"
+}
+
 prepare() {
-  cd ${srcdir}/${_realname}-${pkgver}
+  cd ${srcdir}/${_sourcedir}
+  git reset --hard
+  git clean -fdx
 
   apply_patch_with_msg \
     0002-check-for-unusual-file-harder.patch \
@@ -105,7 +114,7 @@ build() {
     LDFLAGS+=" -Wl,--large-address-aware"
   fi
 
-  ../${_realname}-${pkgver}/configure \
+  ../${_sourcedir}/configure \
     --build=${MINGW_CHOST} \
     --host=${MINGW_CHOST} \
     --target=${MINGW_CHOST} \
@@ -122,7 +131,8 @@ build() {
     --enable-plugins \
     --disable-shared \
     --enable-deterministic-archives \
-    --with-system-zlib
+    --with-system-zlib \
+    --disable-{gdb,gdbserver}
 
   make
 }
@@ -144,8 +154,8 @@ package() {
 
   find ${pkgdir}${MINGW_PREFIX}/share -type f -iname "opcodes.mo" -o -iname "bfd.mo" | xargs -rtl1 rm
 
-  install -Dm644 ${srcdir}/${_realname}-${pkgver}/COPYING      ${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}/COPYING
-  install -Dm644 ${srcdir}/${_realname}-${pkgver}/COPYING.LIB  ${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}/COPYING.LIB
-  install -Dm644 ${srcdir}/${_realname}-${pkgver}/COPYING3     ${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}/COPYING3
-  install -Dm644 ${srcdir}/${_realname}-${pkgver}/COPYING3.LIB ${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}/COPYING3.LIB
+  install -Dm644 ${srcdir}/${_sourcedir}/COPYING      ${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}/COPYING
+  install -Dm644 ${srcdir}/${_sourcedir}/COPYING.LIB  ${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}/COPYING.LIB
+  install -Dm644 ${srcdir}/${_sourcedir}/COPYING3     ${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}/COPYING3
+  install -Dm644 ${srcdir}/${_sourcedir}/COPYING3.LIB ${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}/COPYING3.LIB
 }
