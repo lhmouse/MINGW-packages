@@ -190,8 +190,8 @@ build() {
 
   setb2args
   ./b2 $b2args -d1 -j$(nproc) \
-    cflags="$CFLAGS" \
-    cxxflags="$CXXFLAGS -Wno-deprecated-declarations -Wno-ignored-attributes -Wno-unused-command-line-argument" \
+    cflags="$CFLAGS -masm=att" \
+    cxxflags="$CXXFLAGS -masm=att -Wno-deprecated-declarations -Wno-ignored-attributes -Wno-unused-command-line-argument" \
     linkflags="$LDFLAGS"
 }
 
