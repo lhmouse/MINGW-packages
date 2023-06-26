@@ -78,6 +78,10 @@ build() {
     _extra_config+=("-DBOOST_EXCLUDE_LIBRARIES='context;asio;cobalt;log;process;coroutine;fiber'")
   fi
 
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    _extra_config+=('-masm=att')
+  fi
+
   if [[ "${CARCH}" != "i686" ]]; then
     _extra_config+=('-DBOOST_ENABLE_PYTHON=ON')
   fi
