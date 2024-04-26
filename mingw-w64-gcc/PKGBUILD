@@ -5,19 +5,12 @@
 # Contributor: wirx6 <wirx654@gmail.com>
 # Contributor: Kirill Müller <krlmlr@mailbox.org>
 
-if [[ ${CARCH} != i686 ]]; then
-  _enable_ada=yes
-  _enable_objc=yes
-  _enable_rust=yes
-  _enable_jit=yes
-else
-  _enable_ada=no
-  _enable_objc=no
-  _enable_rust=no
-  _enable_jit=no
-fi
+_enable_ada=no
+_enable_objc=yes
+_enable_rust=no
+_enable_jit=yes
 
-_threads="posix"
+_threads="mcf"
 
 _realname=gcc
 pkgbase=mingw-w64-${_realname}
@@ -31,24 +24,11 @@ pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
          $([[ "$_enable_rust" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-${_realname}-rust")
          $([[ "$_enable_jit" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-libgccjit")
         )
-pkgver=14.1.0
-_rc=""
-_snapshot=
-if [[ -z ${_rc} ]]; then
-  _version=${pkgver%%.*}
-  _libdir=lib/gcc/${CHOST}/${pkgver%%+*}
-else
-  _version=${pkgver}-${_rc}
-  _libdir=lib/gcc/${CHOST}/${pkgver%%.*}.0.1
-fi
-if [[ -z ${_snapshot} ]]; then
-  _sourcedir=${_realname}-${pkgver}
-  _url=https://ftp.gnu.org/gnu/gcc/${_realname}-${pkgver%%+*}
-else
-  _sourcedir=${_realname}-${_version}-${_snapshot}
-  _url=https://gcc.gnu.org/pub/gcc/snapshots/${_version}-${_snapshot}
-fi
-pkgrel=3
+pkgver=14.1.1+20240514
+_branch=releases/gcc-14
+_sourcedir=${_realname}
+_libdir=lib/gcc/${CHOST}/${pkgver%%+*}
+pkgrel=1
 pkgdesc="GCC for the MinGW-w64"
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64')
@@ -74,11 +54,11 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-${_realname}"
              "${MINGW_PACKAGE_PREFIX}-windows-default-manifest"
              "${MINGW_PACKAGE_PREFIX}-winpthreads"
              "${MINGW_PACKAGE_PREFIX}-zlib"
-             "${MINGW_PACKAGE_PREFIX}-zstd")
+             "${MINGW_PACKAGE_PREFIX}-zstd"
+             "${MINGW_PACKAGE_PREFIX}-mcfgthread")
 options=('!emptydirs') # '!strip' 'debug')
-source=(${_url}/${_sourcedir}.tar.xz{,.sig}
+source=(${_sourcedir}::"git://gcc.gnu.org/git/gcc.git#branch=${_branch}"
         "gdbinit"
-        0001-missing-__thiscall-attribute-on-builtin-declaration-of-__cxa_thread_atexit.patch
         0003-Windows-Follow-Posix-dir-exists-semantics-more-close.patch
         0005-Windows-Don-t-ignore-native-system-header-dir.patch
         0007-Build-EXTRA_GNATTOOLS-for-Ada.patch
@@ -92,12 +72,9 @@ source=(${_url}/${_sourcedir}.tar.xz{,.sig}
         0200-add-m-no-align-vector-insn-option-for-i386.patch
         0400-gcc-Make-stupid-AT-T-syntax-not-default.patch
         0401-Always-quote-labels-in-Intel-syntax.patch
-        2001-fix-building-rust-on-mingw-w64.patch
-        3001-fix-ice.patch)
-sha256sums=('e283c654987afe3de9d8080bc0bd79534b5ca0d681a73a11ff2b5d3767426840'
-            'SKIP'
+        2001-fix-building-rust-on-mingw-w64.patch)
+sha256sums=('SKIP'
             '0acd5b088ae2c3e632f6c624cb8d240953181444c6ccdedd360711714dd999b9'
-            '7cb64cb9dc7117d4d5d32bd7910ced7c170718f92bc0576594506edb3aeabb42'
             '3fc35067823f87e48dd3bfd265e7593000dc110fa9ad5f16c81b896765fc897a'
             '57f0081655ba9a94ed7cc3d8b67a79aee8442a56613bd17f9809a7b0e68e43cd'
             '90d5cb570083f9dea4ac0f0f87e3e8d2230f5052e6f9b946061a20a224a9d195'
@@ -111,8 +88,7 @@ sha256sums=('e283c654987afe3de9d8080bc0bd79534b5ca0d681a73a11ff2b5d3767426840'
             'c34f9e71b5a092be1987ad4c65891742c74c9eb8ef6560100e751cd31375f579'
             'f3b3838a64e5d3c2ddab91015bebc0bbc626087f4d58198c966c5863f88dc099'
             'b59f67cba1ba698d3bae2712f05b2d990e6d8f1f56cd85dc73de6e2afcf2d06a'
-            'ddc1538c2b9132bce5b3b2cad2a382762d58b46b31d2ae291f6e4d963b88dfd4'
-            '38a5dff6ebfffce24763fca4221554ab5a2a6416a14594c4b87e08c94b63e273')
+            'ddc1538c2b9132bce5b3b2cad2a382762d58b46b31d2ae291f6e4d963b88dfd4')
 validpgpkeys=(F3691687D867B81B51CE07D9BBE43771487328A9  # bpiotrowski@archlinux.org
               86CFFCA918CF3AF47147588051E8B148A9999C34  # evangelos@foutrelis.com
               13975A70E63C361C73AE69EF6EEB81F8981C74C7  # richard.guenther@gmail.com
@@ -137,12 +113,17 @@ del_file_exists() {
 }
 # =========================================== #
 
-prepare() {
-  cd "${srcdir}"/${_sourcedir}
+pkgver() {
+  cd ${srcdir}/${_sourcedir}
+  _gcc_version=$(head -n 34 gcc/BASE-VER | sed -e 's/.* //' | tr -d '"\n')
+  _gcc_date=$(head -n 34 gcc/DATESTAMP | sed -e 's/.* //' | tr -d '"\n')
+  printf "%s+%s" "$_gcc_version" "$_gcc_date"
+}
 
-  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=114968
-  apply_patch_with_msg \
-    0001-missing-__thiscall-attribute-on-builtin-declaration-of-__cxa_thread_atexit.patch
+prepare() {
+  cd ${srcdir}/${_sourcedir}
+  git reset --hard
+  git clean -fdx
 
   apply_patch_with_msg \
     0003-Windows-Follow-Posix-dir-exists-semantics-more-close.patch \
@@ -161,9 +142,9 @@ prepare() {
     0140-gcc-diagnostic-color.patch
 
   # ZZZ
-  # XXX: GAS segfaults on i686?!
-  test "${CARCH}" != "i686" && apply_patch_with_msg 0400-gcc-Make-stupid-AT-T-syntax-not-default.patch
-  apply_patch_with_msg 0401-Always-quote-labels-in-Intel-syntax.patch
+  apply_patch_with_msg \
+    0400-gcc-Make-stupid-AT-T-syntax-not-default.patch \
+    0401-Always-quote-labels-in-Intel-syntax.patch
 
   # workaround for AVX misalignment issue for pass-by-value arguments
   #   cf. https://github.com/msys2/MSYS2-packages/issues/1209
@@ -177,10 +158,6 @@ prepare() {
   apply_patch_with_msg \
     2001-fix-building-rust-on-mingw-w64.patch
 
-  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=115038
-  apply_patch_with_msg \
-    3001-fix-ice.patch
-
   # do not expect ${prefix}/mingw symlink - this should be superceded by
   # 0005-Windows-Don-t-ignore-native-system-header-dir.patch .. but isn't!
   sed -i 's/${prefix}\/mingw\//${prefix}\//g' configure
@@ -192,6 +169,7 @@ prepare() {
 }
 
 build() {
+  [[ -d build-${MSYSTEM} ]] && rm -rf build-${MSYSTEM}
   mkdir -p "${srcdir}"/build-${MSYSTEM} && cd "${srcdir}"/build-${MSYSTEM}
 
   declare -a _extra_config
@@ -230,21 +208,11 @@ build() {
   # so libgomp DLL gets built despide static libdl
   export lt_cv_deplibs_check_method='pass_all'
 
-  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=105507#c3
-  # At least with mingw32 + dwarf-2 exceptions there can only be one libgcc in
-  # process, or exceptions will no longer work. Since some of the gcc deps are
-  # linked dynamically like gmp/zlib/zstd and those pull in libgcc we can't
-  # allow libgcc to be linked statically. The default is "-static-libstdc++
-  # -static-libgcc" for both, so we drop "-static-libgcc" here:
-  # GCC 14 Update: Since we dropped 32bit Ada with GCC 14.1 and GCC doesn't use
-  # exceptions elsewhere this could in theory be removed, in case it makes problems.
-  _extra_config+=(
-    '--with-boot-ldflags="-static-libstdc++"'
-    '--with-stage1-ldflags="-static-libstdc++"'
-  )
-
   # In addition adaint.c does `#include <accctrl.h>` which pulls in msxml.h, hacky hack:
   CPPFLAGS+=" -DCOM_NO_WINDOWS_H"
+
+  # FIXME: necessary to work around bugs in GCC 14. will be removed.
+  CXXFLAGS+=' -masm=att'
 
   ../${_sourcedir}/configure \
     --prefix=${MINGW_PREFIX} \
@@ -254,7 +222,7 @@ build() {
     --target=${MINGW_CHOST} \
     --with-native-system-header-dir=${MINGW_PREFIX}/include \
     --libexecdir=${MINGW_PREFIX}/lib \
-    --enable-bootstrap \
+    --disable-bootstrap \
     --enable-checking=release \
     --with-arch=${_arch} \
     --with-tune=generic \
@@ -267,6 +235,7 @@ build() {
     --enable-fully-dynamic-string \
     --enable-libstdcxx-filesystem-ts \
     --enable-libstdcxx-time \
+    --enable-__cxa_atexit \
     --disable-libstdcxx-pch \
     --enable-lto \
     --enable-libgomp \
@@ -280,10 +249,8 @@ build() {
     --with-libiconv \
     --with-system-zlib \
     --with-{gmp,mpfr,mpc,isl}=${MINGW_PREFIX} \
-    --with-pkgversion="Rev${pkgrel}, Built by MSYS2 project" \
-    --with-bugurl="https://github.com/msys2/MINGW-packages/issues" \
-    --with-gnu-as \
-    --with-gnu-ld \
+    --with-pkgversion="GCC with MCF thread model, built by LH_Mouse" \
+    --with-bugurl="https://github.com/lhmouse/MINGW-packages/issues" \
     "${_extra_config[@]}"
 
   # While we're debugging -fopenmp problems at least.
@@ -295,12 +262,13 @@ build() {
 
   # https://gcc.gnu.org/onlinedocs/gccint/Makefile.html
   make -O STAGE1_CFLAGS="-O2" \
-          profiledbootstrap
+          all
 }
 
 package_gcc-libs() {
   pkgdesc="GNU Compiler Collection (libraries) for MinGW-w64"
-  depends=("${MINGW_PACKAGE_PREFIX}-libwinpthread")
+  depends=("${MINGW_PACKAGE_PREFIX}-libwinpthread"
+           "${MINGW_PACKAGE_PREFIX}-mcfgthread-libs")
   provides=("${MINGW_PACKAGE_PREFIX}-omp")
 
   # Licensing information
