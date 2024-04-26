@@ -1,14 +1,14 @@
-From f00621c645ca24f8d228bac7b1dbb5763d1f4db3 Mon Sep 17 00:00:00 2001
+From c35fee245684dc95f878122a67ff5c3f3e676be5 Mon Sep 17 00:00:00 2001
 From: Liu Hao <lh_mouse@126.com>
 Date: Wed, 6 May 2020 21:49:18 +0800
-Subject: [PATCH 12/16] libgomp: Don't hard-code MS printf attributes
+Subject: [PATCH 08/11] libgomp: Don't hard-code MS printf attributes
 
 ---
  libgomp/libgomp.h | 13 ++++++++++---
  1 file changed, 10 insertions(+), 3 deletions(-)
 
 diff --git a/libgomp/libgomp.h b/libgomp/libgomp.h
-index 75192749dc7..add858d2cd3 100644
+index 089393846d1..1edeb51e071 100644
 --- a/libgomp/libgomp.h
 +++ b/libgomp/libgomp.h
 @@ -69,6 +69,13 @@
@@ -25,7 +25,7 @@ index 75192749dc7..add858d2cd3 100644
  #ifdef HAVE_ATTRIBUTE_VISIBILITY
  # pragma GCC visibility push(hidden)
  #endif
-@@ -176,7 +183,7 @@ team_free (void *ptr)
+@@ -174,7 +181,7 @@ team_free (void *ptr)
  
  extern void gomp_vdebug (int, const char *, va_list);
  extern void gomp_debug (int, const char *, ...)
@@ -34,7 +34,7 @@ index 75192749dc7..add858d2cd3 100644
  #define gomp_vdebug(KIND, FMT, VALIST) \
    do { \
      if (__builtin_expect (gomp_debug_var, 0)) \
-@@ -189,11 +196,11 @@ extern void gomp_debug (int, const char *, ...)
+@@ -187,11 +194,11 @@ extern void gomp_debug (int, const char *, ...)
    } while (0)
  extern void gomp_verror (const char *, va_list);
  extern void gomp_error (const char *, ...)
@@ -49,5 +49,5 @@ index 75192749dc7..add858d2cd3 100644
  struct gomp_task;
  struct gomp_taskgroup;
 -- 
-2.38.1
+2.44.0
 

@@ -5,12 +5,12 @@
 # Contributor: wirx6 <wirx654@gmail.com>
 # Contributor: Kirill Müller <krlmlr@mailbox.org>
 
-_enable_ada=yes
+_enable_ada=no
 _enable_objc=yes
-_enable_rust=no
+_enable_rust=yes
 _enable_jit=yes
 
-_threads="posix"
+_threads="mcf"
 
 _realname=gcc
 pkgbase=mingw-w64-${_realname}
@@ -25,12 +25,13 @@ pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
          $([[ "$_enable_jit" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-libgccjit")
         )
 #_snapshot=20181214
-pkgver=13.2.0
+pkgver=14.0.1+20240426
+_branch=releases/gcc-14
 #_majorver=${pkgver:0:1}
 #_sourcedir=${_realname}-${_majorver}-${_snapshot}
-_sourcedir=${_realname}-${pkgver}
+_sourcedir=${_realname}
 _libdir=lib/gcc/${CHOST}/${pkgver%%+*}
-pkgrel=6
+pkgrel=1
 pkgdesc="GCC for the MinGW-w64"
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64')
@@ -54,15 +55,13 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-${_realname}"
              "${MINGW_PACKAGE_PREFIX}-zlib"
              "${MINGW_PACKAGE_PREFIX}-zstd"
              "${MINGW_PACKAGE_PREFIX}-gperf"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "${MINGW_PACKAGE_PREFIX}-mcfgthread")
 options=('!emptydirs') # '!strip' 'debug')
-source=("https://ftp.gnu.org/gnu/gcc/${_realname}-${pkgver%%+*}/${_realname}-${pkgver}.tar.xz"{,.sig}
-        #https://www.mirrorservice.org/sites/sourceware.org/pub/gcc/snapshots/${_majorver}-${_snapshot}/gcc-${_majorver}-${_snapshot}.tar.xz
+source=(${_sourcedir}::"git://gcc.gnu.org/git/gcc.git#branch=${_branch}"
         "gdbinit"
-        0002-Relocate-libintl.patch
         0003-Windows-Follow-Posix-dir-exists-semantics-more-close.patch
         0005-Windows-Don-t-ignore-native-system-header-dir.patch
-        0006-Windows-New-feature-to-allow-overriding.patch
         0007-Build-EXTRA_GNATTOOLS-for-Ada.patch
         0008-Prettify-linking-no-undefined.patch
         0011-Enable-shared-gnat-implib.patch
@@ -71,35 +70,20 @@ source=("https://ftp.gnu.org/gnu/gcc/${_realname}-${pkgver%%+*}/${_realname}-${p
         0020-libgomp-Don-t-hard-code-MS-printf-attributes.patch
         0021-PR14940-Allow-a-PCH-to-be-mapped-to-a-different-addr.patch
         0140-gcc-diagnostic-color.patch
-        0200-add-m-no-align-vector-insn-option-for-i386.patch
-        0300-override-builtin-printf-format.patch
-        2000-enable-rust.patch
-        2001-fix-building-rust-on-mingw-w64.patch
-        "2f7e7bfa3c6327793cdcdcb5c770b93cecd49bd0.patch"
-        "3eeb4801d6f45f6250fc77a6d3ab4e0115f8cfdd.patch"
-        "777aa930b106fea2dd6ed9fe22b42a2717f1472d.patch")
-sha256sums=('e275e76442a6067341a27f04c5c6b83d8613144004c0413528863dc6b5c743da'
-            'SKIP'
+        0200-add-m-no-align-vector-insn-option-for-i386.patch)
+sha256sums=('SKIP'
             'bce81824fc89e5e62cca350de4c17a27e27a18a1a1ad5ca3492aec1fc5af3234'
-            '3fab890be4b0d4e9e309749c4de5ce00f069eee4fe6080baa100f768264e6218'
-            '3fc35067823f87e48dd3bfd265e7593000dc110fa9ad5f16c81b896765fc897a'
-            '57f0081655ba9a94ed7cc3d8b67a79aee8442a56613bd17f9809a7b0e68e43cd'
-            'a3637466910fae6145c947095051e3b91b16e4715d4abddc474eeb00539e9dc2'
-            '90d5cb570083f9dea4ac0f0f87e3e8d2230f5052e6f9b946061a20a224a9d195'
-            '8a40ea004a803b7e6aabd6c58d859502a57c87755dbcfedbdfed161f2fb7eb62'
-            '5ef4148acc4a2b7ed648d4fe75fab5545e84b4b93a12d6ba4e4ea6061dd635fa'
-            'e98805ead7d78ee2a92f237894c4b2b7ddc1688e1b517d8c04f28d440202e40f'
-            'fd9bdecb2bbc4796bbc9f00b708dac42ef9e3464a06d6d27e5475cee117de5be'
-            'ad1f7b5e7afaaec008b7cbd14feea13a10989fa91bda7003af72d457619bb199'
+            'ac33767947dca9cce6065adf03c535b610ba9bd8f155b40d7aae0efcd67bbddb'
+            '8f50e9bbc41933bd2dab311cdf0c3d3a91e4ffe6ec29e193afe1bf5c73ac9754'
+            'bf6e5807781d976c7dfcdcba16cc50a96e21c11f8f77aa0a735fac054de23c7e'
+            '61e7a578888f5875105a087aff980522a5dcbf26f62062de6e2c64d109e19242'
+            'f27946f99461140e51d75673de8ed8a2f4da2b84c7863243f30ebfe5a60b8cd5'
+            '7064334e3197dece8de1572265ac85f700c9e44ed777e19bb3134b7d803849d6'
+            '1e999beee8a829ff1fe3fb67e50329ac48100c6b97a50ce6de8e08c16bf7c63f'
+            '69c7b0ad2fc85484df6bb7d5cc0b5fe2779249ae351842b0763bdb050b30986c'
             '6c272078340a27b3f147e497115b0a6e9fc0da720a2602f12b086524522caa59'
-            'e0a5b470f49a29f20215cc9f9d04c1cb9969dff6f0e546542799d3a693ef1c84'
-            'c34f9e71b5a092be1987ad4c65891742c74c9eb8ef6560100e751cd31375f579'
-            'f73c8d1701762fed7d8102d17d8e4416a4cc5e600e297a89c2e1fe09cd743a1c'
-            '693a91a863a706b3526af01c9de5ce8295c59ef0f56f009bcfbf79a93cba2728'
-            'e78d51c908cd4e5c905c62e8350db1c609479bb95333c67f706b56974226fd94'
-            '74c4693850f6c96992d43414f88e9f16ab1a5d1458f5e4dc76ac3ce435a80eef'
-            '8dc297c658911ead58cd06407b853bbe82c2c3da1ad24cbcc7b01f3c7b5f666b'
-            'b0a98a41fea4a68f15d35b44495a487183a4d85ea9cb70cd4a645b4ed6583122')
+            '80640190971bdf3f781a466946916e83a72f561bad40e38dd2fb59298ac171fe'
+            '632a8de62c781cf325f36e546459601edd4118aa214449f3acb1c11f7a23424e')
 validpgpkeys=(F3691687D867B81B51CE07D9BBE43771487328A9  # bpiotrowski@archlinux.org
               86CFFCA918CF3AF47147588051E8B148A9999C34  # evangelos@foutrelis.com
               13975A70E63C361C73AE69EF6EEB81F8981C74C7  # richard.guenther@gmail.com
@@ -124,16 +108,21 @@ del_file_exists() {
 }
 # =========================================== #
 
+pkgver() {
+  cd ${srcdir}/${_sourcedir}
+  _gcc_version=$(head -n 34 gcc/BASE-VER | sed -e 's/.* //' | tr -d '"\n')
+  _gcc_date=$(head -n 34 gcc/DATESTAMP | sed -e 's/.* //' | tr -d '"\n')
+  printf "%s+%s" "$_gcc_version" "$_gcc_date"
+}
+
 prepare() {
   cd ${srcdir}/${_sourcedir}
-  del_file_exists intl/canonicalize.c intl/canonicalize.h \
-    intl/relocatex.c intl/relocatex.h
+  git reset --hard
+  git clean -fdx
 
   apply_patch_with_msg \
-    0002-Relocate-libintl.patch \
     0003-Windows-Follow-Posix-dir-exists-semantics-more-close.patch \
     0005-Windows-Don-t-ignore-native-system-header-dir.patch \
-    0006-Windows-New-feature-to-allow-overriding.patch \
     0007-Build-EXTRA_GNATTOOLS-for-Ada.patch \
     0008-Prettify-linking-no-undefined.patch \
     0011-Enable-shared-gnat-implib.patch \
@@ -156,30 +145,6 @@ prepare() {
   apply_patch_with_msg \
     0200-add-m-no-align-vector-insn-option-for-i386.patch
 
-  # Patch from https://gcc.gnu.org/pipermail/gcc-patches/2022-January/588341.html
-  # Related bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95130
-  apply_patch_with_msg \
-    0300-override-builtin-printf-format.patch
-
-  # https://salsa.debian.org/toolchain-team/gcc/-/blob/b953a3f9/debian/patches/rust-enabled.diff
-  apply_patch_with_msg \
-    2000-enable-rust.patch
-
-  apply_patch_with_msg \
-    2001-fix-building-rust-on-mingw-w64.patch
-
-  # backport: https://github.com/msys2/MINGW-packages/issues/17599
-  # https://inbox.sourceware.org/gcc-patches/a22433f5-b4d2-19b7-86a2-31e2ee45fb61@martin.st/T/
-  # https://gcc.gnu.org/git/?p=gcc.git;a=patch;h=2f7e7bfa3c6327793cdcdcb5c770b93cecd49bd0
-  # https://gcc.gnu.org/git/?p=gcc.git;a=patch;h=3eeb4801d6f45f6250fc77a6d3ab4e0115f8cfdd
-  apply_patch_with_msg \
-    2f7e7bfa3c6327793cdcdcb5c770b93cecd49bd0.patch \
-    3eeb4801d6f45f6250fc77a6d3ab4e0115f8cfdd.patch
-
-  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=110315#c7
-  apply_patch_with_msg \
-    777aa930b106fea2dd6ed9fe22b42a2717f1472d.patch
-
   # do not expect ${prefix}/mingw symlink - this should be superceded by
   # 0005-Windows-Don-t-ignore-native-system-header-dir.patch .. but isn't!
   sed -i 's/${prefix}\/mingw\//${prefix}\//g' configure
@@ -191,6 +156,7 @@ prepare() {
 }
 
 build() {
+  [[ -d build-${MSYSTEM} ]] && rm -rf build-${MSYSTEM}
   mkdir -p "${srcdir}"/build-${MSYSTEM} && cd "${srcdir}"/build-${MSYSTEM}
 
   declare -a _extra_config
@@ -277,8 +243,8 @@ build() {
     --with-libiconv \
     --with-system-zlib \
     --with-{gmp,mpfr,mpc,isl}=${MINGW_PREFIX} \
-    --with-pkgversion="Rev${pkgrel}, Built by MSYS2 project" \
-    --with-bugurl="https://github.com/msys2/MINGW-packages/issues" \
+    --with-pkgversion="GCC with MCF thread model, built by LH_Mouse" \
+    --with-bugurl="https://github.com/lhmouse/MINGW-packages/issues" \
     --with-gnu-as \
     --with-gnu-ld \
     "${_extra_config[@]}"
@@ -297,7 +263,8 @@ build() {
 
 package_gcc-libs() {
   pkgdesc="GNU Compiler Collection (libraries) for MinGW-w64"
-  depends=("${MINGW_PACKAGE_PREFIX}-libwinpthread")
+  depends=("${MINGW_PACKAGE_PREFIX}-libwinpthread"
+           "${MINGW_PACKAGE_PREFIX}-mcfgthread-libs")
   provides=("${MINGW_PACKAGE_PREFIX}-omp")
 
   # Licensing information
