@@ -1,7 +1,7 @@
-From a7c1041c3138dba8fa811490852f37b236a7f368 Mon Sep 17 00:00:00 2001
+From 0d86d5dd444f4a3bdf88fa71a7cc2735b3502564 Mon Sep 17 00:00:00 2001
 From: Alexey Pavlov <alexey.pawlow@gmail.com>
 Date: Wed, 5 Aug 2015 23:36:17 +0100
-Subject: [PATCH 06/16] Build EXTRA_GNATTOOLS for Ada
+Subject: [PATCH 03/11] Build EXTRA_GNATTOOLS for Ada
 
 ---
  gnattools/Makefile.in | 4 ++--
@@ -30,5 +30,5 @@ index e8fc4af0788..f0daadbc1d7 100644
  gnattools-cross: $(GCC_DIR)/stamp-tools
  	# gnattools1-re
 -- 
-2.38.1
+2.44.0
 
