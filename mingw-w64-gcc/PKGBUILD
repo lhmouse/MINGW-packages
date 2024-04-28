@@ -25,7 +25,7 @@ pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
          $([[ "$_enable_jit" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-libgccjit")
         )
 #_snapshot=20181214
-pkgver=14.0.1+20240426
+pkgver=14.0.1+20240427
 _branch=releases/gcc-14
 #_majorver=${pkgver:0:1}
 #_sourcedir=${_realname}-${_majorver}-${_snapshot}
@@ -69,6 +69,7 @@ source=(${_sourcedir}::"git://gcc.gnu.org/git/gcc.git#branch=${_branch}"
         0014-gcc-9-branch-clone_function_name_1-Retain-any-stdcall-suffix.patch
         0020-libgomp-Don-t-hard-code-MS-printf-attributes.patch
         0021-PR14940-Allow-a-PCH-to-be-mapped-to-a-different-addr.patch
+        0100-rust-fix.patch
         0140-gcc-diagnostic-color.patch
         0200-add-m-no-align-vector-insn-option-for-i386.patch)
 sha256sums=('SKIP'
@@ -82,6 +83,7 @@ sha256sums=('SKIP'
             '1e999beee8a829ff1fe3fb67e50329ac48100c6b97a50ce6de8e08c16bf7c63f'
             '69c7b0ad2fc85484df6bb7d5cc0b5fe2779249ae351842b0763bdb050b30986c'
             '6c272078340a27b3f147e497115b0a6e9fc0da720a2602f12b086524522caa59'
+            'd6ef86ffa5dfaea0ea4d1513a41ee870741d32f4a387ea00f32b23bfe4084174'
             '80640190971bdf3f781a466946916e83a72f561bad40e38dd2fb59298ac171fe'
             '632a8de62c781cf325f36e546459601edd4118aa214449f3acb1c11f7a23424e')
 validpgpkeys=(F3691687D867B81B51CE07D9BBE43771487328A9  # bpiotrowski@archlinux.org
@@ -130,6 +132,9 @@ prepare() {
     0014-gcc-9-branch-clone_function_name_1-Retain-any-stdcall-suffix.patch \
     0020-libgomp-Don-t-hard-code-MS-printf-attributes.patch \
     0021-PR14940-Allow-a-PCH-to-be-mapped-to-a-different-addr.patch
+
+  apply_patch_with_msg \
+    0100-rust-fix.patch
 
   # Enable diagnostic color under mintty
   # based on https://github.com/BurntSushi/ripgrep/issues/94#issuecomment-261761687
@@ -486,7 +491,7 @@ package_gcc-rust() {
   make -C gcc DESTDIR="${pkgdir}" rust.install-{common,man,info}
 
   install -Dm755 gcc/gccrs.exe "${pkgdir}"${MINGW_PREFIX}/bin/gccrs.exe
-  install -Dm755 gcc/rust1.exe "${pkgdir}"${MINGW_PREFIX}/${_libdir}/rust1.exe
+  install -Dm755 gcc/crab1.exe "${pkgdir}"${MINGW_PREFIX}/${_libdir}/crab1.exe
 }
 
 package_gcc-lto-dump() {
