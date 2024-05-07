@@ -25,7 +25,7 @@ pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
          $([[ "$_enable_jit" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-libgccjit")
         )
 #_snapshot=20181214
-pkgver=14.0.1+20240430
+pkgver=14.1.0+20240507
 _branch=releases/gcc-14
 #_majorver=${pkgver:0:1}
 #_sourcedir=${_realname}-${_majorver}-${_snapshot}
@@ -58,7 +58,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-${_realname}"
              "${MINGW_PACKAGE_PREFIX}-autotools"
              "${MINGW_PACKAGE_PREFIX}-mcfgthread")
 options=('!emptydirs') # '!strip' 'debug')
-source=(${_sourcedir}::"git://gcc.gnu.org/git/gcc.git#branch=${_branch}"
+source=(${_sourcedir}::"git://gcc.gnu.org/git/gcc.git#tag=releases/gcc-14.1.0"
         "gdbinit"
         0003-Windows-Follow-Posix-dir-exists-semantics-more-close.patch
         0005-Windows-Don-t-ignore-native-system-header-dir.patch
@@ -70,6 +70,7 @@ source=(${_sourcedir}::"git://gcc.gnu.org/git/gcc.git#branch=${_branch}"
         0020-libgomp-Don-t-hard-code-MS-printf-attributes.patch
         0021-PR14940-Allow-a-PCH-to-be-mapped-to-a-different-addr.patch
         0100-rust-fix.patch
+        0101-fix-thiscall-attribute.patch
         0140-gcc-diagnostic-color.patch
         0200-add-m-no-align-vector-insn-option-for-i386.patch
         0400-gcc-Make-stupid-AT-T-syntax-not-default.patch
@@ -86,6 +87,7 @@ sha256sums=('SKIP'
             '69c7b0ad2fc85484df6bb7d5cc0b5fe2779249ae351842b0763bdb050b30986c'
             '6c272078340a27b3f147e497115b0a6e9fc0da720a2602f12b086524522caa59'
             'd6ef86ffa5dfaea0ea4d1513a41ee870741d32f4a387ea00f32b23bfe4084174'
+            'b3a234e49a20f811913b12a0e0ecc9f917f766546426dabfeb4d898123355c55'
             '80640190971bdf3f781a466946916e83a72f561bad40e38dd2fb59298ac171fe'
             '632a8de62c781cf325f36e546459601edd4118aa214449f3acb1c11f7a23424e'
             'f3b3838a64e5d3c2ddab91015bebc0bbc626087f4d58198c966c5863f88dc099'
@@ -138,7 +140,8 @@ prepare() {
     0021-PR14940-Allow-a-PCH-to-be-mapped-to-a-different-addr.patch
 
   apply_patch_with_msg \
-    0100-rust-fix.patch
+    0100-rust-fix.patch \
+    0101-fix-thiscall-attribute.patch
 
   # Enable diagnostic color under mintty
   # based on https://github.com/BurntSushi/ripgrep/issues/94#issuecomment-261761687

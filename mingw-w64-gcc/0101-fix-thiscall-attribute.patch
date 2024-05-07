@@ -1,0 +1,52 @@
+From 145ed15d139bafb8077bf707c01f14605e507aeb Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Tue, 7 May 2024 22:04:24 +0800
+Subject: [PATCH] test fix
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ gcc/cp/decl.cc   | 10 ++++++++++
+ gcc/cp/except.cc |  6 ++++++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/gcc/cp/decl.cc b/gcc/cp/decl.cc
+index 2af026d255d..f5dce6a93bc 100644
+--- a/gcc/cp/decl.cc
++++ b/gcc/cp/decl.cc
+@@ -9669,6 +9669,16 @@ get_atexit_fn_ptr_type (void)
+       
+       fn_type = build_function_type_list (void_type_node,
+ 					  arg_type, NULL_TREE);
++#ifdef IX86_CALLCVT_THISCALL
++      if (flag_use_cxa_atexit
++          && !targetm.cxx.use_atexit_for_cxa_atexit ())
++        {
++          fn_type = copy_node (fn_type);
++          TYPE_ATTRIBUTES (fn_type) = tree_cons (
++                    get_identifier ("thiscall"), NULL_TREE,
++                    TYPE_ATTRIBUTES (fn_type));
++        }
++#endif
+       atexit_fn_ptr_type_node = build_pointer_type (fn_type);
+     }
+ 
+diff --git a/gcc/cp/except.cc b/gcc/cp/except.cc
+index f1ffda22fd3..00a8843fa2e 100644
+--- a/gcc/cp/except.cc
++++ b/gcc/cp/except.cc
+@@ -648,6 +648,12 @@ build_throw (location_t loc, tree exp, tsubst_flags_t complain)
+ 	{
+ 	  tree tmp = build_function_type_list (void_type_node,
+ 					       ptr_type_node, NULL_TREE);
++#ifdef IX86_CALLCVT_THISCALL
++          tmp = copy_node (tmp);
++          TYPE_ATTRIBUTES (tmp) = tree_cons (
++                    get_identifier ("thiscall"), NULL_TREE,
++                    TYPE_ATTRIBUTES (tmp));
++#endif
+ 	  cleanup_type = build_pointer_type (tmp);
+ 	}
+ 
+-- 
+2.45.0
+
