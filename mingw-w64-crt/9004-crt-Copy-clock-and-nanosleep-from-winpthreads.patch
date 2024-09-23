@@ -1,0 +1,839 @@
+From 962803eb03eb13e9ba8750d4dadde5fa90fb26c4 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Fri, 16 May 2025 13:08:20 +0800
+Subject: [PATCH 2/2] crt: Copy clock and nanosleep from winpthreads
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ mingw-w64-crt/Makefile.am      |   2 +
+ mingw-w64-crt/time/clock.c     | 354 +++++++++++++++++++++++++++++++++
+ mingw-w64-crt/time/misc.c      | 218 ++++++++++++++++++++
+ mingw-w64-crt/time/misc.h      | 100 ++++++++++
+ mingw-w64-crt/time/nanosleep.c | 109 ++++++++++
+ 5 files changed, 783 insertions(+)
+ create mode 100644 mingw-w64-crt/time/clock.c
+ create mode 100644 mingw-w64-crt/time/misc.c
+ create mode 100644 mingw-w64-crt/time/misc.h
+ create mode 100644 mingw-w64-crt/time/nanosleep.c
+
+diff --git a/mingw-w64-crt/Makefile.am b/mingw-w64-crt/Makefile.am
+index 80eccb9cd..7f1e79eed 100644
+--- a/mingw-w64-crt/Makefile.am
++++ b/mingw-w64-crt/Makefile.am
+@@ -1258,6 +1258,8 @@ src_libmingwex=\
+   misc/ftw32.c           misc/ftw32i64.c            misc/ftw64.c            misc/ftw64i32.c \
+   misc/__mingw_filename_cp.c \
+   \
++  time/clock.c           time/nanosleep.c           time/misc.c \
++  \
+   ssp/chk_fail.c         ssp/gets_chk.c             ssp/memcpy_chk.c        ssp/memmove_chk.c \
+   ssp/mempcpy_chk.c \
+   ssp/memset_chk.c       ssp/stack_chk_fail.c       ssp/stack_chk_guard.c   ssp/strcat_chk.c \
+diff --git a/mingw-w64-crt/time/clock.c b/mingw-w64-crt/time/clock.c
+new file mode 100644
+index 000000000..ff95b95f3
+--- /dev/null
++++ b/mingw-w64-crt/time/clock.c
+@@ -0,0 +1,354 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the w64 mingw-runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++
++#ifdef HAVE_CONFIG_H
++#include "config.h"
++#endif
++
++#define WINPTHREAD_CLOCK_DECL
++
++#include <assert.h>
++#include <errno.h>
++#include <stdint.h>
++#include <time.h>
++
++#define WIN32_LEAN_AND_MEAN
++#include <windows.h>
++
++/* public header files */
++#include "pthread_time.h"
++/* internal header files */
++#include "misc.h"
++
++#define POW10_7                 10000000
++#define POW10_9                 1000000000
++
++/* Number of 100ns-seconds between the beginning of the Windows epoch
++ * (Jan. 1, 1601) and the Unix epoch (Jan. 1, 1970)
++ */
++#define DELTA_EPOCH_IN_100NS    INT64_C(116444736000000000)
++
++static WINPTHREADS_INLINE int lc_set_errno(int result)
++{
++    if (result != 0) {
++        errno = result;
++        return -1;
++    }
++    return 0;
++}
++
++/**
++ * Get the resolution of the specified clock clock_id and
++ * stores it in the struct timespec pointed to by res.
++ * @param  clock_id The clock_id argument is the identifier of the particular
++ *         clock on which to act. The following clocks are supported:
++ * <pre>
++ *     CLOCK_REALTIME  System-wide real-time clock. Setting this clock
++ *                 requires appropriate privileges.
++ *     CLOCK_MONOTONIC Clock that cannot be set and represents monotonic
++ *                 time since some unspecified starting point.
++ *     CLOCK_PROCESS_CPUTIME_ID High-resolution per-process timer from the CPU.
++ *     CLOCK_THREAD_CPUTIME_ID  Thread-specific CPU-time clock.
++ * </pre>
++ * @param  res The pointer to a timespec structure to receive the time
++ *         resolution.
++ * @return If the function succeeds, the return value is 0.
++ *         If the function fails, the return value is -1,
++ *         with errno set to indicate the error.
++ */
++static int __clock_getres(clockid_t clock_id, struct _timespec64 *res)
++{
++    clockid_t id = clock_id;
++
++    if (id == CLOCK_REALTIME && _pthread_get_system_time_best_as_file_time == GetSystemTimeAsFileTime)
++        id = CLOCK_REALTIME_COARSE; /* GetSystemTimePreciseAsFileTime() not available */
++
++    switch(id) {
++    case CLOCK_REALTIME:
++    case CLOCK_MONOTONIC:
++        {
++            LARGE_INTEGER pf;
++
++            if (QueryPerformanceFrequency(&pf) == 0)
++                return lc_set_errno(EINVAL);
++
++            res->tv_sec = 0;
++            res->tv_nsec = (int) ((POW10_9 + (pf.QuadPart >> 1)) / pf.QuadPart);
++            if (res->tv_nsec < 1)
++                res->tv_nsec = 1;
++
++            return 0;
++        }
++
++    case CLOCK_REALTIME_COARSE:
++    case CLOCK_PROCESS_CPUTIME_ID:
++    case CLOCK_THREAD_CPUTIME_ID:
++        {
++            DWORD   timeAdjustment, timeIncrement;
++            BOOL    isTimeAdjustmentDisabled;
++
++            (void) GetSystemTimeAdjustment(&timeAdjustment, &timeIncrement, &isTimeAdjustmentDisabled);
++            res->tv_sec = 0;
++            res->tv_nsec = timeIncrement * 100;
++
++            return 0;
++        }
++    default:
++        break;
++    }
++
++    return lc_set_errno(EINVAL);
++}
++
++/**
++ * Get the time of the specified clock clock_id and stores it in the struct
++ * timespec pointed to by tp.
++ * @param  clock_id The clock_id argument is the identifier of the particular
++ *         clock on which to act. The following clocks are supported:
++ * <pre>
++ *     CLOCK_REALTIME  System-wide real-time clock. Setting this clock
++ *                 requires appropriate privileges.
++ *     CLOCK_MONOTONIC Clock that cannot be set and represents monotonic
++ *                 time since some unspecified starting point.
++ *     CLOCK_PROCESS_CPUTIME_ID High-resolution per-process timer from the CPU.
++ *     CLOCK_THREAD_CPUTIME_ID  Thread-specific CPU-time clock.
++ * </pre>
++ * @param  tp The pointer to a timespec structure to receive the time.
++ * @return If the function succeeds, the return value is 0.
++ *         If the function fails, the return value is -1,
++ *         with errno set to indicate the error.
++ */
++static int __clock_gettime(clockid_t clock_id, struct _timespec64 *tp)
++{
++    unsigned __int64 t;
++    LARGE_INTEGER pf, pc;
++    union {
++        unsigned __int64 u64;
++        FILETIME ft;
++    }  ct, et, kt, ut;
++
++    switch(clock_id) {
++    case CLOCK_REALTIME:
++        {
++            _pthread_get_system_time_best_as_file_time(&ct.ft);
++            t = ct.u64 - DELTA_EPOCH_IN_100NS;
++            tp->tv_sec = t / POW10_7;
++            tp->tv_nsec = ((int) (t % POW10_7)) * 100;
++
++            return 0;
++        }
++
++    case CLOCK_REALTIME_COARSE:
++        {
++            GetSystemTimeAsFileTime(&ct.ft);
++            t = ct.u64 - DELTA_EPOCH_IN_100NS;
++            tp->tv_sec = t / POW10_7;
++            tp->tv_nsec = ((int) (t % POW10_7)) * 100;
++
++            return 0;
++        }
++
++    case CLOCK_MONOTONIC:
++        {
++            if (QueryPerformanceFrequency(&pf) == 0)
++                return lc_set_errno(EINVAL);
++
++            if (QueryPerformanceCounter(&pc) == 0)
++                return lc_set_errno(EINVAL);
++
++            tp->tv_sec = pc.QuadPart / pf.QuadPart;
++            tp->tv_nsec = (int) (((pc.QuadPart % pf.QuadPart) * POW10_9 + (pf.QuadPart >> 1)) / pf.QuadPart);
++            if (tp->tv_nsec >= POW10_9) {
++                tp->tv_sec ++;
++                tp->tv_nsec -= POW10_9;
++            }
++
++            return 0;
++        }
++
++    case CLOCK_PROCESS_CPUTIME_ID:
++        {
++        if(0 == GetProcessTimes(GetCurrentProcess(), &ct.ft, &et.ft, &kt.ft, &ut.ft))
++            return lc_set_errno(EINVAL);
++        t = kt.u64 + ut.u64;
++        tp->tv_sec = t / POW10_7;
++        tp->tv_nsec = ((int) (t % POW10_7)) * 100;
++
++        return 0;
++        }
++
++    case CLOCK_THREAD_CPUTIME_ID:
++        {
++            if(0 == GetThreadTimes(GetCurrentThread(), &ct.ft, &et.ft, &kt.ft, &ut.ft))
++                return lc_set_errno(EINVAL);
++            t = kt.u64 + ut.u64;
++            tp->tv_sec = t / POW10_7;
++            tp->tv_nsec = ((int) (t % POW10_7)) * 100;
++
++            return 0;
++        }
++
++    default:
++        break;
++    }
++
++    return lc_set_errno(EINVAL);
++}
++
++/**
++ * Sleep for the specified time.
++ * @param  clock_id This argument should always be CLOCK_REALTIME (0).
++ * @param  flags 0 for relative sleep interval, others for absolute waking up.
++ * @param  request The desired sleep interval or absolute waking up time.
++ * @param  remain The remain amount of time to sleep.
++ *         The current implemention just ignore it.
++ * @return If the function succeeds, the return value is 0.
++ *         If the function fails, the return value is -1,
++ *         with errno set to indicate the error.
++ */
++static int __clock_nanosleep(clockid_t clock_id, int flags,
++                           const struct _timespec64 *request,
++                           struct _timespec64 *remain)
++{
++    struct _timespec64 tp;
++
++    if (clock_id != CLOCK_REALTIME)
++        return lc_set_errno(EINVAL);
++
++    if (flags == 0)
++        return nanosleep64(request, remain);
++
++    /* TIMER_ABSTIME = 1 */
++    __clock_gettime(CLOCK_REALTIME, &tp);
++
++    tp.tv_sec = request->tv_sec - tp.tv_sec;
++    tp.tv_nsec = request->tv_nsec - tp.tv_nsec;
++    if (tp.tv_nsec < 0) {
++        tp.tv_nsec += POW10_9;
++        tp.tv_sec --;
++    }
++
++    return nanosleep64(&tp, remain);
++}
++
++/**
++ * Set the time of the specified clock clock_id.
++ * @param  clock_id This argument should always be CLOCK_REALTIME (0).
++ * @param  tp The requested time.
++ * @return If the function succeeds, the return value is 0.
++ *         If the function fails, the return value is -1,
++ *         with errno set to indicate the error.
++ */
++static int __clock_settime(clockid_t clock_id, const struct _timespec64 *tp)
++{
++    SYSTEMTIME st;
++
++    union {
++        unsigned __int64 u64;
++        FILETIME ft;
++    }  t;
++
++    if (clock_id != CLOCK_REALTIME)
++        return lc_set_errno(EINVAL);
++
++    t.u64 = tp->tv_sec * (__int64) POW10_7 + tp->tv_nsec / 100 + DELTA_EPOCH_IN_100NS;
++    if (FileTimeToSystemTime(&t.ft, &st) == 0)
++        return lc_set_errno(EINVAL);
++
++    if (SetSystemTime(&st) == 0)
++        return lc_set_errno(EPERM);
++
++    return 0;
++}
++
++/**
++ * Versions to use with 64-bit time_t (struct _timespec64)
++ */
++
++int clock_getres64 (clockid_t clock_id, struct _timespec64 *tp)
++{
++    return __clock_getres (clock_id, tp);
++}
++
++int clock_gettime64 (clockid_t clock_id, struct _timespec64 *tp)
++{
++    return __clock_gettime (clock_id, tp);
++}
++
++int clock_settime64 (clockid_t clock_id, const struct _timespec64 *tp)
++{
++    return __clock_settime (clock_id, tp);
++}
++
++int clock_nanosleep64 (clockid_t clock_id, int flags,
++                const struct _timespec64 *request, struct _timespec64 *remain)
++{
++    return __clock_nanosleep (clock_id, flags, request, remain);
++}
++
++/**
++ * Versions to use with 32-bit time_t (struct _timespec32)
++ */
++
++int clock_getres32 (clockid_t clock_id, struct _timespec32 *tp)
++{
++    struct _timespec64 tp64 = {0};
++
++    if (__clock_getres (clock_id, &tp64) == -1)
++        return -1;
++
++    tp->tv_sec = (__time32_t) tp64.tv_sec;
++    tp->tv_nsec = tp64.tv_nsec;
++
++    return 0;
++}
++
++int clock_gettime32 (clockid_t clock_id, struct _timespec32 *tp)
++{
++    struct _timespec64 tp64 = {0};
++
++    if (__clock_gettime (clock_id, &tp64) == -1)
++        return -1;
++
++    if (tp64.tv_sec > INT_MAX)
++    {
++        _set_errno (EOVERFLOW);
++        return -1;
++    }
++
++    tp->tv_sec = (__time32_t) tp64.tv_sec;
++    tp->tv_nsec = tp64.tv_nsec;
++
++    return 0;
++}
++
++int clock_settime32 (clockid_t clock_id, const struct _timespec32 *tp)
++{
++    struct _timespec64 tp64 = {.tv_sec = tp->tv_sec, .tv_nsec = tp->tv_nsec};
++    return __clock_settime (clock_id, &tp64);
++}
++
++int clock_nanosleep32 (clockid_t clock_id, int flags,
++                const struct _timespec32 *request, struct _timespec32 *remain)
++{
++    struct _timespec64 request64 = {
++        .tv_sec = request->tv_sec,
++        .tv_nsec = request->tv_nsec
++    };
++    struct _timespec64 remain64 = {0};
++
++    if (__clock_nanosleep (clock_id, flags, &request64, &remain64) == -1)
++        return -1;
++
++    assert (remain64.tv_sec <= INT_MAX);
++
++    if (remain != NULL) {
++        remain->tv_sec = (__time32_t)remain64.tv_sec;
++        remain->tv_nsec = remain64.tv_nsec;
++    }
++
++    return 0;
++}
+diff --git a/mingw-w64-crt/time/misc.c b/mingw-w64-crt/time/misc.c
+new file mode 100644
+index 000000000..d9c55041e
+--- /dev/null
++++ b/mingw-w64-crt/time/misc.c
+@@ -0,0 +1,218 @@
++/*
++   Copyright (c) 2011-2016  mingw-w64 project
++
++   Permission is hereby granted, free of charge, to any person obtaining a
++   copy of this software and associated documentation files (the "Software"),
++   to deal in the Software without restriction, including without limitation
++   the rights to use, copy, modify, merge, publish, distribute, sublicense,
++   and/or sell copies of the Software, and to permit persons to whom the
++   Software is furnished to do so, subject to the following conditions:
++
++   The above copyright notice and this permission notice shall be included in
++   all copies or substantial portions of the Software.
++
++   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++   DEALINGS IN THE SOFTWARE.
++*/
++
++#ifdef HAVE_CONFIG_H
++#include "config.h"
++#endif
++
++#define WIN32_LEAN_AND_MEAN
++#include <windows.h>
++
++/* public header files */
++#include "pthread.h"
++/* internal header files */
++#include "misc.h"
++
++void (WINAPI *_pthread_get_system_time_best_as_file_time) (LPFILETIME) = NULL;
++static ULONGLONG (WINAPI *_pthread_get_tick_count_64) (VOID);
++HRESULT (WINAPI *_pthread_set_thread_description) (HANDLE, PCWSTR) = NULL;
++
++#if defined(__GNUC__) || defined(__clang__)
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wprio-ctor-dtor"
++__attribute__((constructor(0)))
++#endif
++static void winpthreads_init(void)
++{
++    HMODULE mod = GetModuleHandleA("kernel32.dll");
++    if (mod)
++    {
++        _pthread_get_tick_count_64 =
++            (ULONGLONG (WINAPI *)(VOID))(void*) GetProcAddress(mod, "GetTickCount64");
++
++        /* <1us precision on Windows 10 */
++        _pthread_get_system_time_best_as_file_time =
++            (void (WINAPI *)(LPFILETIME))(void*) GetProcAddress(mod, "GetSystemTimePreciseAsFileTime");
++    }
++
++    if (!_pthread_get_system_time_best_as_file_time)
++        /* >15ms precision on Windows 10 */
++        _pthread_get_system_time_best_as_file_time = GetSystemTimeAsFileTime;
++
++    mod = GetModuleHandleA("kernelbase.dll");
++    if (mod)
++    {
++        _pthread_set_thread_description =
++            (HRESULT (WINAPI *)(HANDLE, PCWSTR))(void*) GetProcAddress(mod, "SetThreadDescription");
++    }
++}
++#if defined(__GNUC__) || defined(__clang__)
++#pragma GCC diagnostic pop
++#endif
++
++#if defined(_MSC_VER) && !defined(__clang__)
++/* Force a reference to __xc_t to prevent whole program optimization
++ * from discarding the variable. */
++
++/* On x86, symbols are prefixed with an underscore. */
++# if defined(_M_IX86)
++#   pragma comment(linker, "/include:___xc_t")
++# else
++#   pragma comment(linker, "/include:__xc_t")
++# endif
++
++#pragma section(".CRT$XCT", long, read)
++__declspec(allocate(".CRT$XCT"))
++extern const _PVFV __xc_t;
++const _PVFV __xc_t = winpthreads_init;
++#endif
++
++unsigned long long _pthread_time_in_ms(void)
++{
++    FILETIME ft;
++
++    GetSystemTimeAsFileTime(&ft);
++    return (((unsigned long long)ft.dwHighDateTime << 32) + ft.dwLowDateTime
++            - 0x19DB1DED53E8000ULL) / 10000ULL;
++}
++
++unsigned long long _pthread_time_in_ms_from_timespec(const struct _timespec64 *ts)
++{
++    unsigned long long t = (unsigned long long) ts->tv_sec * 1000LL;
++    /* The +999999 is here to ensure that the division always rounds up */
++    t += (unsigned long long) (ts->tv_nsec + 999999) / 1000000;
++
++    return t;
++}
++
++unsigned long long _pthread_rel_time_in_ms(const struct _timespec64 *ts)
++{
++    unsigned long long t1 = _pthread_time_in_ms_from_timespec(ts);
++    unsigned long long t2 = _pthread_time_in_ms();
++
++    /* Prevent underflow */
++    if (t1 < t2) return 0;
++    return t1 - t2;
++}
++
++static unsigned long long
++_pthread_get_tick_count (long long *frequency)
++{
++  if (_pthread_get_tick_count_64 != NULL)
++    return _pthread_get_tick_count_64 ();
++
++  LARGE_INTEGER freq, timestamp;
++
++  if (*frequency == 0)
++  {
++    if (QueryPerformanceFrequency (&freq))
++      *frequency = freq.QuadPart;
++    else
++      *frequency = -1;
++  }
++
++  if (*frequency > 0 && QueryPerformanceCounter (&timestamp))
++    return timestamp.QuadPart / (*frequency / 1000);
++
++  /* Fallback */
++  return GetTickCount ();
++}
++
++/* A wrapper around WaitForSingleObject() that ensures that
++ * the wait function does not time out before the time
++ * actually runs out. This is needed because WaitForSingleObject()
++ * might have poor accuracy, returning earlier than expected.
++ * On the other hand, returning a bit *later* than expected
++ * is acceptable in a preemptive multitasking environment.
++ */
++unsigned long
++_pthread_wait_for_single_object (void *handle, unsigned long timeout)
++{
++  DWORD result;
++  unsigned long long start_time, end_time;
++  unsigned long wait_time;
++  long long frequency = 0;
++
++  if (timeout == INFINITE || timeout == 0)
++    return WaitForSingleObject ((HANDLE) handle, (DWORD) timeout);
++
++  start_time = _pthread_get_tick_count (&frequency);
++  end_time = start_time + timeout;
++  wait_time = timeout;
++
++  do
++  {
++    unsigned long long current_time;
++
++    result = WaitForSingleObject ((HANDLE) handle, (DWORD) wait_time);
++    if (result != WAIT_TIMEOUT)
++      break;
++
++    current_time = _pthread_get_tick_count (&frequency);
++    if (current_time >= end_time)
++      break;
++
++    wait_time = (DWORD) (end_time - current_time);
++  } while (TRUE);
++
++  return result;
++}
++
++/* A wrapper around WaitForMultipleObjects() that ensures that
++ * the wait function does not time out before the time
++ * actually runs out. This is needed because WaitForMultipleObjects()
++ * might have poor accuracy, returning earlier than expected.
++ * On the other hand, returning a bit *later* than expected
++ * is acceptable in a preemptive multitasking environment.
++ */
++unsigned long
++_pthread_wait_for_multiple_objects (unsigned long count, void **handles, unsigned int all, unsigned long timeout)
++{
++  DWORD result;
++  unsigned long long start_time, end_time;
++  unsigned long wait_time;
++  long long frequency = 0;
++
++  if (timeout == INFINITE || timeout == 0)
++    return WaitForMultipleObjects ((DWORD) count, (HANDLE *) handles, all, (DWORD) timeout);
++
++  start_time = _pthread_get_tick_count (&frequency);
++  end_time = start_time + timeout;
++  wait_time = timeout;
++
++  do
++  {
++    unsigned long long current_time;
++
++    result = WaitForMultipleObjects ((DWORD) count, (HANDLE *) handles, all, (DWORD) wait_time);
++    if (result != WAIT_TIMEOUT)
++      break;
++
++    current_time = _pthread_get_tick_count (&frequency);
++    if (current_time >= end_time)
++      break;
++
++    wait_time = (DWORD) (end_time - current_time);
++  } while (TRUE);
++
++  return result;
++}
+diff --git a/mingw-w64-crt/time/misc.h b/mingw-w64-crt/time/misc.h
+new file mode 100644
+index 000000000..f954ad451
+--- /dev/null
++++ b/mingw-w64-crt/time/misc.h
+@@ -0,0 +1,100 @@
++/*
++   Copyright (c) 2011-2016  mingw-w64 project
++
++   Permission is hereby granted, free of charge, to any person obtaining a
++   copy of this software and associated documentation files (the "Software"),
++   to deal in the Software without restriction, including without limitation
++   the rights to use, copy, modify, merge, publish, distribute, sublicense,
++   and/or sell copies of the Software, and to permit persons to whom the
++   Software is furnished to do so, subject to the following conditions:
++
++   The above copyright notice and this permission notice shall be included in
++   all copies or substantial portions of the Software.
++
++   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++   DEALINGS IN THE SOFTWARE.
++*/
++
++#ifndef WIN_PTHREADS_MISC_H
++#define WIN_PTHREADS_MISC_H
++
++#include <limits.h>
++/* public header files */
++#include "pthread_compat.h"
++
++#define PTR2INT(x)	((int)(uintptr_t)(x))
++
++#if SIZE_MAX>UINT_MAX
++typedef long long LONGBAG;
++#else
++typedef long LONGBAG;
++#endif
++
++#if !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
++#undef GetHandleInformation
++#define GetHandleInformation(h,f)  (1)
++#endif
++
++#define CHECK_HANDLE(h)                                                 \
++  do {                                                                  \
++    DWORD dwFlags;                                                      \
++    if (!(h) || ((h) == INVALID_HANDLE_VALUE) || !GetHandleInformation((h), &dwFlags)) \
++      return EINVAL;                                                    \
++  } while (0)
++
++#define CHECK_PTR(p) do { if (!(p)) return EINVAL; } while (0)
++
++#define UPD_RESULT(x,r) do { int _r = (x); (r) = (r) ? (r) : _r; } while (0)
++
++#define CHECK_THREAD(t)                         \
++  do {                                          \
++    CHECK_PTR(t);                               \
++    CHECK_HANDLE((t)->h);                       \
++  } while (0)
++
++#define CHECK_OBJECT(o, e)                                              \
++  do {                                                                  \
++    DWORD dwFlags;                                                      \
++    if (!(o)) return e;                                                 \
++    if (!((o)->h) || (((o)->h) == INVALID_HANDLE_VALUE) || !GetHandleInformation(((o)->h), &dwFlags)) \
++      return e;                                                         \
++  } while (0)
++
++#define VALID(x)    if (!(p)) return EINVAL;
++
++/* ms can be 64 bit, solve wrap-around issues: */
++static WINPTHREADS_INLINE unsigned long dwMilliSecs(unsigned long long ms)
++{
++  if (ms >= 0xffffffffULL) return 0xfffffffful;
++  return (unsigned long) ms;
++}
++
++unsigned long long _pthread_time_in_ms(void);
++unsigned long long _pthread_time_in_ms_from_timespec(const struct _timespec64 *ts);
++unsigned long long _pthread_rel_time_in_ms(const struct _timespec64 *ts);
++unsigned long _pthread_wait_for_single_object (void *handle, unsigned long timeout);
++unsigned long _pthread_wait_for_multiple_objects (unsigned long count, void **handles, unsigned int all, unsigned long timeout);
++
++extern void (WINAPI *_pthread_get_system_time_best_as_file_time) (LPFILETIME);
++extern HRESULT (WINAPI *_pthread_set_thread_description) (HANDLE, PCWSTR);
++
++#if defined(__GNUC__) || defined(__clang__)
++#define likely(cond) __builtin_expect((cond) != 0, 1)
++#define unlikely(cond) __builtin_expect((cond) != 0, 0)
++#else
++#define likely(cond) (cond)
++#define unlikely(cond) (cond)
++#endif
++
++#if defined(__GNUC__) || defined(__clang__)
++#define UNREACHABLE() __builtin_unreachable()
++#elif defined(_MSC_VER)
++#define UNREACHABLE() __assume(0)
++#endif
++
++#endif
+diff --git a/mingw-w64-crt/time/nanosleep.c b/mingw-w64-crt/time/nanosleep.c
+new file mode 100644
+index 000000000..454be1a1f
+--- /dev/null
++++ b/mingw-w64-crt/time/nanosleep.c
+@@ -0,0 +1,109 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the w64 mingw-runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++
++#ifdef HAVE_CONFIG_H
++#include "config.h"
++#endif
++
++#define WINPTHREAD_NANOSLEEP_DECL
++
++#include <assert.h>
++#include <errno.h>
++#include <time.h>
++
++#define WIN32_LEAN_AND_MEAN
++#include <windows.h>
++
++/* public header files */
++#include "pthread.h"
++#include "pthread_time.h"
++/* internal header files */
++//#include "thread.h"
++
++#define POW10_3                 1000
++#define POW10_4                 10000
++#define POW10_6                 1000000
++#define POW10_9                 1000000000
++#define MAX_SLEEP_IN_MS         4294967294UL
++
++/**
++ * Sleep for the specified time.
++ * @param  request The desired amount of time to sleep.
++ * @param  remain The remain amount of time to sleep.
++ * @return If the function succeeds, the return value is 0.
++ *         If the function fails, the return value is -1,
++ *         with errno set to indicate the error.
++ */
++static int __nanosleep(const struct _timespec64 *request, struct _timespec64 *remain)
++{
++    unsigned long ms, rc = 0;
++    unsigned __int64 u64, want, real;
++
++    union {
++        unsigned __int64 ns100;
++        FILETIME ft;
++    }  _start, _end;
++
++    if (request->tv_sec < 0 || request->tv_nsec < 0 || request->tv_nsec >= POW10_9) {
++        errno = EINVAL;
++        return -1;
++    }
++
++    if (remain != NULL) GetSystemTimeAsFileTime(&_start.ft);
++
++    want = u64 = request->tv_sec * POW10_3 + request->tv_nsec / POW10_6;
++    while (u64 > 0 && rc == 0) {
++        if (u64 >= MAX_SLEEP_IN_MS) ms = MAX_SLEEP_IN_MS;
++        else ms = (unsigned long) u64;
++
++        u64 -= ms;
++        rc = SleepEx(ms, TRUE);
++    }
++
++    if (rc != 0) { /* WAIT_IO_COMPLETION (192) */
++        if (remain != NULL) {
++            GetSystemTimeAsFileTime(&_end.ft);
++            real = (_end.ns100 - _start.ns100) / POW10_4;
++
++            if (real >= want) u64 = 0;
++            else u64 = want - real;
++
++            remain->tv_sec = u64 / POW10_3;
++            remain->tv_nsec = (long) (u64 % POW10_3) * POW10_6;
++        }
++
++        errno = EINTR;
++        return -1;
++    }
++
++    return 0;
++}
++
++int nanosleep64(const struct _timespec64 *request, struct _timespec64 *remain)
++{
++    return __nanosleep (request, remain);
++}
++
++int nanosleep32(const struct _timespec32 *request, struct _timespec32 *remain)
++{
++    struct _timespec64 request64 = {
++        .tv_sec = request->tv_sec,
++        .tv_nsec = request->tv_nsec
++    };
++    struct _timespec64 remain64 = {0};
++
++    if (__nanosleep (&request64, &remain64) == -1)
++        return -1;
++
++    assert (remain64.tv_sec <= INT_MAX);
++
++    if (remain != NULL) {
++        remain->tv_sec = (__time32_t)remain64.tv_sec;
++        remain->tv_nsec = remain64.tv_nsec;
++    }
++
++    return 0;
++}
+-- 
+2.52.0
+
