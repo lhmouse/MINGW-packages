@@ -6,8 +6,7 @@ pkgname=(
   "${MINGW_PACKAGE_PREFIX}-${_realname}"
   "${MINGW_PACKAGE_PREFIX}-${_realname}-libs"
 )
-_pkgver=2.5-ga.2
-pkgver=${_pkgver/-ga}
+pkgver=2.6.alpha.151.g770c78ac
 pkgrel=1
 pkgdesc="An efficient gthread implementation, providing C++11 threading support (mingw-w64)"
 arch=('any')
@@ -22,8 +21,13 @@ makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
   "${MINGW_PACKAGE_PREFIX}-meson"
 )
-source=("${url}/archive/refs/tags/v${_pkgver}.tar.gz")
-sha256sums=('7d7b78d21e9680eec939c01fe6c28ba5b86e0922009947d2530f34c9cef98796')
+source=("git+https://github.com/lhmouse/mcfgthread.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "${_realname}"
+  git describe --tags | sed -E 's,^[^0-9]*,,;s,[-:/],.,g'
+}
 
 build() {
   # Once-initialization routines do support SEH.
@@ -35,7 +39,7 @@ build() {
       --prefix="${MINGW_PREFIX}" \
       --buildtype=plain \
       "build-${MSYSTEM}" \
-      "${_realname}-${_pkgver}"
+      "${_realname}"
 
   meson compile -C "build-${MSYSTEM}"
 }
