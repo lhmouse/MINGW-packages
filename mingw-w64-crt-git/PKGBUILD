@@ -5,7 +5,6 @@ pkgbase=mingw-w64-${_realname}-git
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}-git"
 pkgver=12.0.0.r724.g7e3f2dd90
 pkgrel=1
-_commit='7e3f2dd90ce4ecfad3c3e54c147317fadd980234'
 pkgdesc='MinGW-w64 CRT for Windows (mingw-w64)'
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
@@ -21,18 +20,29 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
 provides=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 conflicts=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 options=('!strip' '!buildflags' '!emptydirs')
-source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#commit=$_commit"
-        0001-crt-delayimp-Make-an-IAT-entry-writeable-before-modi.patch)
-sha256sums=('d19eeb5a03e156faf38f728e7f04d080ad015077c6efe7fc4aa060722edecea1'
-            'fcef8b83090c57ff897f471aeb0cd5a71d6385ff569eba8bbef0c424c21acda4')
+source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#branch=master"
+        0001-crt-delayimp-Make-an-IAT-entry-writeable-before-modi.patch
+        9003-crt-Implement-standard-conforming-termination-suppor.patch
+        9004-crt-Copy-clock-and-nanosleep-from-winpthreads.patch)
+sha256sums=('SKIP'
+            'fcef8b83090c57ff897f471aeb0cd5a71d6385ff569eba8bbef0c424c21acda4'
+            '97437f51c3592e30aaf5ccbaea0eb7aeeb2e40169f5578b6d3176a43d8332c81'
+            '9331318a98f7cf7d0ba001e2fe4c2c517b2227cfd910e3cdb8b5fc670f907039')
 
 pkgver() {
   cd "${srcdir}/mingw-w64"
-  git describe --long ${_commit} | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
+  git describe --long HEAD | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
 }
 
 prepare() {
   cd "${srcdir}/mingw-w64"
+  git reset --hard
+  git clean -fdx
+
+  git apply "${srcdir}/9003-crt-Implement-standard-conforming-termination-suppor.patch"
+  git apply "${srcdir}/9004-crt-Copy-clock-and-nanosleep-from-winpthreads.patch"
+  (cd mingw-w64-crt && autoreconf)
+
   patch -p1 -i "${srcdir}/0001-crt-delayimp-Make-an-IAT-entry-writeable-before-modi.patch"
 }
 
