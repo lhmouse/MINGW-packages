@@ -4,7 +4,7 @@ _realname=mcfgthread
 pkgbase=mingw-w64-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
          "${MINGW_PACKAGE_PREFIX}-${_realname}"-libs)
-pkgver=2.3.1
+pkgver=2.4.alpha.9.g7846a1d
 pkgrel=1
 pkgdesc="An efficient gthread implementation, providing C++11 threading support (mingw-w64)"
 arch=('any')
@@ -19,10 +19,22 @@ makedepends=(
   "${MINGW_PACKAGE_PREFIX}-headers"
   "git"
 )
-source=("git+https://github.com/lhmouse/mcfgthread.git#tag=v${pkgver%.*}-ga.${pkgver##*.}")
-sha256sums=('29d5634f82a1974f094416181b34789e2e0230326e35bf4c2c3cd94fc2b820c9')
+source=("git+https://github.com/lhmouse/mcfgthread.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "${_realname}"
+  git describe --tags | sed -E 's,^[^0-9]*,,;s,[-:/],.,g'
+}
+
+prepare() {
+  cd "${srcdir}/${_realname}"
+  git reset --hard
+  git clean -fdx
+}
 
 build() {
+  [[ -d "${srcdir}/build-${MSYSTEM}" ]] && rm -rf "${srcdir}/build-${MSYSTEM}"
   mkdir -p "${srcdir}/build-${MSYSTEM}" && cd "${srcdir}/build-${MSYSTEM}"
 
   MSYS2_ARG_CONV_EXCL="--prefix=" \
