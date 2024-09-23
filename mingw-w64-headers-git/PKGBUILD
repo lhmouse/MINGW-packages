@@ -4,9 +4,8 @@ _realname=headers
 pkgbase=mingw-w64-${_realname}-git
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}-git"
 pkgdesc="MinGW-w64 headers for Windows (mingw-w64)"
-pkgver=12.0.0.r351.gcdf6b16b8
+pkgver=12.0.0.r361.g33d403802
 pkgrel=1
-_commit='cdf6b16b805ce7d02f6b1b742911ba0770b49bbb'
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clang32' 'clangarm64')
 url="https://www.mingw-w64.org/"
@@ -19,12 +18,18 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-tools"
 provides=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 conflicts=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 options=('!strip' '!emptydirs')
-source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#commit=$_commit")
-sha256sums=('3ade06aac627d1310236bd57031c076ff18583d2f4b31caa88ae9a2d04ca5501')
+source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64")
+sha256sums=('SKIP')
 
 pkgver() {
   cd "${srcdir}/mingw-w64"
-  git describe --long ${_commit} | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
+  git describe --long HEAD | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
+}
+
+prepare() {
+  cd ${srcdir}/mingw-w64
+  git reset --hard
+  git clean -fdx
 }
 
 build() {
