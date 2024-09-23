@@ -3,9 +3,8 @@
 _realname=crt
 pkgbase=mingw-w64-${_realname}-git
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}-git"
-pkgver=12.0.0.r509.g079e6092b
+pkgver=12.0.0.r563.g2a5024409
 pkgrel=1
-_commit='079e6092b3c49a791e2d36282781827c75d12bba'
 pkgdesc='MinGW-w64 CRT for Windows (mingw-w64)'
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
@@ -16,17 +15,30 @@ groups=("${MINGW_PACKAGE_PREFIX}-toolchain")
 depends=("${MINGW_PACKAGE_PREFIX}-headers-git")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-binutils"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
              "git")
 provides=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 conflicts=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 options=('!strip' '!buildflags' '!emptydirs')
-source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#commit=$_commit")
-sha256sums=('c79f950762101d293e9a6c063e69dd7b9ec36f0f28966b7643c957a227d3b55b')
+source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64"
+        9003-crt-Implement-standard-conforming-termination-suppor.patch
+        9004-crt-Copy-clock-and-nanosleep-from-winpthreads.patch)
+sha256sums=('SKIP'
+            '5ef9beac254c2326539bc6e12f38eb9ceae06f072d74a4d715c126e9e0c02724'
+            'd3247db2da8732de51977ea1660861b86e53c4f701b1c3a644d85b1cfbe2b0c2')
 
 pkgver() {
   cd "${srcdir}/mingw-w64"
-  git describe --long ${_commit} | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
+  git describe --long HEAD | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
+}
+
+prepare() {
+  cd ${srcdir}/mingw-w64
+  git reset --hard
+  git clean -fdx
+
+  git apply "${srcdir}/9003-crt-Implement-standard-conforming-termination-suppor.patch"
+  git apply "${srcdir}/9004-crt-Copy-clock-and-nanosleep-from-winpthreads.patch"
+  (cd mingw-w64-crt && autoreconf)
 }
 
 build() {
