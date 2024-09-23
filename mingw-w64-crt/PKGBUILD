@@ -3,9 +3,8 @@
 _realname=crt
 pkgbase="mingw-w64-${_realname}"
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=13.0.0.r453.gfd36ef357
+pkgver=13.0.0.r454.g0c2117931
 pkgrel=1
-_commit='fd36ef357f4964ad84628b2c69c15791b2f1f559'
 pkgdesc='MinGW-w64 CRT for Windows (mingw-w64)'
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
@@ -21,16 +20,29 @@ provides=("${MINGW_PACKAGE_PREFIX}-${_realname}-git=${pkgver}")
 conflicts=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 replaces=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 options=('!strip' '!buildflags' '!emptydirs')
-source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#commit=$_commit")
-sha256sums=('eaa8e8a79667560584e66df2aac8ad582b53fb6b342740b3edd7b7afddbc6f07')
+source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#branch=master"
+        9003-crt-Implement-standard-conforming-termination-suppor.patch
+        9004-crt-Copy-clock-and-nanosleep-from-winpthreads.patch)
+sha256sums=('SKIP'
+            'f18cc61356df748863a6e6144935df84f23c9b527895286eb1a08d2b5c42de58'
+            'e939b1b20bd7fb2b2bff30e38a794b4c650308bcb0956ba1d9f05e11c4c02d0d')
 
 pkgver() {
   cd "${srcdir}/mingw-w64"
-  git describe --long ${_commit} | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
+  git describe --long HEAD | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
 }
 
 prepare() {
   cd "${srcdir}/mingw-w64"
+
+  git reset --hard
+  git clean -fdx
+
+  git apply  \
+    "${srcdir}/"9003-crt-Implement-standard-conforming-termination-suppor.patch \
+    "${srcdir}/"9004-crt-Copy-clock-and-nanosleep-from-winpthreads.patch
+
+  (cd mingw-w64-crt && autoreconf)
 }
 
 build() {
@@ -67,9 +79,15 @@ build() {
   "${srcdir}"/mingw-w64/mingw-w64-crt/configure \
     --prefix=${MINGW_PREFIX} \
     --disable-dependency-tracking \
+    --enable-experimental=all \
     "${_extra_config[@]}"
 
   make
+}
+
+check() {
+  cd "${srcdir}"/build-${MSYSTEM}
+#  make check
 }
 
 package() {
