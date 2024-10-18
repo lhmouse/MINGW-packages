@@ -1,0 +1,124 @@
+From a323ee5162f35540785dad1aa36761f3f349e0ed Mon Sep 17 00:00:00 2001
+From: Kyrylo Tkachov <ktkachov@nvidia.com>
+Date: Tue, 11 Aug 2026 10:01:58 +0200
+Subject: [PATCH 9106/9106] libstdc++: build the source directories in parallel
+
+libstdc++-v3/src is built by walking SUBDIRS, and automake implements that
+walk as a shell loop.  The per-standard directories are therefore built one
+after another no matter how large -j is, and most of them hold only a handful
+of files.  Sampling the compiler processes during a bootstrap shows a mean of
+between 2 and 4 concurrent compiles against -j64, with exactly one source
+directory active at any moment, and long stretches at a concurrency of two.
+
+libstdc++ is the last thing to finish in every stage, so for most of that time
+nothing else in the build is running and the machine is idle.
+
+The directories are independent of each other, apart from src/experimental,
+which links the convenience archives of c++23, c++26, filesystem and
+libbacktrace.  Give make an explicit target per directory, with that one
+dependency written down, and let it overlap them.  automake's own loop still
+runs afterwards, finds everything built and costs nothing, so the recursion
+for install, clean and the other targets is untouched, and note in
+src/experimental/Makefile.am that its lists of archives and the prerequisites
+here have to stay together.
+
+On aarch64 a clean rebuild of libstdc++-v3/src with the final stage compiler
+falls by 62%, and a release checking bootstrap by 12.8%.
+
+Bootstrapped on aarch64-none-linux-gnu.
+
+libstdc++-v3/ChangeLog:
+
+	* src/Makefile.am (all-recursive): Depend on all-parallel-subdirs.
+	(all-parallel-subdirs, all-in-%): New targets.
+	(all-in-experimental): Depend on the directories whose convenience
+	archives it links.
+	* src/Makefile.in: Regenerate.
+	* src/experimental/Makefile.am: Add comment about keeping the
+	convenience library lists in sync with src/Makefile.am.
+
+Signed-off-by: Kyrylo Tkachov <ktkachov@nvidia.com>
+---
+ libstdc++-v3/src/Makefile.am              | 20 ++++++++++++++++++++
+ libstdc++-v3/src/Makefile.in              | 20 ++++++++++++++++++++
+ libstdc++-v3/src/experimental/Makefile.am |  2 ++
+ 3 files changed, 42 insertions(+)
+
+diff --git a/libstdc++-v3/src/Makefile.am b/libstdc++-v3/src/Makefile.am
+index 35a497a15886..17fd6ed60645 100644
+--- a/libstdc++-v3/src/Makefile.am
++++ b/libstdc++-v3/src/Makefile.am
+@@ -46,6 +46,26 @@ endif
+ SUBDIRS = c++98 c++11 c++17 c++20 c++23 c++26 \
+ 	$(filesystem_dir) $(backtrace_dir) $(experimental_dir)
+ 
++# automake walks SUBDIRS with a shell loop, so the source directories are
++# built strictly one after another however large -j is.  They are independent
++# of each other apart from the convenience archives that src/experimental
++# links, so build them from make instead and let it overlap them.  automake's
++# own loop still runs afterwards, where it finds everything already built and
++# costs nothing, and the recursion for install, clean and the rest is
++# untouched.
++all-recursive: all-parallel-subdirs
++
++all-parallel-subdirs: $(SUBDIRS:%=all-in-%)
++
++all-in-%:
++	$(MAKE) $(AM_MAKEFLAGS) -C $* all
++
++# src/experimental links the convenience archives of these directories.
++all-in-experimental: all-in-c++23 all-in-c++26 \
++	$(filesystem_dir:%=all-in-%) $(backtrace_dir:%=all-in-%)
++
++.PHONY: all-parallel-subdirs
++
+ # Cross compiler support.
+ if VTV_CYGMIN
+ toolexeclib_LTLIBRARIES = libvtv.la libstdc++.la
+diff --git a/libstdc++-v3/src/Makefile.in b/libstdc++-v3/src/Makefile.in
+index 811d0a5ce4a8..104033fd6796 100644
+--- a/libstdc++-v3/src/Makefile.in
++++ b/libstdc++-v3/src/Makefile.in
+@@ -1020,6 +1020,26 @@ uninstall-am: uninstall-toolexeclibLTLIBRARIES
+ .PRECIOUS: Makefile
+ 
+ 
++# automake walks SUBDIRS with a shell loop, so the source directories are
++# built strictly one after another however large -j is.  They are independent
++# of each other apart from the convenience archives that src/experimental
++# links, so build them from make instead and let it overlap them.  automake's
++# own loop still runs afterwards, where it finds everything already built and
++# costs nothing, and the recursion for install, clean and the rest is
++# untouched.
++all-recursive: all-parallel-subdirs
++
++all-parallel-subdirs: $(SUBDIRS:%=all-in-%)
++
++all-in-%:
++	$(MAKE) $(AM_MAKEFLAGS) -C $* all
++
++# src/experimental links the convenience archives of these directories.
++all-in-experimental: all-in-c++23 all-in-c++26 \
++	$(filesystem_dir:%=all-in-%) $(backtrace_dir:%=all-in-%)
++
++.PHONY: all-parallel-subdirs
++
+ @VTV_CYGMIN_TRUE@vtv_stubs.cc:
+ @VTV_CYGMIN_TRUE@	rm -f $@
+ @VTV_CYGMIN_TRUE@	$(LN_S) $(toplevel_srcdir)/libstdc++-v3/libsupc++/vtv_stubs.cc $@
+diff --git a/libstdc++-v3/src/experimental/Makefile.am b/libstdc++-v3/src/experimental/Makefile.am
+index bad10b40e21d..0af0aa6377fe 100644
+--- a/libstdc++-v3/src/experimental/Makefile.am
++++ b/libstdc++-v3/src/experimental/Makefile.am
+@@ -51,6 +51,8 @@ contract26.o: contract26.cc
+ 
+ libstdc__exp_la_SOURCES = $(sources)
+ 
++## Keep these lists sync'd with src/Makefile.am:all-in-experimental, which
++## builds those directories before this one links their archives.
+ libstdc__exp_la_LIBADD = \
+ 	$(top_builddir)/src/c++23/libc++23convenience.la \
+ 	$(top_builddir)/src/c++26/libc++26convenience.la \
+-- 
+2.55.0
+
