@@ -1,0 +1,35 @@
+From 83c3e90432f9ebc97785d81be7a94066d9923920 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Sat, 29 Mar 2025 22:47:54 +0800
+Subject: [PATCH] gcc/mingw: Align `.refptr.` to 8-byte boundaries for 64-bit
+ targets
+
+Windows only requires sections to be aligned on a 4-byte boundary. This used
+to work because in binutils the `.rdata` section is over-aligned to a 16-byte
+boundary, which will be fixed in the future.
+
+This matches the output of Clang.
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+
+gcc/ChangeLog:
+	* config/mingw/winnt.cc (mingw_pe_file_end): Add `.p2align`.
+---
+ gcc/config/mingw/winnt.cc | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/gcc/config/mingw/winnt.cc b/gcc/config/mingw/winnt.cc
+index ed80fdac21b4..f22496615eda 100644
+--- a/gcc/config/mingw/winnt.cc
++++ b/gcc/config/mingw/winnt.cc
+@@ -833,6 +833,7 @@ mingw_pe_file_end (void)
+ 	    }
+ 
+ 	  fprintf (asm_out_file, "\t.section\t.rdata$%s, \"dr\"\n"
++			   "\t.p2align\t3, 0\n"
+ 	  		   "\t.globl\t%s\n"
+ 			   "\t.linkonce\tdiscard\n", oname, oname);
+ 	  fprintf (asm_out_file, "%s:\n\t.quad\t%s\n", oname, name);
+-- 
+2.49.0
+
