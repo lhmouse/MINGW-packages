@@ -1,7 +1,7 @@
-From cbe91a182184704e76eeac8d47cad7aaff5c9f24 Mon Sep 17 00:00:00 2001
+From 5239275bb4df0e79bc4b2af57d90c2d10ad44863 Mon Sep 17 00:00:00 2001
 From: LIU Hao <lh_mouse@126.com>
 Date: Wed, 11 May 2022 22:42:53 +0800
-Subject: [PATCH 13/16] Allow a PCH to be mapped to a different address
+Subject: [PATCH] Allow a PCH to be mapped to a different address
 
 First, try mapping the PCH to its original address. If that fails, try
 letting the system choose one; the PCH can be relocated thereafter.
@@ -19,7 +19,7 @@ Reference: https://gcc.gnu.org/pipermail/gcc-patches/2022-May/594556.html
  1 file changed, 15 insertions(+), 17 deletions(-)
 
 diff --git a/gcc/config/i386/host-mingw32.cc b/gcc/config/i386/host-mingw32.cc
-index f915b85abd0..cb254629029 100644
+index e083f49f3da7..87804a5bb755 100644
 --- a/gcc/config/i386/host-mingw32.cc
 +++ b/gcc/config/i386/host-mingw32.cc
 @@ -135,7 +135,6 @@ mingw32_gt_pch_use_address (void *&addr, size_t size, int fd,
@@ -31,7 +31,7 @@ index f915b85abd0..cb254629029 100644
    version_info.dwOSVersionInfoSize = sizeof (version_info);
  
 @@ -169,25 +168,24 @@ mingw32_gt_pch_use_address (void *&addr, size_t size, int fd,
-       return -1; 
+       return -1;
      }
  
 -  /* Retry five times, as here might occure a race with multiple gcc's
@@ -45,7 +45,7 @@ index f915b85abd0..cb254629029 100644
 -      if (r != 4)
 -        Sleep (500);
 -   }
--      
+-
 -  if (mmap_addr != addr)
 +  /* Try mapping the file at `addr`.  */
 +  mmap_addr = MapViewOfFileEx (mmap_handle, FILE_MAP_COPY, 0, offset,
@@ -72,5 +72,5 @@ index f915b85abd0..cb254629029 100644
  }
  
 -- 
-2.38.1
+2.48.1
 
