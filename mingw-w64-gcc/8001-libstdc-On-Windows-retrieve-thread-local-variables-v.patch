@@ -1,0 +1,129 @@
+From 108c58d31a7c2afdd691f0c19132c92f7da50d1d Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Wed, 3 Dec 2025 11:10:46 +0800
+Subject: [PATCH] libstdc++: On Windows, retrieve thread-local variables via
+ functions
+
+For Windows, GCC can be configured with `--enable-tls` to enable native TLS.
+The native TLS implementation has a limitation that it is incapable of
+exporting thread-local variables from DLLs. Therefore, they are retrieved
+via getter functions instead.
+
+libstdc++-v3/ChangeLog:
+
+	* config/os/mingw32-w64/os_defines.h (_GLIBCXX_NO_EXTERN_THREAD_LOCAL): New
+	macro.
+	* include/std/mutex (__get_once_callable): Declare function when
+	_GLIBCXX_NO_EXTERN_THREAD_LOCAL.
+	(__get_once_call): Likewise.
+	(once_flag::_Prepare_execution::_Prepare_execution): Retrieve thread-local
+	pointers via functions when _GLIBCXX_NO_EXTERN_THREAD_LOCAL.
+	(once_flag::_Prepare_execution::~_Prepare_execution): Likewise.
+	* src/c++11/mutex.cc (__get_once_callable): Define function when
+	_GLIBCXX_NO_EXTERN_THREAD_LOCAL.
+	(__get_once_call): Likewise.
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ .../config/os/mingw32-w64/os_defines.h        |  4 +++
+ libstdc++-v3/include/std/mutex                | 26 +++++++++++++++++--
+ libstdc++-v3/src/c++11/mutex.cc               | 14 ++++++++++
+ 3 files changed, 42 insertions(+), 2 deletions(-)
+
+diff --git a/libstdc++-v3/config/os/mingw32-w64/os_defines.h b/libstdc++-v3/config/os/mingw32-w64/os_defines.h
+index 893cd704891b..70106fe792c6 100644
+--- a/libstdc++-v3/config/os/mingw32-w64/os_defines.h
++++ b/libstdc++-v3/config/os/mingw32-w64/os_defines.h
+@@ -96,4 +96,8 @@
+ // See libstdc++/94268
+ #define _GLIBCXX_BUFSIZ 4096
+ 
++// Use functions to access thread-local variables from a different module.
++// Windows does not support exporting thread-local data.
++#define _GLIBCXX_NO_EXTERN_THREAD_LOCAL 1
++
+ #endif
+diff --git a/libstdc++-v3/include/std/mutex b/libstdc++-v3/include/std/mutex
+index d4fc4c646488..703d8ca69997 100644
+--- a/libstdc++-v3/include/std/mutex
++++ b/libstdc++-v3/include/std/mutex
+@@ -817,9 +817,21 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+ # ifdef _GLIBCXX_HAVE_TLS
+   // If TLS is available use thread-local state for the type-erased callable
+   // that is being run by std::call_once in the current thread.
++#  ifdef _GLIBCXX_NO_EXTERN_THREAD_LOCAL
++
++  void*&
++  __get_once_callable() noexcept;
++
++  __typeof__(void (*)())&
++  __get_once_call() noexcept;
++
++#  else // ! _GLIBCXX_NO_EXTERN_THREAD_LOCAL
++
+   extern __thread void* __once_callable;
+   extern __thread void (*__once_call)();
+ 
++#  endif // ! _GLIBCXX_NO_EXTERN_THREAD_LOCAL
++
+   // RAII type to set up state for pthread_once call.
+   struct once_flag::_Prepare_execution
+   {
+@@ -827,17 +839,27 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+       explicit
+       _Prepare_execution(_Callable& __c)
+       {
+-	// Store address in thread-local pointer:
++	// Store address in thread-local pointer, and trampoline function to
++	// invoke the closure via thread-local pointer.
++#  ifdef _GLIBCXX_NO_EXTERN_THREAD_LOCAL
++	__get_once_callable() = std::__addressof(__c);
++	__get_once_call() = [] { (*static_cast<_Callable*>(__get_once_callable()))(); };
++#  else
+ 	__once_callable = std::__addressof(__c);
+-	// Trampoline function to invoke the closure via thread-local pointer:
+ 	__once_call = [] { (*static_cast<_Callable*>(__once_callable))(); };
++#  endif
+       }
+ 
+     ~_Prepare_execution()
+     {
+       // PR libstdc++/82481
++#  ifdef _GLIBCXX_NO_EXTERN_THREAD_LOCAL
++      __get_once_callable() = nullptr;
++      __get_once_call() = nullptr;
++#  else
+       __once_callable = nullptr;
+       __once_call = nullptr;
++#  endif
+     }
+ 
+     _Prepare_execution(const _Prepare_execution&) = delete;
+diff --git a/libstdc++-v3/src/c++11/mutex.cc b/libstdc++-v3/src/c++11/mutex.cc
+index d5da5c66ae99..82f0afa4cb4e 100644
+--- a/libstdc++-v3/src/c++11/mutex.cc
++++ b/libstdc++-v3/src/c++11/mutex.cc
+@@ -34,6 +34,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+   __thread void* __once_callable;
+   __thread void (*__once_call)();
+ 
++# ifdef _GLIBCXX_NO_EXTERN_THREAD_LOCAL
++
++  // When thread-local variables can't be exported, these functions are called
++  // to retrieve these variables.
++  void*&
++  __get_once_callable() noexcept
++  { return __once_callable; }
++
++  __typeof__(void (*)())&
++  __get_once_call() noexcept
++  { return __once_call; }
++
++# endif // _GLIBCXX_NO_EXTERN_THREAD_LOCAL
++
+   extern "C" void __once_proxy()
+   {
+     // The caller stored a function pointer in __once_call. If it requires
+-- 
+2.52.0
+
