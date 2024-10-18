@@ -1,0 +1,152 @@
+From f70a4b3dac551ecbc3211b98a43f6024e03943f7 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Fri, 13 Nov 2026 15:49:30 +0800
+Subject: [PATCH] gcc/mingw: Fix user symbol prefix handling for directives
+
+When a function or variable is defined without an `asm` label, a user label
+prefix is added by `ASM_OUTPUT_LABELREF()` in assembly; it doesn't exist yet
+in `i386_pe_assemble_visibility()`. Old code checked for a user label prefix
+and might strip a leading underscore that is genuinely part of the function
+name.
+
+However, when a function or variable is defined with an `asm` label, the
+compiler no longer adds a user label prefix. In this case the `asm` label
+should include a user label prefix, which is passed to
+`i386_pe_assemble_visibility()` after a leading `*`, which requires special
+treatment.
+
+A similar issue exists for `-export:`.
+
+gcc/ChangeLog:
+
+	* config/mingw/winnt.cc (i386_pe_drectve_name): Change parameter to take a
+	string, and only check for a user label prefix if the name is supplied by
+	an `asm` label.
+	(i386_pe_assemble_visibility): Update call to `i386_pe_drectve_name()`.
+	(mingw_pe_file_end): Call `i386_pe_drectve_name()` instead of the default.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/visibility-hidden-mingw-32.c: Add new testcases.
+	* gcc.target/i386/dllexport-custom-symbol-mingw-32.c: New test.
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ gcc/config/mingw/winnt.cc                     | 45 ++++++++++++-------
+ .../i386/dllexport-custom-symbol-mingw-32.c   |  6 +++
+ .../i386/visibility-hidden-mingw-32.c         | 11 +++++
+ 3 files changed, 47 insertions(+), 15 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/dllexport-custom-symbol-mingw-32.c
+
+diff --git a/gcc/config/mingw/winnt.cc b/gcc/config/mingw/winnt.cc
+index 2e06b0e81462..91b0f8b6867a 100644
+--- a/gcc/config/mingw/winnt.cc
++++ b/gcc/config/mingw/winnt.cc
+@@ -254,21 +254,36 @@ i386_pe_maybe_mangle_decl_assembler_name (tree decl, tree id)
+ 
+ #endif
+ 
+-/* Return the symbol spelling used by .drectve exclude-symbols directives.
+-   This is the external name without the user label prefix, while preserving
+-   calling-convention decoration such as fastcall's leading '@' or a
+-   stdcall suffix.  */
++/* Return the symbol spelling used by the .drectve `-exclude-symbols:` and
++   `-export:` directives.  This is the external name without the user label
++   prefix, while preserving calling-convention decoration such as fastcall's
++   leading `@` or a stdcall suffix.
++
++   When the name doesn't start with `*`, no user label prefix has been
++   added yet (it will be added by `ASM_OUTPUT_LABELREF()`), and the linker
++   will also add one to the name given in a directive, so we pass the name
++   unchanged.
++
++   When the name starts with `*`, the remaining part is exactly the symbol
++   that is specified with `asm` in the declaration.  The compiler does not
++   add a user label prefix in this case, but the linker will add one: For
++   example, if the symbol is `_foo`, we must pass `-export:"foo"` without
++   the prefix.  This relies on the convention that an `asm` label includes
++   a user label prefix; an `asm` label such as `foo`, which doesn't
++   include one, cannot be exported this way.  */
+ 
+ static const char *
+-i386_pe_drectve_name (tree id)
++i386_pe_drectve_name (const char *name)
+ {
+-  const char *name = targetm.strip_name_encoding (IDENTIFIER_POINTER (id));
+-  size_t prefix_len = strlen (user_label_prefix);
+-
+-  if (prefix_len != 0
+-      && strncmp (name, user_label_prefix, prefix_len) == 0)
+-    name += prefix_len;
+-
++  if (*name == '*')
++    {
++      /* The name is from an `asm` label.  */
++      name++;
++      size_t prefix_len = strlen (user_label_prefix);
++      if (prefix_len != 0
++	  && strncmp (name, user_label_prefix, prefix_len) == 0)
++	name += prefix_len;
++    }
+   return name;
+ }
+ 
+@@ -285,8 +300,8 @@ i386_pe_assemble_visibility (tree decl, int vis)
+ 
+   if (vis == VISIBILITY_HIDDEN || vis == VISIBILITY_INTERNAL)
+     {
+-      tree id = DECL_ASSEMBLER_NAME (decl);
+-      const char *name = i386_pe_drectve_name (id);
++      const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
++      name = i386_pe_drectve_name (name);
+       drectve_section ();
+       fprintf (asm_out_file, "\t.ascii \" -exclude-symbols:%s\"\n", name);
+     }
+@@ -847,7 +862,7 @@ mingw_pe_file_end (void)
+       for (q = export_head; q != NULL; q = q->next)
+ 	{
+ 	  fprintf (asm_out_file, "\t.ascii \" -export:\\\"%s\\\"%s\"\n",
+-		   default_strip_name_encoding (q->name),
++		   i386_pe_drectve_name (q->name),
+ 		   (q->is_data ? ",data" : ""));
+ 	}
+     }
+diff --git a/gcc/testsuite/gcc.target/i386/dllexport-custom-symbol-mingw-32.c b/gcc/testsuite/gcc.target/i386/dllexport-custom-symbol-mingw-32.c
+new file mode 100644
+index 000000000000..36f675b4e35a
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/dllexport-custom-symbol-mingw-32.c
+@@ -0,0 +1,6 @@
++/* { dg-do compile { target i?86-*-mingw32* i?86-*-cygwin* } } */
++
++__attribute__((dllexport)) void foo (void) __asm__("_bar");
++__attribute__((dllexport)) void foo (void) {}
++
++/* { dg-final { scan-assembler " -export:\[\\\\\"\]*bar" } } */
+diff --git a/gcc/testsuite/gcc.target/i386/visibility-hidden-mingw-32.c b/gcc/testsuite/gcc.target/i386/visibility-hidden-mingw-32.c
+index a952c71a013f..f6facff77ee0 100644
+--- a/gcc/testsuite/gcc.target/i386/visibility-hidden-mingw-32.c
++++ b/gcc/testsuite/gcc.target/i386/visibility-hidden-mingw-32.c
+@@ -5,8 +5,19 @@ void some_cdecl (int, int) {}
+ void __attribute__((stdcall)) some_stdcall (int, int) {}
+ void __attribute__((fastcall)) some_fastcall (int, int) {}
+ 
++void _prefixed_cdecl (int, int) {}
++void __attribute__((stdcall)) _prefixed_stdcall (int, int) {}
++void __attribute__((fastcall)) _prefixed_fastcall (int, int) {}
++
++void with_custom_symbol (int, int) __asm__("_custom_symbol");
++void with_custom_symbol (int, int) {}
++
+ /* Hidden visibility on 32-bit PE/COFF drops the user label prefix in
+    .drectve, but keeps stdcall and fastcall decoration.  */
+ /* { dg-final { scan-assembler {-exclude-symbols:some_cdecl} } } */
+ /* { dg-final { scan-assembler {-exclude-symbols:some_stdcall@8} } } */
+ /* { dg-final { scan-assembler {-exclude-symbols:@some_fastcall@8} } } */
++/* { dg-final { scan-assembler {-exclude-symbols:_prefixed_cdecl} } } */
++/* { dg-final { scan-assembler {-exclude-symbols:_prefixed_stdcall@8} } } */
++/* { dg-final { scan-assembler {-exclude-symbols:@_prefixed_fastcall@8} } } */
++/* { dg-final { scan-assembler {-exclude-symbols:custom_symbol} } } */
+-- 
+2.56.1
+

@@ -1,0 +1,86 @@
+From e3fc7e21254819cd734b5542e731476389ee09a7 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Sat, 27 Jun 2026 22:24:36 +0800
+Subject: [PATCH 9204/9205] libgomp/mingw32: Implement `cpu_relax()` and
+ `doacross_spin()` for Windows
+
+`cpu_relax()` uses the macro `YieldProcessor()` which is available on all
+architectures. It expands to PAUSE for x86-family processors, and to DMB ISHST
+for ARM-family processors.
+
+`doacross_spin()` is the same as the pthread one.
+
+libgomp/ChangeLog:
+
+	* config/mingw32/doacross.h: New file.
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ libgomp/config/mingw32/doacross.h | 55 +++++++++++++++++++++++++++++++
+ 1 file changed, 55 insertions(+)
+ create mode 100644 libgomp/config/mingw32/doacross.h
+
+diff --git a/libgomp/config/mingw32/doacross.h b/libgomp/config/mingw32/doacross.h
+new file mode 100644
+index 000000000000..601afa5a08f0
+--- /dev/null
++++ b/libgomp/config/mingw32/doacross.h
+@@ -0,0 +1,55 @@
++/* Copyright (C) 2015-2026 Free Software Foundation, Inc.
++   Contributed by LIU Hao <lh_mouse@126.com>
++
++   This file is part of the GNU Offloading and Multi Processing Library
++   (libgomp).
++
++   Libgomp is free software; you can redistribute it and/or modify it
++   under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 3, or (at your option)
++   any later version.
++
++   Libgomp is distributed in the hope that it will be useful, but WITHOUT ANY
++   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
++   FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++   more details.
++
++   Under Section 7 of GPL version 3, you are granted additional
++   permissions described in the GCC Runtime Library Exception, version
++   3.1, as published by the Free Software Foundation.
++
++   You should have received a copy of the GNU General Public License and
++   a copy of the GCC Runtime Library Exception along with this program;
++   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
++   <http://www.gnu.org/licenses/>.  */
++
++/* This is the Windows implementation of doacross spinning.  */
++
++#ifndef GOMP_DOACROSS_H
++#define GOMP_DOACROSS_H 1
++
++#include "libgomp.h"
++#define WIN32_LEAN_AND_MEAN
++#include <windows.h>
++
++static inline void
++cpu_relax (void)
++{
++  YieldProcessor ();
++}
++
++static inline void doacross_spin (unsigned long *addr, unsigned long expected,
++				  unsigned long cur)
++{
++  /* FIXME: back off depending on how large expected - cur is.  */
++  do
++    {
++      cpu_relax ();
++      cur = __atomic_load_n (addr, MEMMODEL_RELAXED);
++      if (expected < cur)
++	return;
++    }
++  while (1);
++}
++
++#endif /* GOMP_DOACROSS_H */
+-- 
+2.54.0
+

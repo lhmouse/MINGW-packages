@@ -1,0 +1,27 @@
+From b25de497a7310804e26a8bb28b843330d0d9a4d3 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Fri, 20 Nov 2026 10:35:54 +0800
+Subject: [PATCH] gcc/mingw: Use `__cxa_atexit`
+
+---
+ gcc/config/mingw/mingw32.h | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/gcc/config/mingw/mingw32.h b/gcc/config/mingw/mingw32.h
+index 6aae8f52d4bd..cc89ade35fe5 100644
+--- a/gcc/config/mingw/mingw32.h
++++ b/gcc/config/mingw/mingw32.h
+@@ -278,10 +278,6 @@ do {						         \
+ #undef GTM_SELF_SPECS
+ #define GTM_SELF_SPECS "%{fgnu-tm:-mthreads -pthread}"
+ 
+-/* mingw32 atexit function is safe to use in shared libraries.  Use it
+-   to register C++ static destructors.  */
+-#define TARGET_CXX_USE_ATEXIT_FOR_CXA_ATEXIT hook_bool_void_true
+-
+ /* Contains a pointer to type target_ovr_attr defining the target specific
+    overrides of format attributes.  See c-format.h for structure
+    definition.  */
+-- 
+2.56.1
+

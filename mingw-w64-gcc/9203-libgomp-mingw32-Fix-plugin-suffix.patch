@@ -1,0 +1,52 @@
+From 134c8887e6c84a3b8416faebc7c77a3dd0a46409 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Sat, 27 Jun 2026 20:47:25 +0800
+Subject: [PATCH 9203/9205] libgomp/mingw32: Fix plugin suffix
+
+On Windows a shared library is named like `lib<name>-<major>.dll`.
+
+libgomp/ChangeLog:
+
+	* config/mingw32/plugin-suffix.h: New file.
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ libgomp/config/mingw32/plugin-suffix.h | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+ create mode 100644 libgomp/config/mingw32/plugin-suffix.h
+
+diff --git a/libgomp/config/mingw32/plugin-suffix.h b/libgomp/config/mingw32/plugin-suffix.h
+new file mode 100644
+index 000000000000..9425a3951c88
+--- /dev/null
++++ b/libgomp/config/mingw32/plugin-suffix.h
+@@ -0,0 +1,26 @@
++/* Copyright (C) 2015-2026 Free Software Foundation, Inc.
++   Contributed by LIU Hao <lh_mouse@126.com>
++
++   This file is part of the GNU Offloading and Multi Processing Library
++   (libgomp).
++
++   Libgomp is free software; you can redistribute it and/or modify it
++   under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 3, or (at your option)
++   any later version.
++
++   Libgomp is distributed in the hope that it will be useful, but WITHOUT ANY
++   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
++   FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++   more details.
++
++   Under Section 7 of GPL version 3, you are granted additional
++   permissions described in the GCC Runtime Library Exception, version
++   3.1, as published by the Free Software Foundation.
++
++   You should have received a copy of the GNU General Public License and
++   a copy of the GCC Runtime Library Exception along with this program;
++   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
++   <http://www.gnu.org/licenses/>.  */
++
++#define SONAME_SUFFIX(n) ("-" #n ".dll")
+-- 
+2.54.0
+

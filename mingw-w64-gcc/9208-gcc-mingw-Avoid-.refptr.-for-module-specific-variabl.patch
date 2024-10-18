@@ -1,0 +1,78 @@
+From f3e8951454c208f451c6fd99356f1e39cc47fe47 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Fri, 20 Nov 2026 19:07:50 +0800
+Subject: [PATCH] gcc/mingw: Avoid `.refptr.` for module-specific variables
+
+---
+ gcc/config/mingw/winnt-dll.cc | 41 +++++++++++++++++++++++++++++++++--
+ 1 file changed, 39 insertions(+), 2 deletions(-)
+
+diff --git a/gcc/config/mingw/winnt-dll.cc b/gcc/config/mingw/winnt-dll.cc
+index a28ae267fc9b..298dd1442152 100644
+--- a/gcc/config/mingw/winnt-dll.cc
++++ b/gcc/config/mingw/winnt-dll.cc
+@@ -183,6 +183,41 @@ legitimize_dllimport_symbol (rtx symbol, bool want_reg)
+   return x;
+ }
+ 
++/* Check whether an external variable is module-specific.  These variables
++   are neither to be exported nor to be imported from DLLs.  */
++
++static bool
++is_module_local_variable (rtx symbol)
++{
++  tree decl = SYMBOL_REF_DECL (symbol);
++  gcc_assert (decl);
++
++  const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
++  name = targetm.strip_name_encoding (name);
++
++  static const char *const module_local_names[] =
++    {
++      "__chpe_metadata",
++      "__CTOR_LIST__",
++      "__DTOR_LIST__",
++      "__EH_FRAME_BEGIN__",
++      "__FRAME_END__",
++      "__ImageBase",
++      "_load_config_used",
++      "__RUNTIME_PSEUDO_RELOC_LIST__",
++      "__RUNTIME_PSEUDO_RELOC_LIST_END__",
++      "__security_cookie",  /* Microsoft name for `__stack_chk_guard`  */
++      "__stack_chk_guard",  /* added in mingw-w64 CRT in 2022-10  */
++      "_tls_index",
++      "_tls_used",
++    };
++
++  for (const char *local_name : module_local_names)
++    if (strcmp (name, local_name) == 0)
++      return true;
++  return false;
++}
++
+ /* Expand SYMBOL into its corresponding dllimport or refptr symbol.  WANT_REG
+    is true if we require the result be a register.  */
+ 
+@@ -212,7 +247,8 @@ legitimize_pe_coff_symbol (rtx addr, bool inreg)
+   if (GET_CODE (addr) == SYMBOL_REF
+       && !is_imported_p (addr)
+       && SYMBOL_REF_EXTERNAL_P (addr)
+-      && SYMBOL_REF_DECL (addr))
++      && SYMBOL_REF_DECL (addr)
++      && !is_module_local_variable (addr))
+     return legitimize_pe_coff_extern_decl (addr, inreg);
+ 
+   if (GET_CODE (addr) == CONST
+@@ -220,7 +256,8 @@ legitimize_pe_coff_symbol (rtx addr, bool inreg)
+       && GET_CODE (XEXP (XEXP (addr, 0), 0)) == SYMBOL_REF
+       && !is_imported_p (XEXP (XEXP (addr, 0), 0))
+       && SYMBOL_REF_EXTERNAL_P (XEXP (XEXP (addr, 0), 0))
+-      && SYMBOL_REF_DECL (XEXP (XEXP (addr, 0), 0)))
++      && SYMBOL_REF_DECL (XEXP (XEXP (addr, 0), 0))
++      && !is_module_local_variable (XEXP (XEXP (addr, 0), 0)))
+     {
+       rtx t = legitimize_pe_coff_extern_decl (XEXP (XEXP (addr, 0), 0), inreg);
+       return gen_rtx_PLUS (Pmode, t, XEXP (XEXP (addr, 0), 1));
+-- 
+2.56.1
+

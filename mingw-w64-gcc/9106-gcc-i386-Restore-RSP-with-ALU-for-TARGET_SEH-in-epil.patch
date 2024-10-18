@@ -1,0 +1,108 @@
+From e28cef805faddf3559ef1112f55315033b0ff6e3 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Mon, 16 Nov 2026 15:58:30 +0800
+Subject: [PATCH] gcc/i386: Restore RSP with ALU for `TARGET_SEH` in epilogue
+
+When the target uses SEH for stack unwinding, Microsoft docs have strict
+requirements on what may appear in the epilogue: Using LEA with RSP as the
+base pointer is prohibited; only LEA with RBP is allowed.
+
+When `TARGET_SEH` is in effect and the destination and source operands are
+both RSP, we must use an ADD instruction there; MOV and LEA are no option.
+
+For `TARGET_SEH`, `@pro_epilogue_adjust_stack_add_nocc<mode>` is currently
+unreachable, as `ix86_get_separate_components()` always returns an empty
+bitmap, but `!TARGET_SEH` is added for correctness.
+
+	PR target/122933
+
+gcc/ChangeLog:
+
+	* config/i386/i386.md (@pro_epilogue_adjust_stack_add_<mode>): Restore
+	RSP with ALU for `TARGET_SEH`.
+	(@pro_epilogue_adjust_stack_add_nocc<mode>): Disable for `TARGET_SEH`.
+
+gcc/testsuite/ChangeLog:
+
+	* gcc.target/i386/pr122933.c: New test.
+
+Reference: https://learn.microsoft.com/en-us/cpp/build/prolog-and-epilog?view=msvc-170#epilog-code
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ gcc/config/i386/i386.md                  | 12 +++++++++---
+ gcc/testsuite/gcc.target/i386/pr122933.c | 25 ++++++++++++++++++++++++
+ 2 files changed, 34 insertions(+), 3 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/pr122933.c
+
+diff --git a/gcc/config/i386/i386.md b/gcc/config/i386/i386.md
+index 23a9bc7fa591..15fa94920d0b 100644
+--- a/gcc/config/i386/i386.md
++++ b/gcc/config/i386/i386.md
+@@ -28746,6 +28746,10 @@
+ ;; [(set (mem (plus (reg ebp) (const_int -160000))) (const_int 0))]
+ ;;
+ ;; in proper program order.
++;;
++;; When the target uses SEH unwinding, only `add` and `lea` from the frame
++;; pointer are the allowed patterns; `lea` from the stack pointer and `mov`
++;; are prohibated.
+ 
+ (define_insn "@pro_epilogue_adjust_stack_add_<mode>"
+   [(set (match_operand:P 0 "register_operand" "=r,r")
+@@ -28774,9 +28778,11 @@
+ }
+   [(set (attr "type")
+ 	(cond [(and (eq_attr "alternative" "0")
+-		    (not (match_test "TARGET_OPT_AGU")))
++		    (ior (not (match_test "TARGET_OPT_AGU"))
++			 (match_test "TARGET_SEH")))
+ 		 (const_string "alu")
+-	       (match_operand 2 "const0_operand")
++	       (and (match_operand 2 "const0_operand")
++		    (not (match_test "TARGET_SEH")))
+ 		 (const_string "imov")
+ 	      ]
+ 	      (const_string "lea")))
+@@ -28795,7 +28801,7 @@
+ 	(plus:P (match_operand:P 1 "register_operand" "r")
+ 		(match_operand:P 2 "<nonmemory_operand>" "l<i>")))
+    (clobber (mem:BLK (scratch)))]
+-  ""
++  "!TARGET_SEH"
+ {
+   if (get_attr_type (insn) == TYPE_IMOV)
+     return "mov{<imodesuffix>}\t{%1, %0|%0, %1}";
+diff --git a/gcc/testsuite/gcc.target/i386/pr122933.c b/gcc/testsuite/gcc.target/i386/pr122933.c
+new file mode 100644
+index 000000000000..9a51fd3f6f73
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/pr122933.c
+@@ -0,0 +1,25 @@
++/* PR target/122933 */
++/* { dg-do compile { target x86_64-*-mingw* x86_64-*-cygwin* } } */
++/* { dg-options "-O2 -fasynchronous-unwind-tables -mtune=silvermont -fno-omit-frame-pointer" } */
++
++void use (void *);
++
++int
++f (int n)
++  {
++    char buf[500];
++    use (buf);
++    return n;
++  }
++
++int
++g (int n)
++  {
++    int save = n + 1;
++    char *p = (char *) __builtin_alloca (n);
++    use (p);
++    return save;
++  }
++
++/* { dg-final { scan-assembler-not "lea\[^\n\]*%rsp\[^\n\]*, \[ \t\]*%rsp" } } */
++/* { dg-final { scan-assembler "lea\[^\n\]*%rbp\[^\n\]*, \[ \t\]*%rsp" } } */
+-- 
+2.56.1
+
