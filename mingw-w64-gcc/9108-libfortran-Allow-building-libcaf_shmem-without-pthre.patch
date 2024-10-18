@@ -1,0 +1,68 @@
+From fc8cdd448063d807e3c7aeeba567d9a46ab7c804 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Mon, 21 Sep 2026 14:04:47 +0800
+Subject: [PATCH] libfortran: Allow building libcaf_shmem without pthread
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ libgfortran/configure    | 9 +++++++++
+ libgfortran/configure.ac | 9 +++++++++
+ 2 files changed, 18 insertions(+)
+
+diff --git a/libgfortran/configure b/libgfortran/configure
+index 75cf47e3a194..705056de275f 100755
+--- a/libgfortran/configure
++++ b/libgfortran/configure
+@@ -17750,6 +17750,13 @@ done
+ 
+ fi
+ 
++case "${host_os}" in
++  mingw*)
++    # caf_shmem does not link against pthread.
++    enable_caf_shmem=true
++    ;;
++
++  *)
+ # Check for existing and usable pthreads.
+ 
+ 
+@@ -18452,6 +18459,8 @@ fi
+ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+   CFLAGS="$save_CFLAGS"
+ fi
++;;
++esac
+  if test x$enable_caf_shmem = xtrue; then
+   ENABLE_CAF_SHMEM_TRUE=
+   ENABLE_CAF_SHMEM_FALSE='#'
+diff --git a/libgfortran/configure.ac b/libgfortran/configure.ac
+index da9ae604cab5..70edb6b1b3ec 100644
+--- a/libgfortran/configure.ac
++++ b/libgfortran/configure.ac
+@@ -343,6 +343,13 @@ else
+    freelocale uselocale strerror_l strtof128 strfromf128)
+ fi
+ 
++case "${host_os}" in
++  mingw*)
++    # caf_shmem does not link against pthread.
++    enable_caf_shmem=true
++    ;;
++
++  *)
+ # Check for existing and usable pthreads.
+ AX_PTHREAD([
+   enable_caf_shmem=true
+@@ -375,6 +382,8 @@ if test x$enable_caf_shmem = xtrue; then
+      enable_caf_shmem=false])
+   CFLAGS="$save_CFLAGS"
+ fi
++;;
++esac
+ AM_CONDITIONAL([ENABLE_CAF_SHMEM], [test x$enable_caf_shmem = xtrue])
+ 
+ # Check strerror_r, cannot be above as versions with two and three arguments exist
+-- 
+2.55.0
+

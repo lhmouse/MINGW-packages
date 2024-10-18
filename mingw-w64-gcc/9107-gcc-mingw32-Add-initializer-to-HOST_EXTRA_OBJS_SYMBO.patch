@@ -1,0 +1,35 @@
+From b9b645bc2c047ac87b26cbe575398c648e2ecd34 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Tue, 13 Oct 2026 10:32:18 +0800
+Subject: [PATCH] gcc/mingw32: Add initializer to `HOST_EXTRA_OBJS_SYMBOL`
+
+c7282ce59753dd809ca567d045dc356d56b88fe2 added `extern "C"` to
+`HOST_EXTRA_OBJS_SYMBOL`, so it became a declaration instead of a definition
+and the symbol was no longer defined.
+
+This commit adds an explicit initializer to make it a definition.
+
+gcc/ChangeLog:
+
+	* config/i386/sym-mingw32.cc (HOST_EXTRA_OBJS_SYMBOL): Add explicit
+	initializer to zero.
+
+Reported-by: Oleg Tolmatcev <oleg.tolmatcev@gmail.com>
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ gcc/config/i386/sym-mingw32.cc | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/gcc/config/i386/sym-mingw32.cc b/gcc/config/i386/sym-mingw32.cc
+index 5403dd2cfe98..24ad7ff6c12f 100644
+--- a/gcc/config/i386/sym-mingw32.cc
++++ b/gcc/config/i386/sym-mingw32.cc
+@@ -1,4 +1,4 @@
+ /* Prevent any name mangling to make sure that the linker
+    will always find the symbol. */
+ extern "C" __attribute__ ((visibility ("hidden")))
+-char HOST_EXTRA_OBJS_SYMBOL asm ("HOST_EXTRA_OBJS_SYMBOL");
++char HOST_EXTRA_OBJS_SYMBOL asm ("HOST_EXTRA_OBJS_SYMBOL") = 0;
+-- 
+2.56.0
+

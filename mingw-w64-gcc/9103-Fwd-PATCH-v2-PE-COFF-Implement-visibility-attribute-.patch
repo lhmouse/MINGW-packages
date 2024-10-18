@@ -1,0 +1,141 @@
+From b6c0c8dbcbf7df6eaa11b587b8e6708c2e8ab8f9 Mon Sep 17 00:00:00 2001
+From: Oleg Tolmatcev <oleg.tolmatcev@gmail.com>
+Date: Sun, 9 Aug 2026 16:45:49 +0200
+Subject: [PATCH] Fwd: [PATCH v2] PE/COFF: Implement visibility attribute via
+ .drectve
+
+On PE/COFF targets (MinGW, Cygwin), the visibility attribute was
+previously ignored with a warning.  This patch makes it functional
+by emitting -exclude-symbols directives into the .drectve section,
+matching Clang's behavior.  The GNU linker already reads and
+respects these directives during auto-export, so hidden/internal
+symbols are now correctly excluded from DLL exports.
+
+gcc/ChangeLog:
+
+        * config/mingw/winnt.cc (i386_pe_drectve_name): New.
+        (i386_pe_assemble_visibility): Emit -exclude-symbols
+        directives into .drectve for VISIBILITY_HIDDEN and
+        VISIBILITY_INTERNAL instead of warning.  Use the external
+        symbol spelling for 32-bit PE names.
+
+gcc/testsuite/ChangeLog:
+
+        * gcc.target/i386/visibility-hidden-mingw.c: New test.
+        * gcc.target/i386/visibility-hidden-mingw-32.c: New test.
+
+Signed-off-by: Oleg Tolmatcev <oleg.tolmatcev@gmail.com>
+---
+ gcc/config/mingw/winnt.cc                     | 38 +++++++++++++++----
+ .../i386/visibility-hidden-mingw-32.c         | 12 ++++++
+ .../gcc.target/i386/visibility-hidden-mingw.c | 24 ++++++++++++
+ 3 files changed, 66 insertions(+), 8 deletions(-)
+ create mode 100644 gcc/testsuite/gcc.target/i386/visibility-hidden-mingw-32.c
+ create mode 100644 gcc/testsuite/gcc.target/i386/visibility-hidden-mingw.c
+
+diff --git a/gcc/config/mingw/winnt.cc b/gcc/config/mingw/winnt.cc
+index c73aa15ad37e..1b63df49141f 100644
+--- a/gcc/config/mingw/winnt.cc
++++ b/gcc/config/mingw/winnt.cc
+@@ -254,20 +254,42 @@ i386_pe_maybe_mangle_decl_assembler_name (tree decl, tree id)
+ 
+ #endif
+ 
++/* Return the symbol spelling used by .drectve exclude-symbols directives.
++   This is the external name without the user label prefix, while preserving
++   calling-convention decoration such as fastcall's leading '@' or a
++   stdcall suffix.  */
++
++static const char *
++i386_pe_drectve_name (tree id)
++{
++  const char *name = targetm.strip_name_encoding (IDENTIFIER_POINTER (id));
++  size_t prefix_len = strlen (user_label_prefix);
++
++  if (prefix_len != 0
++      && strncmp (name, user_label_prefix, prefix_len) == 0)
++    name += prefix_len;
++
++  return name;
++}
++
+ /* Emit an assembler directive to set symbol for DECL visibility to
+    the visibility type VIS, which must not be VISIBILITY_DEFAULT.
+-   As for PE there is no hidden support in gas, we just warn for
+-   user-specified visibility attributes.  */
++   Emit a -exclude-symbols directive into .drectve, compatible with
++   what Clang emits for hidden visibility on PE/COFF.  */
+ 
+ void
+-i386_pe_assemble_visibility (tree decl, int)
++i386_pe_assemble_visibility (tree decl, int vis)
+ {
+-  if (!decl
+-      || !lookup_attribute ("visibility", DECL_ATTRIBUTES (decl)))
++  if (!decl)
+     return;
+-  if (!DECL_ARTIFICIAL (decl))
+-    warning (OPT_Wattributes, "visibility attribute not supported "
+-			      "in this configuration; ignored");
++
++  if (vis == VISIBILITY_HIDDEN || vis == VISIBILITY_INTERNAL)
++    {
++      tree id = DECL_ASSEMBLER_NAME (decl);
++      const char *name = i386_pe_drectve_name (id);
++      drectve_section ();
++      fprintf (asm_out_file, "\t.ascii \" -exclude-symbols:%s\"\n", name);
++    }
+ }
+ 
+ #if !defined (TARGET_AARCH64_MS_ABI)
+diff --git a/gcc/testsuite/gcc.target/i386/visibility-hidden-mingw-32.c b/gcc/testsuite/gcc.target/i386/visibility-hidden-mingw-32.c
+new file mode 100644
+index 000000000000..a952c71a013f
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/visibility-hidden-mingw-32.c
+@@ -0,0 +1,12 @@
++/* { dg-do compile { target i?86-*-mingw32* i?86-*-cygwin* } } */
++/* { dg-options "-fvisibility=hidden" } */
++
++void some_cdecl (int, int) {}
++void __attribute__((stdcall)) some_stdcall (int, int) {}
++void __attribute__((fastcall)) some_fastcall (int, int) {}
++
++/* Hidden visibility on 32-bit PE/COFF drops the user label prefix in
++   .drectve, but keeps stdcall and fastcall decoration.  */
++/* { dg-final { scan-assembler {-exclude-symbols:some_cdecl} } } */
++/* { dg-final { scan-assembler {-exclude-symbols:some_stdcall@8} } } */
++/* { dg-final { scan-assembler {-exclude-symbols:@some_fastcall@8} } } */
+diff --git a/gcc/testsuite/gcc.target/i386/visibility-hidden-mingw.c b/gcc/testsuite/gcc.target/i386/visibility-hidden-mingw.c
+new file mode 100644
+index 000000000000..12d792631d4b
+--- /dev/null
++++ b/gcc/testsuite/gcc.target/i386/visibility-hidden-mingw.c
+@@ -0,0 +1,24 @@
++/* { dg-do link { target *-*-mingw* *-*-cygwin* } } */
++/* { dg-require-dll "" } */
++/* { dg-options "-shared -fvisibility=hidden -Wl,--output-def,visibility-hidden-mingw.def" } */
++
++void __attribute__((visibility("default"))) exported_func(void) {}
++void hidden_func(void) {}
++void __attribute__((visibility("hidden"))) explicit_hidden_func(void) {}
++void __attribute__((visibility("internal"))) internal_func(void) {}
++
++/* exported_func has default visibility, so it should be exported.  */
++/* { dg-final { scan-file visibility-hidden-mingw.def "(?n)^\\s*exported_func(?:\\s+@\[0-9\]+)?$" } } */
++
++/* hidden_func gets hidden from -fvisibility=hidden, so it should not be
++   auto-exported.  */
++/* { dg-final { scan-file-not visibility-hidden-mingw.def "(?n)^\\s*hidden_func(?:\\s+@\[0-9\]+)?$" } } */
++
++/* explicit_hidden_func is explicitly hidden, so it should not be
++   auto-exported.  */
++/* { dg-final { scan-file-not visibility-hidden-mingw.def "(?n)^\\s*explicit_hidden_func(?:\\s+@\[0-9\]+)?$" } } */
++
++/* internal_func has internal visibility, so it should not be auto-exported.  */
++/* { dg-final { scan-file-not visibility-hidden-mingw.def "(?n)^\\s*internal_func(?:\\s+@\[0-9\]+)?$" } } */
++
++/* { dg-final { remove-build-file "visibility-hidden-mingw.def" } } */
+-- 
+2.55.0
+
