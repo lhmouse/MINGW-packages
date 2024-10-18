@@ -1,0 +1,42 @@
+From dea7b9a78b11b5ca0c85b971521144ba07a66aca Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Sun, 27 Apr 2025 18:18:34 +0800
+Subject: [PATCH] gcc: For Windows x86-32, always attempt to realign stack
+ regardless of SSE
+
+For Windows x86-32 targets, the Microsoft ABI only guarantees that the stack
+is aligned to 4-byte boundaries. GCC knows about the default alignment of the
+stack. However, before this commit, it did not realign the stack unless SSE
+was also enabled.
+
+When a stricter (larger) alignment is requested, it's always necessary to
+realign the stack, as what Solaris does.
+
+Reference: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=111107#c14
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+Signed-off-by: Jonathan Yong <10walls@gmail.com>
+
+gcc/ChangeLog:
+
+	PR target/111107
+	* config/i386/cygming.h (STACK_REALIGN_DEFAULT): Copy from sol2.h.
+---
+ gcc/config/i386/cygming.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/gcc/config/i386/cygming.h b/gcc/config/i386/cygming.h
+index 3ddcbecb22fd..d587d25a58a8 100644
+--- a/gcc/config/i386/cygming.h
++++ b/gcc/config/i386/cygming.h
+@@ -36,7 +36,7 @@ along with GCC; see the file COPYING3.  If not see
+ /* 32-bit Windows aligns the stack on a 4-byte boundary but SSE instructions
+    may require 16-byte alignment.  */
+ #undef STACK_REALIGN_DEFAULT
+-#define STACK_REALIGN_DEFAULT TARGET_SSE
++#define STACK_REALIGN_DEFAULT (TARGET_64BIT ? 0 : 1)
+ 
+ /* Support hooks for SEH.  */
+ #undef  TARGET_ASM_UNWIND_EMIT
+-- 
+2.49.0
+
