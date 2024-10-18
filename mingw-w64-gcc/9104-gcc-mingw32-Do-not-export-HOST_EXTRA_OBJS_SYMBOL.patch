@@ -1,0 +1,39 @@
+From ab98931227d77503198762710c9a35a078badbe9 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Mon, 10 Aug 2026 13:56:09 +0800
+Subject: [PATCH] gcc/mingw32: Do not export `HOST_EXTRA_OBJS_SYMBOL`
+
+When building with `--enable-plugin`, the linker is passed `--export-all-symbols`
+so it attempts to export `HOST_EXTRA_OBJS_SYMBOL` which is an artificial symbol
+and is not prefixed with an underscore. For i686, the convention is that if the
+linker is told to export `foo`, it looks for `_foo`. Therefore in this case it
+attempts to export `_HOST_EXTRA_OBJS_SYMBOL` which isn't defined:
+
+   ld.exe: cannot export HOST_EXTRA_OBJS_SYMBOL: symbol not found
+   collect2.exe: error: ld returned 1 exit status
+
+Since this symbol is only used to create a reference to pull in the manifest
+resource for an image, the fix is to mark it as `visibility("hidden")` so it
+will not be exported, despite `--export-all-symbols`.
+
+In addition, since this is a C++ file, `extern "C"` is added for correctness.
+
+gcc/ChangeLog:
+
+	* config/i386/sym-mingw32.cc: Add `extern "C"` and `visibility("hidden")`.
+---
+ gcc/config/i386/sym-mingw32.cc | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/gcc/config/i386/sym-mingw32.cc b/gcc/config/i386/sym-mingw32.cc
+index 2f8dee6c1ecd..5403dd2cfe98 100644
+--- a/gcc/config/i386/sym-mingw32.cc
++++ b/gcc/config/i386/sym-mingw32.cc
+@@ -1,3 +1,4 @@
+ /* Prevent any name mangling to make sure that the linker
+    will always find the symbol. */
++extern "C" __attribute__ ((visibility ("hidden")))
+ char HOST_EXTRA_OBJS_SYMBOL asm ("HOST_EXTRA_OBJS_SYMBOL");
+-- 
+2.55.0
+

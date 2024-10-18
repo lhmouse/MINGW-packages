@@ -1,0 +1,80 @@
+From bf2aada7d8a4f701365d260a56cb7669a6934c3e Mon Sep 17 00:00:00 2001
+From: Kyrylo Tkachov <ktkachov@nvidia.com>
+Date: Tue, 11 Aug 2026 09:58:40 +0200
+Subject: [PATCH 9105/9106] toplevel: do not make libstdc++ configure wait for
+ libgomp
+
+libstdc++'s configure was made to depend on libgomp's configure by
+r0-83445-g6d3b5aea0bf4c9 ("configure.ac (TOPLEVEL_CONFIGURE_ARGUMENTS): Move
+libgomp before libstdc++.", 2007-09-20), when GLIBCXX_ENABLE_PARALLEL decided
+whether to enable parallel mode by looking for a configured libgomp/omp.h on
+disk:
+
+  if test -f $glibcxx_builddir/../libgomp/omp.h; then
+
+r0-98141-gaae29963cf81dd ("PR libstdc++/36101, PR libstdc++/42813",
+2010-01-22) replaced that with
+
+  if echo " ${TARGET_CONFIGDIRS} " | grep " libgomp " > /dev/null 2>&1 ; then
+
+so the test now reads a string the top level passes in, and nothing has to
+exist on disk by then.  The comment above it still describes the old
+behaviour, which is what makes the edge look necessary.
+
+Remove it.  The build time dependency, all-target-libstdc++-v3 on
+configure-target-libgomp, stays, since the parallel mode headers do include
+omp.h when they are compiled.
+
+This shortens the chain in front of libstdc++, which is the last thing to
+finish in every bootstrap stage.
+
+Bootstrapped on aarch64-none-linux-gnu.
+
+ChangeLog:
+
+	* Makefile.def (dependencies): Remove the configure-target-libstdc++-v3
+	on configure-target-libgomp dependency.
+	* Makefile.in: Regenerate.
+
+Signed-off-by: Kyrylo Tkachov <ktkachov@nvidia.com>
+---
+ Makefile.def |  1 -
+ Makefile.in  | 10 ----------
+ 2 files changed, 11 deletions(-)
+
+diff --git a/Makefile.def b/Makefile.def
+index 549763de837a..6098de2904de 100644
+--- a/Makefile.def
++++ b/Makefile.def
+@@ -679,7 +679,6 @@ dependencies = { module=configure-target-libphobos; on=configure-target-zlib; };
+ dependencies = { module=all-target-libphobos; on=all-target-libbacktrace; };
+ dependencies = { module=all-target-libphobos; on=all-target-zlib; };
+ dependencies = { module=all-target-libphobos; on=all-target-libatomic; };
+-dependencies = { module=configure-target-libstdc++-v3; on=configure-target-libgomp; };
+ dependencies = { module=configure-target-libsanitizer; on=all-target-libstdc++-v3; };
+ dependencies = { module=configure-target-libvtv; on=all-target-libstdc++-v3; };
+ dependencies = { module=configure-target-libgrust; on=all-target-libstdc++-v3; };
+diff --git a/Makefile.in b/Makefile.in
+index 5cca69c3f523..31eecec49caa 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -69768,16 +69768,6 @@ all-stagetrain-target-libphobos: maybe-all-stagetrain-target-libatomic
+ all-stagefeedback-target-libphobos: maybe-all-stagefeedback-target-libatomic
+ all-stageautoprofile-target-libphobos: maybe-all-stageautoprofile-target-libatomic
+ all-stageautofeedback-target-libphobos: maybe-all-stageautofeedback-target-libatomic
+-configure-target-libstdc++-v3: maybe-configure-target-libgomp
+-configure-stage1-target-libstdc++-v3: maybe-configure-stage1-target-libgomp
+-configure-stage2-target-libstdc++-v3: maybe-configure-stage2-target-libgomp
+-configure-stage3-target-libstdc++-v3: maybe-configure-stage3-target-libgomp
+-configure-stage4-target-libstdc++-v3: maybe-configure-stage4-target-libgomp
+-configure-stageprofile-target-libstdc++-v3: maybe-configure-stageprofile-target-libgomp
+-configure-stagetrain-target-libstdc++-v3: maybe-configure-stagetrain-target-libgomp
+-configure-stagefeedback-target-libstdc++-v3: maybe-configure-stagefeedback-target-libgomp
+-configure-stageautoprofile-target-libstdc++-v3: maybe-configure-stageautoprofile-target-libgomp
+-configure-stageautofeedback-target-libstdc++-v3: maybe-configure-stageautofeedback-target-libgomp
+ configure-target-libsanitizer: maybe-all-target-libstdc++-v3
+ configure-stage1-target-libsanitizer: maybe-all-stage1-target-libstdc++-v3
+ configure-stage2-target-libsanitizer: maybe-all-stage2-target-libstdc++-v3
+-- 
+2.55.0
+
