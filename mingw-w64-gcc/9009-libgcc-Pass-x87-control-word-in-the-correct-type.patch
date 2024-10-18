@@ -1,0 +1,72 @@
+From 93e803b060908f611f9542619352063503692c69 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Tue, 14 Oct 2025 14:46:46 +0800
+Subject: [PATCH] libgcc: Pass x87 control word in the correct type
+
+The x87 control word should be passed as an `unsigned short`. Previous
+code passed `unsigned int`, and when building with `-masm=intel`,
+
+   __asm__ __volatile__ ("fnstcw\t%0" : "=m" (_cw));
+
+could expand to `fnstcw DWORD PTR [esp+48]` and cause errors like
+
+   {standard input}: Assembler messages:
+   {standard input}:7137: Error: operand size mismatch for `fnstcw'
+
+libgcc/ChangeLog:
+
+	PR target/122275
+	* config/i386/32/dfp-machine.h (DFP_GET_ROUNDMODE): Change `_frnd_orig` to
+	`unsigned short` for x87 control word.
+	(DFP_SET_ROUNDMODE): Manipulate the x87 control word as `unsigned short`,
+	and manipulate the MXCSR as `unsigned int`.
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ libgcc/config/i386/32/dfp-machine.h | 21 +++++++++++----------
+ 1 file changed, 11 insertions(+), 10 deletions(-)
+
+diff --git a/libgcc/config/i386/32/dfp-machine.h b/libgcc/config/i386/32/dfp-machine.h
+index ef8fa4f3600c..9b008eefafc9 100644
+--- a/libgcc/config/i386/32/dfp-machine.h
++++ b/libgcc/config/i386/32/dfp-machine.h
+@@ -1,7 +1,7 @@
+ #ifndef _SOFT_FLOAT
+ /* Get the rounding mode.  */
+ #define DFP_GET_ROUNDMODE						\
+-  unsigned int _frnd_orig;						\
++  unsigned short _frnd_orig;						\
+   do									\
+     {									\
+       __asm__ __volatile__ ("fnstcw\t%0" : "=m" (_frnd_orig));		\
+@@ -13,17 +13,18 @@
+ #define DFP_SET_ROUNDMODE(round)					\
+   do									\
+     {									\
+-      unsigned int _cw;							\
+-      __asm__ __volatile__ ("fnstcw\t%0" : "=m" (_cw));			\
+-      _cw &= ~FP_RND_MASK;						\
+-      _cw |= round;							\
+-      __asm__ __volatile__ ("fldcw\t%0" :: "m" (_cw));			\
++      unsigned short _fcw;						\
++      __asm__ __volatile__ ("fnstcw\t%0" : "=m" (_fcw));		\
++      _fcw &= ~FP_RND_MASK;						\
++      _fcw |= round;							\
++      __asm__ __volatile__ ("fldcw\t%0" :: "m" (_fcw));			\
+       if (__builtin_cpu_supports ("sse"))				\
+ 	{								\
+-	  __asm__ __volatile__ ("%vstmxcsr\t%0" : "=m" (_cw));		\
+-	  _cw &= ~0x6000;						\
+-	  _cw |= round << 3;						\
+-	  __asm__ __volatile__ ("%vldmxcsr\t%0" :: "m" (_cw));		\
++	  unsigned int _xcw;						\
++	  __asm__ __volatile__ ("%vstmxcsr\t%0" : "=m" (_xcw));		\
++	  _xcw &= ~0x6000;						\
++	  _xcw |= round << 3;						\
++	  __asm__ __volatile__ ("%vldmxcsr\t%0" :: "m" (_xcw));		\
+ 	}								\
+     }									\
+   while (0);
+-- 
+2.51.0
+
