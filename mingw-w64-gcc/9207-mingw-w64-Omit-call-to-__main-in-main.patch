@@ -1,0 +1,27 @@
+From 574e51d95e3027b04f9e5c42e1d867c20cd71b4d Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Thu, 15 Oct 2026 22:36:36 +0800
+Subject: [PATCH] mingw-w64: Omit call to `__main()` in `main()`
+
+The call to `__main()` is performed by the CRT before `main()` is entered.
+---
+ gcc/config/i386/mingw-w64.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/gcc/config/i386/mingw-w64.h b/gcc/config/i386/mingw-w64.h
+index 5d71aa5358fe..c4ab228d8777 100644
+--- a/gcc/config/i386/mingw-w64.h
++++ b/gcc/config/i386/mingw-w64.h
+@@ -135,3 +135,9 @@ along with GCC; see the file COPYING3.  If not see
+    original mingw32.  */
+ #undef TARGET_LIBC_HAS_FUNCTION
+ #define TARGET_LIBC_HAS_FUNCTION gnu_libc_has_function
++
++/* mingw-w64 CRT provides its own __main and calls it before invoking
++   main.  It's unspecified whether the libgcc one or the mingw-w64 one
++   will be called, but either will be.  */
++#undef HAS_INIT_SECTION
++#define HAS_INIT_SECTION
+-- 
+2.56.0
+

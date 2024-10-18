@@ -1,0 +1,92 @@
+From 3768774d598346b6164362e978bd4a2fcea07339 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Sat, 27 Jun 2026 20:20:44 +0800
+Subject: [PATCH 9202/9205] libgomp/mingw32: Increase precision of
+ `omp_get_wtime()` for Windows 8+
+
+This commit uses an ifunc pattern to try to obtain wall-clock time with
+`GetSystemTimePreciseAsFileTime()`, and when it is not available, falls
+back to `GetSystemTimeAsFileTime()`. Both of these functions have a
+resolution of 100 nanoseconds.
+
+libgomp/ChangeLog:
+
+	* config/mingw32/time.c (typeof_GetSystemTimeAsFileTime): Declare.
+	(do_GetSystemTimeAsFileTime): Define.
+	(do_resolve_GetSystemTimeAsFileTime): Define ifunc resolver.
+	(omp_get_wtime): Replace `_ftime` with `do_GetSystemTimeAsFileTime`.
+	(omp_get_wtick): Increase precision from 1 ms to 100 ns,
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ libgomp/config/mingw32/time.c | 39 +++++++++++++++++++++++++++++------
+ 1 file changed, 33 insertions(+), 6 deletions(-)
+
+diff --git a/libgomp/config/mingw32/time.c b/libgomp/config/mingw32/time.c
+index cd83c1ee09d1..1de4c537a532 100644
+--- a/libgomp/config/mingw32/time.c
++++ b/libgomp/config/mingw32/time.c
+@@ -1,5 +1,6 @@
+ /* Copyright (C) 2006-2026 Free Software Foundation, Inc.
+    Contributed by Francois-Xavier Coudert <coudert@clipper.ens.fr>
++   Contributed by LIU Hao <lh_mouse@126.com>
+ 
+    This file is part of the GNU Offloading and Multi Processing Library
+    (libgomp).
+@@ -26,21 +27,47 @@
+ /* This file contains timer routines for mingw32.  */
+ 
+ #include "libgomp.h"
+-#include <unistd.h>
+-#include <sys/timeb.h>
++#define WIN32_LEAN_AND_MEAN
++#include <windows.h>
++
++typedef void WINAPI typeof_GetSystemTimeAsFileTime (LPFILETIME);
++static typeof_GetSystemTimeAsFileTime *do_GetSystemTimeAsFileTime;
++
++static void WINAPI
++do_resolve_GetSystemTimeAsFileTime (LPFILETIME outp)
++{
++  typeof_GetSystemTimeAsFileTime *fn = NULL;
++
++  /* Use `GetSystemTimePreciseAsFileTime` for Windows 8+, and use
++     `GetSystemTimeAsFileTime` as a fallback.  These two functions have the
++     same signature.  */
++  HMODULE kernel32 = GetModuleHandleW (L"kernel32.dll");
++  if (kernel32)
++    fn = (typeof_GetSystemTimeAsFileTime *)(INT_PTR)
++	GetProcAddress (kernel32, "GetSystemTimePreciseAsFileTime");
++
++  if (!fn)
++    fn = GetSystemTimeAsFileTime;
++
++  __atomic_store_n (&do_GetSystemTimeAsFileTime, fn, MEMMODEL_RELAXED);
++  return (*fn) (outp);
++}
++
++static typeof_GetSystemTimeAsFileTime *do_GetSystemTimeAsFileTime
++  = do_resolve_GetSystemTimeAsFileTime;
+ 
+ double
+ omp_get_wtime (void)
+ {
+-  struct _timeb timebuf;
+-  _ftime (&timebuf);
+-  return (timebuf.time + (long)(timebuf.millitm) / 1e3);
++  ULARGE_INTEGER uli;
++  (*do_GetSystemTimeAsFileTime) ((FILETIME *) &uli);
++  return (double)(INT64) uli.QuadPart * 1.0e-7;
+ }
+ 
+ double
+ omp_get_wtick (void)
+ {
+-  return 1e-3;
++  return 1.0e-7;
+ }
+ 
+ ialias (omp_get_wtime)
+-- 
+2.54.0
+
