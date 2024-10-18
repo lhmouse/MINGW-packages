@@ -1,0 +1,1320 @@
+From f35a50e3d7abe529df8ab75a8a31207b4e02cbfb Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Tue, 30 Jun 2026 10:17:12 +0800
+Subject: [PATCH 9205/9205] libgomp/win32: Add win32 implementation
+
+This commit adds a set of headers and source files for *-*-mingw* which use
+Windows APIs directly, so libgomp can built for said targets when not using
+the posix thread model.
+
+libgomp/ChangeLog:
+
+	* affinity-fmt.c (gomp_display_affinity): Enable for `_WIN32`.
+	* config/posix/bar.h: Remove unused include <pthread.h>.
+	* configure: Regenerate.
+	* configure.ac: Check for thread model for *-*-mingw*.
+	* configure.tgt: Include config/win32 for non-posix for *-*-mingw*.
+	* env.c (initialize_env): Skip pthread functions when not using
+	pthreads.  Set `gomp_win32_thread_stack_size` for non-posix thread
+	models for Windows.
+	* libgomp.h: Un-include <pthread.h> when not using pthreads.
+	(GOMP_NEEDS_THREAD_HANDLE): Define for non-posix thread models for
+	*-*-mingw*.  But we actually use the numeric thread ID.
+	(__mingwthr_key_dtor): Declare for internal use.
+	(__mingwthr_remove_key_dtor): Declare for internal use.
+	(gomp_thread_self): Implement for win32 non-posix.
+	(gomp_thread_to_pthread_t): Implement for win32 non-posix.
+	* oacc-init.c (acc_init_thread): Undefine when not using pthreads.
+	(acc_init_win32_thread_id): Define for win32 non-posix.
+	* target.c (gomp_is_initialized): Undefine when not using pthreads.
+	(gomp_win32_once): Define for win32 non-posix.
+	* task.c (gomp_create_artificial_team): Do not call
+	`pthread_setspecific()` when not using pthreads.  Call `TlsSetValue()`
+	for win32 non-posix.
+	* team.c: Include <float.h> for mingw-w64.
+	(gomp_thread_attr): Undefine when not using pthreads.
+	(gomp_thread_destructor): Likewise.
+	(gomp_win32_thread_stack_size): Define for win32 non-posix.
+	(gomp_win32_tls_index): Likewise.
+	(gomp_thread_start_data): Do not store `pthread_t` when not using
+	pthreads.  Add thread ID field for win32 non-posix.
+	(gomp_thread_start): Change calling convention for win32 non-posix.
+	Call `_fpreset()` to initialize x87 precision for all thread models
+	for *-*-mingw*.  Skip pthread functions when not using pthreads.
+	Set `win32_thread_id` for win32 non-posix.
+	(gomp_team_start): Skip pthread functions when not using pthreads.
+	Add win32 non-posix implementation.
+	(gomp_pause_host): Likewise.
+	(gomp_free_pool_helper): Likewise.
+	(gomp_pause_pool_helper): Likewise.
+	* config/win32/lock.c: New file.
+	* config/win32/mutex.c: New file.
+	* config/win32/mutex.h: New file.
+	* config/win32/omp-lock.h: New file.
+	* config/win32/pool.h: New file.
+	* config/win32/sem.c: New file.
+	* config/win32/sem.h: New file.
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ libgomp/affinity-fmt.c          |   2 +-
+ libgomp/config/posix/bar.h      |   2 -
+ libgomp/config/win32/lock.c     | 176 ++++++++++++++++++++++++++++++++
+ libgomp/config/win32/mutex.c    |   1 +
+ libgomp/config/win32/mutex.h    |  59 +++++++++++
+ libgomp/config/win32/omp-lock.h |  26 +++++
+ libgomp/config/win32/pool.h     |  60 +++++++++++
+ libgomp/config/win32/sem.c      |  61 +++++++++++
+ libgomp/config/win32/sem.h      |  54 ++++++++++
+ libgomp/configure               |  56 ++++++++++
+ libgomp/configure.ac            |   5 +
+ libgomp/configure.tgt           |   6 +-
+ libgomp/env.c                   |   6 ++
+ libgomp/libgomp.h               |  39 +++++--
+ libgomp/oacc-init.c             |  45 +++++++-
+ libgomp/target.c                |  27 ++++-
+ libgomp/task.c                  |   8 +-
+ libgomp/team.c                  | 117 ++++++++++++++++++---
+ 18 files changed, 720 insertions(+), 30 deletions(-)
+ create mode 100644 libgomp/config/win32/lock.c
+ create mode 100644 libgomp/config/win32/mutex.c
+ create mode 100644 libgomp/config/win32/mutex.h
+ create mode 100644 libgomp/config/win32/omp-lock.h
+ create mode 100644 libgomp/config/win32/pool.h
+ create mode 100644 libgomp/config/win32/sem.c
+ create mode 100644 libgomp/config/win32/sem.h
+
+diff --git a/libgomp/affinity-fmt.c b/libgomp/affinity-fmt.c
+index c5d324fdbad8..a1807329430c 100644
+--- a/libgomp/affinity-fmt.c
++++ b/libgomp/affinity-fmt.c
+@@ -367,7 +367,7 @@ gomp_display_affinity (char *buffer, size_t size,
+ #endif
+ 	  goto do_int;
+ 	case 'i':
+-#if defined(LIBGOMP_USE_PTHREADS) && defined(__GNUC__)
++#if (defined(LIBGOMP_USE_PTHREADS) || defined(_WIN32)) && defined(__GNUC__)
+ 	  {
+ 	    char buf[3 * (sizeof (handle) + sizeof (uintptr_t) + sizeof (int))
+ 		     + 4];
+diff --git a/libgomp/config/posix/bar.h b/libgomp/config/posix/bar.h
+index 026daca793d5..a15d731be0ae 100644
+--- a/libgomp/config/posix/bar.h
++++ b/libgomp/config/posix/bar.h
+@@ -31,8 +31,6 @@
+ #ifndef GOMP_BARRIER_H
+ #define GOMP_BARRIER_H 1
+ 
+-#include <pthread.h>
+-
+ typedef struct
+ {
+   gomp_mutex_t mutex1;
+diff --git a/libgomp/config/win32/lock.c b/libgomp/config/win32/lock.c
+new file mode 100644
+index 000000000000..6bbb18d4efc9
+--- /dev/null
++++ b/libgomp/config/win32/lock.c
+@@ -0,0 +1,176 @@
++/* Copyright (C) 2005-2026 Free Software Foundation, Inc.
++   Contributed by Richard Henderson <rth@redhat.com>.
++
++   This file is part of the GNU Offloading and Multi Processing Library
++   (libgomp).
++
++   Libgomp is free software; you can redistribute it and/or modify it
++   under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 3, or (at your option)
++   any later version.
++
++   Libgomp is distributed in the hope that it will be useful, but WITHOUT ANY
++   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
++   FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++   more details.
++
++   Under Section 7 of GPL version 3, you are granted additional
++   permissions described in the GCC Runtime Library Exception, version
++   3.1, as published by the Free Software Foundation.
++
++   You should have received a copy of the GNU General Public License and
++   a copy of the GCC Runtime Library Exception along with this program;
++   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
++   <http://www.gnu.org/licenses/>.  */
++
++/* This is the Windows Vista+ implementation of the public OpenMP locking
++   primitives.
++
++   Because OpenMP uses different entry points for normal and recursive
++   locks, and pthreads uses only one entry point, a system may be able
++   to do better and streamline the locking as well as reduce the size
++   of the types exported.  */
++
++#include "libgomp.h"
++
++void
++omp_init_lock (omp_lock_t *lock)
++{
++  InitializeSRWLock (&lock->mutex);
++  InitializeConditionVariable (&lock->cond);
++  lock->owner = NULL;
++}
++
++void
++omp_destroy_lock (omp_lock_t *lock)
++{
++  (void) lock;
++}
++
++void
++omp_set_lock (omp_lock_t *lock)
++{
++  void *me = gomp_icv (true);
++
++  /* Wait for owner to become null.  */
++  AcquireSRWLockExclusive (&lock->mutex);
++  while (lock->owner != NULL)
++    SleepConditionVariableSRW (&lock->cond, &lock->mutex, INFINITE, 0);
++
++  /* Take ownership.  */
++  __atomic_store_n (&lock->owner, me, MEMMODEL_RELAXED);
++  ReleaseSRWLockExclusive (&lock->mutex);
++}
++
++void
++omp_unset_lock (omp_lock_t *lock)
++{
++  /* Release ownership.  */
++  AcquireSRWLockExclusive (&lock->mutex);
++  __atomic_store_n (&lock->owner, NULL, MEMMODEL_RELAXED);
++  ReleaseSRWLockExclusive (&lock->mutex);
++  WakeConditionVariable (&lock->cond);
++}
++
++int
++omp_test_lock (omp_lock_t *lock)
++{
++  void *me = gomp_icv (true);
++
++  /* See if owner is null.  If it isn't, fail.  */
++  if (!TryAcquireSRWLockExclusive (&lock->mutex))
++    return 0;
++  if (lock->owner != NULL)
++    {
++      ReleaseSRWLockExclusive (&lock->mutex);
++      return 0;
++    }
++
++  /* Take ownership.  */
++  __atomic_store_n (&lock->owner, me, MEMMODEL_RELAXED);
++  ReleaseSRWLockExclusive (&lock->mutex);
++  return 1;
++}
++
++void
++omp_init_nest_lock (omp_nest_lock_t *lock)
++{
++  InitializeSRWLock (&lock->mutex);
++  InitializeConditionVariable (&lock->cond);
++  lock->count = 0;
++  lock->owner = NULL;
++}
++
++void
++omp_destroy_nest_lock (omp_nest_lock_t *lock)
++{
++  (void) lock;
++}
++
++void
++omp_set_nest_lock (omp_nest_lock_t *lock)
++{
++  void *me = gomp_icv (true);
++
++  if (__atomic_load_n (&lock->owner, MEMMODEL_RELAXED) != me)
++    {
++      /* Wait for owner to become null.  */
++      AcquireSRWLockExclusive (&lock->mutex);
++      while (lock->owner != NULL)
++	SleepConditionVariableSRW (&lock->cond, &lock->mutex, INFINITE, 0);
++
++      /* Take ownership.  */
++      __atomic_store_n (&lock->owner, me, MEMMODEL_RELAXED);
++      ReleaseSRWLockExclusive (&lock->mutex);
++    }
++
++  lock->count++;
++}
++
++void
++omp_unset_nest_lock (omp_nest_lock_t *lock)
++{
++  if (--lock->count == 0)
++    {
++      /* Release ownership.  */
++      AcquireSRWLockExclusive (&lock->mutex);
++      __atomic_store_n (&lock->owner, NULL, MEMMODEL_RELAXED);
++      ReleaseSRWLockExclusive (&lock->mutex);
++      WakeConditionVariable (&lock->cond);
++    }
++}
++
++int
++omp_test_nest_lock (omp_nest_lock_t *lock)
++{
++  void *me = gomp_icv (true);
++
++  if (__atomic_load_n (&lock->owner, MEMMODEL_RELAXED) != me)
++    {
++      /* See if owner is null.  If it isn't, fail.  */
++      if (!TryAcquireSRWLockExclusive (&lock->mutex))
++	return 0;
++      if (lock->owner != NULL)
++	{
++	  ReleaseSRWLockExclusive (&lock->mutex);
++	  return 0;
++	}
++
++      /* Take ownership.  */
++      __atomic_store_n (&lock->owner, me, MEMMODEL_RELAXED);
++      ReleaseSRWLockExclusive (&lock->mutex);
++    }
++
++  return ++lock->count;
++}
++
++ialias (omp_init_lock)
++ialias (omp_init_nest_lock)
++ialias (omp_destroy_lock)
++ialias (omp_destroy_nest_lock)
++ialias (omp_set_lock)
++ialias (omp_set_nest_lock)
++ialias (omp_unset_lock)
++ialias (omp_unset_nest_lock)
++ialias (omp_test_lock)
++ialias (omp_test_nest_lock)
+diff --git a/libgomp/config/win32/mutex.c b/libgomp/config/win32/mutex.c
+new file mode 100644
+index 000000000000..39bb64da0f90
+--- /dev/null
++++ b/libgomp/config/win32/mutex.c
+@@ -0,0 +1 @@
++/* Everything is in the header.  */
+diff --git a/libgomp/config/win32/mutex.h b/libgomp/config/win32/mutex.h
+new file mode 100644
+index 000000000000..d67a30254f42
+--- /dev/null
++++ b/libgomp/config/win32/mutex.h
+@@ -0,0 +1,59 @@
++/* Copyright (C) 2005-2026 Free Software Foundation, Inc.
++   Contributed by Richard Henderson <rth@redhat.com>.
++
++   This file is part of the GNU Offloading and Multi Processing Library
++   (libgomp).
++
++   Libgomp is free software; you can redistribute it and/or modify it
++   under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 3, or (at your option)
++   any later version.
++
++   Libgomp is distributed in the hope that it will be useful, but WITHOUT ANY
++   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
++   FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++   more details.
++
++   Under Section 7 of GPL version 3, you are granted additional
++   permissions described in the GCC Runtime Library Exception, version
++   3.1, as published by the Free Software Foundation.
++
++   You should have received a copy of the GNU General Public License and
++   a copy of the GCC Runtime Library Exception along with this program;
++   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
++   <http://www.gnu.org/licenses/>.  */
++
++/* This is the Windows Vista+ implementation of a mutex synchronization
++   mechanism for libgomp.  This type is private to the library.  */
++
++#ifndef GOMP_MUTEX_H
++#define GOMP_MUTEX_H 1
++
++#define WIN32_LEAN_AND_MEAN
++#include <windows.h>
++
++typedef SRWLOCK gomp_mutex_t;
++
++#define GOMP_MUTEX_INIT_0 1
++
++static inline void gomp_mutex_init (gomp_mutex_t *mutex)
++{
++  InitializeSRWLock (mutex);
++}
++
++static inline void gomp_mutex_lock (gomp_mutex_t *mutex)
++{
++  AcquireSRWLockExclusive (mutex);
++}
++
++static inline void gomp_mutex_unlock (gomp_mutex_t *mutex)
++{
++  ReleaseSRWLockExclusive (mutex);
++}
++
++static inline void gomp_mutex_destroy (gomp_mutex_t *mutex)
++{
++  (void) mutex;
++}
++
++#endif /* GOMP_MUTEX_H */
+diff --git a/libgomp/config/win32/omp-lock.h b/libgomp/config/win32/omp-lock.h
+new file mode 100644
+index 000000000000..a7218db23834
+--- /dev/null
++++ b/libgomp/config/win32/omp-lock.h
+@@ -0,0 +1,26 @@
++/* This header is used during the build process to find the size and
++   alignment of the public OpenMP locks, so that we can export data
++   structures without polluting the namespace.
++
++   Windows doesn't support symbol versioning, so OpenMP 2.5 locks are not
++   implemented. For OpenMP 3.0, a lock may be unlocked by a different thread
++   from the one that locked it, so a condition variable is necessary.  */
++
++#define WIN32_LEAN_AND_MEAN
++#include <windows.h>
++
++typedef struct {
++  SRWLOCK mutex;
++  CONDITION_VARIABLE cond;
++  void *owner;
++} omp_lock_t;
++
++typedef struct {
++  SRWLOCK mutex;
++  CONDITION_VARIABLE cond;
++  int count;
++  void *owner;
++} omp_nest_lock_t;
++
++typedef omp_lock_t omp_lock_25_t;
++typedef omp_nest_lock_t omp_nest_lock_25_t;
+diff --git a/libgomp/config/win32/pool.h b/libgomp/config/win32/pool.h
+new file mode 100644
+index 000000000000..6d8191dcb750
+--- /dev/null
++++ b/libgomp/config/win32/pool.h
+@@ -0,0 +1,60 @@
++/* Copyright (C) 2005-2026 Free Software Foundation, Inc.
++   Contributed by Sebastian Huber <sebastian.huber@embedded-brains.de>.
++
++   This file is part of the GNU Offloading and Multi Processing Library
++   (libgomp).
++
++   Libgomp is free software; you can redistribute it and/or modify it
++   under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 3, or (at your option)
++   any later version.
++
++   Libgomp is distributed in the hope that it will be useful, but WITHOUT ANY
++   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
++   FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++   more details.
++
++   Under Section 7 of GPL version 3, you are granted additional
++   permissions described in the GCC Runtime Library Exception, version
++   3.1, as published by the Free Software Foundation.
++
++   You should have received a copy of the GNU General Public License and
++   a copy of the GCC Runtime Library Exception along with this program;
++   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
++   <http://www.gnu.org/licenses/>.  */
++
++/* This is the Windows implementation of the thread pool management
++   for libgomp.  This type is private to the library.  */
++
++#ifndef GOMP_POOL_H
++#define GOMP_POOL_H 1
++
++#include "libgomp.h"
++
++/* Get the thread pool, allocate and initialize it on demand.  */
++
++static inline struct gomp_thread_pool *
++gomp_get_thread_pool (struct gomp_thread *thr, unsigned nthreads)
++{
++  struct gomp_thread_pool *pool = thr->thread_pool;
++  if (__builtin_expect (pool == NULL, 0))
++    {
++      pool = gomp_malloc (sizeof (*pool));
++      pool->threads = NULL;
++      pool->threads_size = 0;
++      pool->threads_used = 0;
++      pool->last_team = NULL;
++      pool->threads_busy = nthreads;
++      thr->thread_pool = pool;
++      TlsSetValue (gomp_win32_tls_index, thr);
++    }
++  return pool;
++}
++
++static inline void
++gomp_release_thread_pool (struct gomp_thread_pool *pool)
++{
++  (void) pool;
++}
++
++#endif /* GOMP_POOL_H */
+diff --git a/libgomp/config/win32/sem.c b/libgomp/config/win32/sem.c
+new file mode 100644
+index 000000000000..f88830692908
+--- /dev/null
++++ b/libgomp/config/win32/sem.c
+@@ -0,0 +1,61 @@
++/* Copyright (C) 2005-2026 Free Software Foundation, Inc.
++   Contributed by Richard Henderson <rth@redhat.com>.
++
++   This file is part of the GNU Offloading and Multi Processing Library
++   (libgomp).
++
++   Libgomp is free software; you can redistribute it and/or modify it
++   under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 3, or (at your option)
++   any later version.
++
++   Libgomp is distributed in the hope that it will be useful, but WITHOUT ANY
++   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
++   FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++   more details.
++
++   Under Section 7 of GPL version 3, you are granted additional
++   permissions described in the GCC Runtime Library Exception, version
++   3.1, as published by the Free Software Foundation.
++
++   You should have received a copy of the GNU General Public License and
++   a copy of the GCC Runtime Library Exception along with this program;
++   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
++   <http://www.gnu.org/licenses/>.  */
++
++/* This is the Windows Vista+ implementation of a semaphore synchronization
++   mechanism for libgomp.  This type is private to the library.  */
++
++#include "libgomp.h"
++
++void gomp_sem_init (gomp_sem_t *sem, int value)
++{
++  InitializeSRWLock (&sem->mutex);
++  InitializeConditionVariable (&sem->cond);
++  sem->value = value;
++}
++
++void gomp_sem_wait (gomp_sem_t *sem)
++{
++  AcquireSRWLockExclusive (&sem->mutex);
++  while (sem->value <= 0)
++    SleepConditionVariableSRW (&sem->cond, &sem->mutex, INFINITE, 0);
++  sem->value--;
++  ReleaseSRWLockExclusive (&sem->mutex);
++}
++
++void gomp_sem_post (gomp_sem_t *sem)
++{
++  AcquireSRWLockExclusive (&sem->mutex);
++  sem->value++;
++  ReleaseSRWLockExclusive (&sem->mutex);
++  WakeConditionVariable (&sem->cond);
++}
++
++int gomp_sem_getcount (gomp_sem_t *sem)
++{
++  AcquireSRWLockExclusive (&sem->mutex);
++  int count = sem->value;
++  ReleaseSRWLockExclusive (&sem->mutex);
++  return count;
++}
+diff --git a/libgomp/config/win32/sem.h b/libgomp/config/win32/sem.h
+new file mode 100644
+index 000000000000..061cbc952f16
+--- /dev/null
++++ b/libgomp/config/win32/sem.h
+@@ -0,0 +1,54 @@
++/* Copyright (C) 2005-2026 Free Software Foundation, Inc.
++   Contributed by Richard Henderson <rth@redhat.com>.
++
++   This file is part of the GNU Offloading and Multi Processing Library
++   (libgomp).
++
++   Libgomp is free software; you can redistribute it and/or modify it
++   under the terms of the GNU General Public License as published by
++   the Free Software Foundation; either version 3, or (at your option)
++   any later version.
++
++   Libgomp is distributed in the hope that it will be useful, but WITHOUT ANY
++   WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
++   FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++   more details.
++
++   Under Section 7 of GPL version 3, you are granted additional
++   permissions described in the GCC Runtime Library Exception, version
++   3.1, as published by the Free Software Foundation.
++
++   You should have received a copy of the GNU General Public License and
++   a copy of the GCC Runtime Library Exception along with this program;
++   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
++   <http://www.gnu.org/licenses/>.  */
++
++/* This is the Windows Vista+ implementation of a semaphore synchronization
++   mechanism for libgomp.  This type is private to the library.  */
++
++#ifndef GOMP_SEM_H
++#define GOMP_SEM_H 1
++
++#define WIN32_LEAN_AND_MEAN
++#include <windows.h>
++
++struct gomp_sem
++{
++  SRWLOCK mutex;
++  CONDITION_VARIABLE cond;
++  int value;
++};
++
++typedef struct gomp_sem gomp_sem_t;
++
++extern void gomp_sem_init (gomp_sem_t *sem, int value);
++
++static inline void gomp_sem_destroy (gomp_sem_t *sem) { (void) sem; }
++
++extern void gomp_sem_wait (gomp_sem_t *sem);
++
++extern void gomp_sem_post (gomp_sem_t *sem);
++
++extern int gomp_sem_getcount (gomp_sem_t *sem);
++
++#endif /* GOMP_SEM_H  */
+diff --git a/libgomp/configure b/libgomp/configure
+index f7b510a7200b..9839eacfa10b 100755
+--- a/libgomp/configure
++++ b/libgomp/configure
+@@ -2031,6 +2031,52 @@ fi
+ 
+ } # ac_fn_c_check_header_mongrel
+ 
++# ac_fn_c_check_decl LINENO SYMBOL VAR INCLUDES
++# ---------------------------------------------
++# Tests whether SYMBOL is declared in INCLUDES, setting cache variable VAR
++# accordingly.
++ac_fn_c_check_decl ()
++{
++  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
++  as_decl_name=`echo $2|sed 's/ *(.*//'`
++  as_decl_use=`echo $2|sed -e 's/(/((/' -e 's/)/) 0&/' -e 's/,/) 0& (/g'`
++  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $as_decl_name is declared" >&5
++$as_echo_n "checking whether $as_decl_name is declared... " >&6; }
++if eval \${$3+:} false; then :
++  $as_echo_n "(cached) " >&6
++else
++  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
++/* end confdefs.h.  */
++$4
++int
++main (void)
++{
++#ifndef $as_decl_name
++#ifdef __cplusplus
++  (void) $as_decl_use;
++#else
++  (void) $as_decl_name;
++#endif
++#endif
++
++  ;
++  return 0;
++}
++_ACEOF
++if ac_fn_c_try_compile "$LINENO"; then :
++  eval "$3=yes"
++else
++  eval "$3=no"
++fi
++rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
++fi
++eval ac_res=\$$3
++	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
++$as_echo "$ac_res" >&6; }
++  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
++
++} # ac_fn_c_check_decl
++
+ # ac_fn_c_compute_int LINENO EXPR VAR INCLUDES
+ # --------------------------------------------
+ # Tries to find the compile-time value of EXPR in a program that includes
+@@ -15449,6 +15495,16 @@ case "$host" in
+     libgomp_use_pthreads=no
+     # NVPTX is an accelerator-only target
+     libgomp_offloaded_only=yes
++    ;;
++  *-*-mingw*)
++    # Check whether we are using the posix thread model.
++    ac_fn_c_check_decl "$LINENO" "__USING_POSIXTHREAD__" "ac_cv_have_decl___USING_POSIXTHREAD__" "$ac_includes_default"
++if test "x$ac_cv_have_decl___USING_POSIXTHREAD__" = xyes; then :
++  libgomp_use_pthreads=yes
++else
++  libgomp_use_pthreads=no
++fi
++
+     ;;
+   *)
+     # Check to see if -pthread or -lpthread is needed.  Prefer the former.
+diff --git a/libgomp/configure.ac b/libgomp/configure.ac
+index 8245c737d42a..35268d2b47cd 100644
+--- a/libgomp/configure.ac
++++ b/libgomp/configure.ac
+@@ -194,6 +194,11 @@ case "$host" in
+     # NVPTX is an accelerator-only target
+     libgomp_offloaded_only=yes
+     ;;
++  *-*-mingw*)
++    # Check whether we are using the posix thread model.
++    AC_CHECK_DECL([__USING_POSIXTHREAD__],
++		  [libgomp_use_pthreads=yes], [libgomp_use_pthreads=no])
++    ;;
+   *)
+     # Check to see if -pthread or -lpthread is needed.  Prefer the former.
+     # In case the pthread.h system header is not found, this test will fail.
+diff --git a/libgomp/configure.tgt b/libgomp/configure.tgt
+index a74e966fdfde..83baf63d108c 100644
+--- a/libgomp/configure.tgt
++++ b/libgomp/configure.tgt
+@@ -146,7 +146,11 @@ case "${target}" in
+ 	;;
+ 
+   *-*-mingw32*)
+-	config_path="mingw32 posix"
++	if test x$libgomp_use_pthreads != xno; then
++	    config_path="mingw32 posix"
++	else
++	    config_path="mingw32 win32 posix"
++	fi
+ 	;;
+ 
+   *-*-darwin*)
+diff --git a/libgomp/env.c b/libgomp/env.c
+index ff0044b42e20..69cac126e551 100644
+--- a/libgomp/env.c
++++ b/libgomp/env.c
+@@ -2455,8 +2455,10 @@ initialize_env (void)
+   if (gomp_throttled_spin_count_var > gomp_spin_count_var)
+     gomp_throttled_spin_count_var = gomp_spin_count_var;
+ 
++#ifdef LIBGOMP_USE_PTHREADS
+   /* Not strictly environment related, but ordering constructors is tricky.  */
+   pthread_attr_init (&gomp_thread_attr);
++#endif
+ 
+   if (!(none != NULL && gomp_get_icv_flag (none->flags, GOMP_ICV_STACKSIZE)))
+     {
+@@ -2475,6 +2477,7 @@ initialize_env (void)
+       || (all != NULL && gomp_get_icv_flag (all->flags, GOMP_ICV_STACKSIZE))
+       || GOMP_DEFAULT_STACKSIZE != 0)
+     {
++#ifdef LIBGOMP_USE_PTHREADS
+       int err;
+ 
+       err = pthread_attr_setstacksize (&gomp_thread_attr, stacksize);
+@@ -2493,6 +2496,9 @@ initialize_env (void)
+ #endif
+       if (err != 0)
+ 	gomp_error ("Stack size change failed: %s", strerror (err));
++#elif defined(_WIN32)
++      gomp_win32_thread_stack_size = stacksize;
++#endif
+     }
+ 
+   handle_omp_display_env ();
+diff --git a/libgomp/libgomp.h b/libgomp/libgomp.h
+index 9510b148ed8c..e71c5a2957b7 100644
+--- a/libgomp/libgomp.h
++++ b/libgomp/libgomp.h
+@@ -53,7 +53,7 @@
+ 
+ #include "gomp-constants.h"
+ 
+-#ifdef HAVE_PTHREAD_H
++#if defined(HAVE_PTHREAD_H) && defined(LIBGOMP_USE_PTHREADS)
+ #include <pthread.h>
+ #endif
+ #include <stdbool.h>
+@@ -922,7 +922,7 @@ struct gomp_thread
+   /* User pthread thread pool */
+   struct gomp_thread_pool *thread_pool;
+ 
+-#ifdef LIBGOMP_USE_PTHREADS
++#if defined(LIBGOMP_USE_PTHREADS) || defined(_WIN32)
+   /* omp_get_num_teams () - 1.  */
+   unsigned int num_teams;
+ 
+@@ -930,17 +930,21 @@ struct gomp_thread
+   unsigned int team_num;
+ #endif
+ 
+-#if defined(LIBGOMP_USE_PTHREADS) \
+-    && (!defined(HAVE_TLS) \
+-	|| !defined(__GLIBC__) \
+-	|| !defined(USING_INITIAL_EXEC_TLS))
++#if defined(LIBGOMP_USE_PTHREADS)
+   /* pthread_t of the thread containing this gomp_thread.
+      On Linux when using initial-exec TLS,
+      (typeof (pthread_t)) gomp_thread () - pthread_self ()
+      is constant in all threads, so we can optimize and not
+      store it.  */
+-#define GOMP_NEEDS_THREAD_HANDLE 1
++# if !defined(HAVE_TLS) || !defined(__GLIBC__) || !defined(USING_INITIAL_EXEC_TLS)
++# define GOMP_NEEDS_THREAD_HANDLE 1
+   pthread_t handle;
++# endif
++#elif defined(_WIN32)
++  /* To simplify lifetime management, we store the ID of this gomp_thread
++     instead of a handle so it doesn't have to be closed.  */
++# define GOMP_NEEDS_THREAD_HANDLE 1
++  unsigned long win32_thread_id;
+ #endif
+ };
+ 
+@@ -1035,6 +1039,13 @@ static inline struct gomp_task_icv *gomp_icv (bool write)
+ extern pthread_attr_t gomp_thread_attr;
+ 
+ extern pthread_key_t gomp_thread_destructor;
++#elif defined(_WIN32)
++/* On Windows, the stack size is passed as an argument.  */
++extern unsigned long gomp_win32_thread_stack_size;
++
++extern unsigned long gomp_win32_tls_index;
++extern int __mingwthr_key_dtor (unsigned long, void (*) (void *));
++extern int __mingwthr_remove_key_dtor (unsigned long);
+ #endif
+ 
+ /* Function prototypes.  */
+@@ -1066,6 +1077,8 @@ extern void gomp_display_string (char *, size_t, size_t *, const char *,
+ 				 size_t);
+ #ifdef LIBGOMP_USE_PTHREADS
+ typedef pthread_t gomp_thread_handle;
++#elif defined(_WIN32)
++typedef unsigned long gomp_thread_handle;
+ #else
+ typedef struct {} gomp_thread_handle;
+ #endif
+@@ -1720,6 +1733,18 @@ gomp_thread_to_pthread_t (struct gomp_thread *thr)
+   return pthread_self () + ((uintptr_t) thr - (uintptr_t) this_thr);
+ #endif
+ }
++#elif defined(_WIN32)
++static inline gomp_thread_handle
++gomp_thread_self (void)
++{
++  return GetCurrentThreadId ();
++}
++
++static inline gomp_thread_handle
++gomp_thread_to_pthread_t (struct gomp_thread *thr)
++{
++  return thr->win32_thread_id;
++}
+ #else
+ static inline gomp_thread_handle
+ gomp_thread_self (void)
+diff --git a/libgomp/oacc-init.c b/libgomp/oacc-init.c
+index 70bf10c84d97..833eabd6bd58 100644
+--- a/libgomp/oacc-init.c
++++ b/libgomp/oacc-init.c
+@@ -43,7 +43,12 @@ static gomp_mutex_t acc_device_lock;
+ static gomp_mutex_t acc_init_state_lock;
+ static enum { uninitialized, initializing, initialized } acc_init_state
+   = uninitialized;
++
++#if defined(LIBGOMP_USE_PTHREADS)
+ static pthread_t acc_init_thread;
++#elif defined(_WIN32)
++static DWORD acc_init_win32_thread_id;
++#endif
+ 
+ /* A cached version of the dispatcher for the global "current" accelerator type,
+    e.g. used as the default when creating new host threads.  This is the
+@@ -58,7 +63,12 @@ __thread struct goacc_thread *goacc_tls_data;
+ #else
+ pthread_key_t goacc_tls_key;
+ #endif
++
++#if defined(LIBGOMP_USE_PTHREADS)
+ static pthread_key_t goacc_cleanup_key;
++#elif defined(_WIN32)
++static DWORD goacc_win32_cleanup_tls_index = TLS_OUT_OF_INDEXES;
++#endif
+ 
+ static struct goacc_thread *goacc_threads;
+ static gomp_mutex_t goacc_thread_lock;
+@@ -235,7 +245,11 @@ acc_init_1 (acc_device_t d, acc_construct_t parent_construct, int implicit)
+ {
+   gomp_mutex_lock (&acc_init_state_lock);
+   acc_init_state = initializing;
++#if defined(LIBGOMP_USE_PTHREADS)
+   acc_init_thread = pthread_self ();
++#elif defined(_WIN32)
++  acc_init_win32_thread_id = GetCurrentThreadId ();
++#endif
+   gomp_mutex_unlock (&acc_init_state_lock);
+ 
+   bool check_not_nested_p;
+@@ -442,7 +456,11 @@ goacc_new_thread (void)
+   pthread_setspecific (goacc_tls_key, thr);
+ #endif
+ 
++#if defined(LIBGOMP_USE_PTHREADS)
+   pthread_setspecific (goacc_cleanup_key, thr);
++#elif defined(_WIN32)
++  TlsSetValue (goacc_win32_cleanup_tls_index, thr);
++#endif
+ 
+   gomp_mutex_lock (&goacc_thread_lock);
+   thr->next = goacc_threads;
+@@ -659,7 +677,12 @@ self_initializing_p (void)
+   bool res;
+   gomp_mutex_lock (&acc_init_state_lock);
+   res = (acc_init_state == initializing
+-	 && pthread_equal (acc_init_thread, pthread_self ()));
++#if defined(LIBGOMP_USE_PTHREADS)
++	 && pthread_equal (acc_init_thread, pthread_self ())
++#elif defined(_WIN32)
++	 && acc_init_win32_thread_id == GetCurrentThreadId ()
++#endif
++	 );
+   gomp_mutex_unlock (&acc_init_state_lock);
+   return res;
+ }
+@@ -865,10 +888,20 @@ goacc_runtime_initialize (void)
+   gomp_mutex_init (&acc_device_lock);
+ 
+ #if !(defined HAVE_TLS || defined USE_EMUTLS)
+-  pthread_key_create (&goacc_tls_key, NULL);
++  if (pthread_key_create (&goacc_tls_key, NULL) != 0)
++    gomp_fatal ("pthread_key_create failed");
+ #endif
+ 
+-  pthread_key_create (&goacc_cleanup_key, goacc_destroy_thread);
++#if defined(LIBGOMP_USE_PTHREADS)
++  if (pthread_key_create (&goacc_cleanup_key, goacc_destroy_thread) != 0)
++    gomp_fatal ("pthread_key_create failed");
++#elif defined(_WIN32)
++  goacc_win32_cleanup_tls_index = TlsAlloc ();
++  if (goacc_win32_cleanup_tls_index == TLS_OUT_OF_INDEXES)
++    gomp_fatal ("TlsAlloc failed");
++  if (__mingwthr_key_dtor (goacc_win32_cleanup_tls_index, goacc_destroy_thread) != 0)
++    gomp_fatal ("__mingwthr_key_dtor failed");
++#endif
+ 
+   cached_base_dev = NULL;
+ 
+@@ -885,7 +918,13 @@ goacc_runtime_deinitialize (void)
+ #if !(defined HAVE_TLS || defined USE_EMUTLS)
+   pthread_key_delete (goacc_tls_key);
+ #endif
++
++#if defined(LIBGOMP_USE_PTHREADS)
+   pthread_key_delete (goacc_cleanup_key);
++#elif defined(_WIN32)
++  __mingwthr_remove_key_dtor (goacc_win32_cleanup_tls_index);
++  TlsFree (goacc_win32_cleanup_tls_index);
++#endif
+ }
+ 
+ /* Compiler helper functions */
+diff --git a/libgomp/target.c b/libgomp/target.c
+index 78f390d593f6..86ff10349100 100644
+--- a/libgomp/target.c
++++ b/libgomp/target.c
+@@ -78,8 +78,23 @@ htab_eq (hash_entry_type x, hash_entry_type y)
+ 
+ static void gomp_target_init (void);
+ 
++#ifdef LIBGOMP_USE_PTHREADS
+ /* The whole initialization code for offloading plugins is only run one.  */
+ static pthread_once_t gomp_is_initialized = PTHREAD_ONCE_INIT;
++#elif defined(_WIN32)
++/* This is the Windows Vista+ way of doing once initialization.  The
++   initialization function has a different signature.  */
++static INIT_ONCE gomp_win32_once = INIT_ONCE_STATIC_INIT;
++
++static BOOL CALLBACK
++gomp_win32_target_init (INIT_ONCE *InitOnce __attribute__((unused)),
++			void *Parameter __attribute__((unused)),
++			void **Context __attribute__((unused)))
++{
++  gomp_target_init ();
++  return TRUE;
++}
++#endif
+ 
+ /* Mutex for offload image registration.  */
+ static gomp_mutex_t register_lock;
+@@ -129,7 +144,11 @@ gomp_realloc_unlock (void *old, size_t size)
+ attribute_hidden void
+ gomp_init_targets_once (void)
+ {
++#if defined(LIBGOMP_USE_PTHREADS)
+   (void) pthread_once (&gomp_is_initialized, gomp_target_init);
++#elif defined(_WIN32)
++  InitOnceExecuteOnce (&gomp_win32_once, gomp_win32_target_init, NULL, NULL);
++#endif
+ }
+ 
+ attribute_hidden int
+@@ -3550,7 +3569,13 @@ GOMP_target_ext (int device, void (*fn) (void *), size_t mapnum,
+ 	      thr->task = &team->implicit_task[0];
+ 	    }
+ 	  else
+-	    pthread_setspecific (gomp_thread_destructor, thr);
++	    {
++#if defined(LIBGOMP_USE_PTHREADS)
++	      pthread_setspecific (gomp_thread_destructor, thr);
++#elif defined(_WIN32)
++	      TlsSetValue (gomp_win32_tls_index, thr);
++#endif
++	    }
+ 	  if (implicit_task != &task)
+ 	    {
+ 	      *implicit_task = thr->task;
+diff --git a/libgomp/task.c b/libgomp/task.c
+index 89dafb872208..faddae77f0f6 100644
+--- a/libgomp/task.c
++++ b/libgomp/task.c
+@@ -2532,10 +2532,14 @@ gomp_create_artificial_team (void)
+       free (*implicit_task);
+       thr->task = &team->implicit_task[0];
+     }
+-#ifdef LIBGOMP_USE_PTHREADS
+   else
+-    pthread_setspecific (gomp_thread_destructor, thr);
++    {
++#ifdef LIBGOMP_USE_PTHREADS
++      pthread_setspecific (gomp_thread_destructor, thr);
++#elif defined(_WIN32)
++      TlsSetValue (gomp_win32_tls_index, thr);
+ #endif
++    }
+   if (implicit_task != &task)
+     {
+       *implicit_task = thr->task;
+diff --git a/libgomp/team.c b/libgomp/team.c
+index 5282a3133ba9..e72a884271c1 100644
+--- a/libgomp/team.c
++++ b/libgomp/team.c
+@@ -30,13 +30,20 @@
+ #include "pool.h"
+ #include <stdlib.h>
+ #include <string.h>
++#ifdef __MINGW32__
++#include <float.h>  /* _fpreset */
++#endif
+ 
++/* These are the stack size and destructor for a thread.  */
+ #ifdef LIBGOMP_USE_PTHREADS
+ pthread_attr_t gomp_thread_attr;
+-
+-/* This key is for the thread destructor.  */
+ pthread_key_t gomp_thread_destructor;
++#elif defined(_WIN32)
++unsigned long gomp_win32_thread_stack_size = 0;
++unsigned long gomp_win32_tls_index = TLS_OUT_OF_INDEXES;
++#endif
+ 
++#if defined(LIBGOMP_USE_PTHREADS) || defined(_WIN32)
+ 
+ /* This is the libgomp per-thread data structure.  */
+ #if defined HAVE_TLS || defined USE_EMUTLS
+@@ -59,14 +66,22 @@ struct gomp_thread_start_data
+   unsigned int num_teams;
+   unsigned int team_num;
+   bool nested;
++#ifdef LIBGOMP_USE_PTHREADS
+   pthread_t handle;
++#elif defined(_WIN32)
++  unsigned long win32_thread_id;
++#endif
+ };
+ 
+ 
+ /* This function is a pthread_create entry point.  This contains the idle
+    loop in which a thread waits to be called up to become part of a team.  */
+ 
++#if defined(LIBGOMP_USE_PTHREADS) || !defined(_WIN32)
+ static void *
++#else
++static DWORD CALLBACK
++#endif
+ gomp_thread_start (void *xdata)
+ {
+   struct gomp_thread_start_data *data = xdata;
+@@ -75,6 +90,10 @@ gomp_thread_start (void *xdata)
+   void (*local_fn) (void *);
+   void *local_data;
+ 
++#ifdef __MINGW32__
++  _fpreset ();
++#endif
++
+ #if defined HAVE_TLS || defined USE_EMUTLS
+   thr = &gomp_tls_data;
+ #else
+@@ -92,8 +111,10 @@ gomp_thread_start (void *xdata)
+   thr->place = data->place;
+   thr->num_teams = data->num_teams;
+   thr->team_num = data->team_num;
+-#ifdef GOMP_NEEDS_THREAD_HANDLE
++#if defined(LIBGOMP_USE_PTHREADS) && defined(GOMP_NEEDS_THREAD_HANDLE)
+   thr->handle = data->handle;
++#elif defined(_WIN32)
++  thr->win32_thread_id = GetCurrentThreadId ();
+ #endif
+ #if !(defined HAVE_TLS || defined USE_EMUTLS)
+   pthread_setspecific (gomp_tls_key, thr);
+@@ -140,10 +161,12 @@ gomp_thread_start (void *xdata)
+     }
+ 
+   gomp_sem_destroy (&thr->release);
++#ifdef LIBGOMP_USE_PTHREADS
+   pthread_detach (pthread_self ());
++#endif
+   thr->thread_pool = NULL;
+   thr->task = NULL;
+-  return NULL;
++  return 0;
+ }
+ #endif
+ 
+@@ -250,6 +273,8 @@ gomp_free_pool_helper (void *thread_pool)
+ #ifdef LIBGOMP_USE_PTHREADS
+   pthread_detach (pthread_self ());
+   pthread_exit (NULL);
++#elif defined(_WIN32)
++  ExitThread (0);
+ #elif defined(__nvptx__)
+   asm ("exit;");
+ #elif defined(__AMDGCN__)
+@@ -314,7 +339,7 @@ gomp_free_thread (void *arg __attribute__((unused)))
+ 
+ /* Launch a team.  */
+ 
+-#ifdef LIBGOMP_USE_PTHREADS
++#if defined(LIBGOMP_USE_PTHREADS) || defined(_WIN32)
+ void
+ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
+ 		 unsigned flags, struct gomp_team *team,
+@@ -327,7 +352,9 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
+   bool nested;
+   struct gomp_thread_pool *pool;
+   unsigned i, n, old_threads_used = 0;
++#ifdef LIBGOMP_USE_PTHREADS
+   pthread_attr_t thread_attr, *attr;
++#endif
+   unsigned long nthreads_var;
+   char bind, bind_var;
+   unsigned int s = 0, rest = 0, p = 0, k = 0;
+@@ -365,8 +392,10 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
+ #endif
+   thr->ts.static_trip = 0;
+   thr->task = &team->implicit_task[0];
+-#ifdef GOMP_NEEDS_THREAD_HANDLE
++#if defined(LIBGOMP_USE_PTHREADS) && defined(GOMP_NEEDS_THREAD_HANDLE)
+   thr->handle = pthread_self ();
++#elif defined(_WIN32)
++  thr->win32_thread_id = GetCurrentThreadId ();
+ #endif
+   nthreads_var = icv->nthreads_var;
+   if (__builtin_expect (gomp_nthreads_var_list != NULL, 0)
+@@ -745,6 +774,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
+ #endif
+     }
+ 
++#ifdef LIBGOMP_USE_PTHREADS
+   attr = &gomp_thread_attr;
+   if (__builtin_expect (gomp_places_list != NULL, 0))
+     {
+@@ -754,6 +784,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
+ 	pthread_attr_setstacksize (&thread_attr, stacksize);
+       attr = &thread_attr;
+     }
++#endif
+ 
+   if (i >= nthreads)
+     __builtin_unreachable ();
+@@ -763,8 +794,6 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
+   /* Launch new threads.  */
+   for (; i < nthreads; ++i)
+     {
+-      int err;
+-
+       start_data->ts.place_partition_off = thr->ts.place_partition_off;
+       start_data->ts.place_partition_len = thr->ts.place_partition_len;
+       start_data->place = 0;
+@@ -829,7 +858,9 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
+ 	  start_data->place = p + 1;
+ 	  if (affinity_thr != NULL && pool->threads[i] != NULL)
+ 	    continue;
++#ifdef LIBGOMP_USE_PTHREADS
+ 	  gomp_init_thread_affinity (attr, p);
++#endif
+ 	}
+ 
+       start_data->fn = fn;
+@@ -855,16 +886,28 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
+       start_data->thread_pool = pool;
+       start_data->nested = nested;
+ 
++#ifdef LIBGOMP_USE_PTHREADS
+       attr = gomp_adjust_thread_attr (attr, &thread_attr);
+-      err = pthread_create (&start_data->handle, attr, gomp_thread_start,
+-			    start_data);
+-      start_data++;
++      int err = pthread_create (&start_data->handle, attr, gomp_thread_start,
++				start_data);
+       if (err != 0)
+ 	gomp_fatal ("Thread creation failed: %s", strerror (err));
++#elif defined(_WIN32)
++      HANDLE thr = CreateThread (NULL, gomp_win32_thread_stack_size,
++				 gomp_thread_start, start_data,
++				 STACK_SIZE_PARAM_IS_A_RESERVATION,
++				 &start_data->win32_thread_id);
++      if (!thr)
++	gomp_fatal ("Thread creation failed: %ld", GetLastError ());
++      CloseHandle (thr);
++#endif
++      start_data++;
+     }
+ 
++#ifdef LIBGOMP_USE_PTHREADS
+   if (__builtin_expect (attr == &thread_attr, 0))
+     pthread_attr_destroy (&thread_attr);
++#endif
+ 
+  do_release:
+   if (nested)
+@@ -914,6 +957,8 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
+ 		  gomp_display_affinity_thread (
+ #ifdef LIBGOMP_USE_PTHREADS
+ 						start_data->handle,
++#elif defined(_WIN32)
++						start_data->win32_thread_id,
+ #else
+ 						gomp_thread_self (),
+ #endif
+@@ -1014,7 +1059,7 @@ gomp_team_end (void)
+     }
+ }
+ 
+-#ifdef LIBGOMP_USE_PTHREADS
++#if defined(LIBGOMP_USE_PTHREADS) || defined(_WIN32)
+ 
+ /* Constructors for this file.  */
+ 
+@@ -1028,8 +1073,16 @@ initialize_team (void)
+   pthread_setspecific (gomp_tls_key, &initial_thread_tls_data);
+ #endif
+ 
++#if defined(LIBGOMP_USE_PTHREADS)
+   if (pthread_key_create (&gomp_thread_destructor, gomp_free_thread) != 0)
+     gomp_fatal ("could not create thread pool destructor.");
++#elif defined(_WIN32)
++  gomp_win32_tls_index = TlsAlloc ();
++  if (gomp_win32_tls_index == TLS_OUT_OF_INDEXES)
++    gomp_fatal ("could not create thread pool destructor.");
++  if (__mingwthr_key_dtor (gomp_win32_tls_index, gomp_free_thread) != 0)
++    gomp_fatal ("could not create thread pool destructor.");
++#endif
+ }
+ 
+ static void __attribute__((destructor))
+@@ -1037,7 +1090,12 @@ team_destructor (void)
+ {
+   /* Without this dlclose on libgomp could lead to subsequent
+      crashes.  */
++#if defined(LIBGOMP_USE_PTHREADS)
+   pthread_key_delete (gomp_thread_destructor);
++#elif defined(_WIN32)
++  __mingwthr_remove_key_dtor (gomp_win32_tls_index);
++  TlsFree (gomp_win32_tls_index);
++#endif
+ }
+ 
+ /* Similar to gomp_free_pool_helper, but don't detach itself,
+@@ -1053,7 +1111,13 @@ gomp_pause_pool_helper (void *thread_pool)
+   gomp_sem_destroy (&thr->release);
+   thr->thread_pool = NULL;
+   thr->task = NULL;
++#ifdef LIBGOMP_USE_PTHREADS
+   pthread_exit (NULL);
++#elif defined(_WIN32)
++  ExitThread (0);
++#else
++#error gomp_pause_pool_helper must terminate the thread
++#endif
+ }
+ 
+ /* Free a thread pool and release its threads.  Return non-zero on
+@@ -1071,14 +1135,27 @@ gomp_pause_host (void)
+       if (pool->threads_used > 0)
+ 	{
+ 	  int i;
++#ifdef LIBGOMP_USE_PTHREADS
+ 	  pthread_t *thrs
+ 	    = gomp_alloca (sizeof (pthread_t) * pool->threads_used);
++#elif defined(_WIN32)
++	  HANDLE *thrs
++	    = gomp_alloca (sizeof (HANDLE) * pool->threads_used);
++#else
++#error unimplemented
++#endif
+ 	  for (i = 1; i < pool->threads_used; i++)
+ 	    {
+ 	      struct gomp_thread *nthr = pool->threads[i];
+ 	      nthr->fn = gomp_pause_pool_helper;
+ 	      nthr->data = pool;
++#ifdef LIBGOMP_USE_PTHREADS
+ 	      thrs[i] = gomp_thread_to_pthread_t (nthr);
++#elif defined(_WIN32)
++	      thrs[i] = OpenThread (SYNCHRONIZE, FALSE, nthr->win32_thread_id);
++#else
++#error unimplemented
++#endif
+ 	    }
+ 	  /* This barrier undocks threads docked on pool->threads_dock.  */
+ 	  gomp_simple_barrier_wait (&pool->threads_dock);
+@@ -1097,7 +1174,19 @@ gomp_pause_host (void)
+ 	  gomp_mutex_unlock (&gomp_managed_threads_lock);
+ #endif
+ 	  for (i = 1; i < pool->threads_used; i++)
+-	    pthread_join (thrs[i], NULL);
++	    {
++#ifdef LIBGOMP_USE_PTHREADS
++	      pthread_join (thrs[i], NULL);
++#elif defined(_WIN32)
++	      if (thrs[i])
++		{
++		  WaitForSingleObject (thrs[i], INFINITE);
++		  CloseHandle (thrs[i]);
++		}
++#else
++#error unimplemented
++#endif
++	    }
+ 	}
+       if (pool->last_team)
+ 	free_team (pool->last_team);
+@@ -1120,6 +1209,8 @@ gomp_new_icv (void)
+   thr->task = task;
+ #ifdef LIBGOMP_USE_PTHREADS
+   pthread_setspecific (gomp_thread_destructor, thr);
++#elif defined(_WIN32)
++  TlsSetValue (gomp_win32_tls_index, thr);
+ #endif
+   return &task->icv;
+ }
+-- 
+2.54.0
+
