@@ -1,0 +1,41 @@
+From 6cab7ed7812b4c75e565224c58942a0f31e542f2 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Tue, 14 Apr 2026 15:47:21 +0800
+Subject: [PATCH] Prevent recursive `LoadLibrary()` in libgcc DLL
+
+Reference: https://github.com/lhmouse/MINGW-packages/issues/21
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ libgcc/config/i386/cygming-crtbegin.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/libgcc/config/i386/cygming-crtbegin.c b/libgcc/config/i386/cygming-crtbegin.c
+index 8435a125817f..6db8f28f32c1 100644
+--- a/libgcc/config/i386/cygming-crtbegin.c
++++ b/libgcc/config/i386/cygming-crtbegin.c
+@@ -121,12 +121,19 @@ __gcc_register_frame (void)
+    fallback to weak linkage to static archive.  */
+ 
+   void (*register_frame_fn) (const void *, struct object *);
+-  HANDLE h = GetModuleHandle (LIBGCC_SONAME);
++  HMODULE h, self;
+ 
++  h = GetModuleHandleA (LIBGCC_SONAME);
+   if (h)
+     {
+-      /* Increasing the load-count of LIBGCC_SONAME DLL.  */
+-      hmod_libgcc = LoadLibrary (LIBGCC_SONAME);
++      /* If this isn't in libgcc itself, increment the load-count of
++	 LIBGCC_SONAME DLL.  */
++      if (!(GetModuleHandleExW (GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
++				 | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
++				(LPCWSTR)(void*) __gcc_register_frame, &self)
++	    && self == h))
++	hmod_libgcc = LoadLibrary (LIBGCC_SONAME);
++
+       register_frame_fn = (void (*) (const void *, struct object *))
+ 			  GetProcAddress (h, "__register_frame_info");
+       deregister_frame_fn = (void* (*) (const void *))
+-- 
+2.53.0
+
