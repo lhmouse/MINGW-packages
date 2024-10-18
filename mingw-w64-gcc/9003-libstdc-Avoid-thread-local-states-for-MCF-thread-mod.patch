@@ -1,0 +1,85 @@
+From 62200d597263cba1dbe2f9c4c0a3e96e6dedee4d Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Wed, 20 Nov 2024 19:39:54 +0800
+Subject: [PATCH] libstdc++: Avoid thread-local states for MCF thread model
+
+The mcfgthread library provides once-initialization functions which can be
+readily used, eliminating dependencies on `std::__once_call` and
+`std::__once_callable`.
+
+This is partially preparation for native TLS support (PR 80881).
+
+This is NOT an ABI break, because `__gthread_once()` also invokes those
+functions on exactly the same flag.
+
+libstdc++-v3/ChangeLog:
+
+	PR libstdc++/66146
+	include/std/mutex (_Prepare_execution, call_once): Use mcfgthread
+	functions if `__USING_MCFGTHREAD__` is defined
+---
+ libstdc++-v3/include/std/mutex | 41 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+
+diff --git a/libstdc++-v3/include/std/mutex b/libstdc++-v3/include/std/mutex
+index 8dd9b23191f..661d33d1bb5 100644
+--- a/libstdc++-v3/include/std/mutex
++++ b/libstdc++-v3/include/std/mutex
+@@ -825,6 +825,45 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+       call_once(once_flag& __once, _Callable&& __f, _Args&&... __args);
+   };
+ 
++# ifdef __USING_MCFGTHREAD__
++
++  // RAII lock type
++  struct once_flag::_Prepare_execution
++  {
++    explicit _Prepare_execution(_MCF_once* __once)
++    : _M_on_scope_exit(_MCF_once_abort), _M_once(__once)
++    { }
++
++    void
++    _M_set_done() noexcept
++    { _M_on_scope_exit = _MCF_once_release; }
++
++    ~_Prepare_execution()
++    { _M_on_scope_exit(_M_once); }
++
++    _Prepare_execution(const _Prepare_execution&) = delete;
++    _Prepare_execution& operator=(const _Prepare_execution&) = delete;
++
++  private:
++    void (*_M_on_scope_exit)(_MCF_once*);
++    _MCF_once* _M_once;
++  };
++
++  /// Invoke a callable and synchronize with other calls using the same flag
++  template<typename _Callable, typename... _Args>
++    void
++    call_once(once_flag& __once, _Callable&& __f, _Args&&... __args)
++    {
++      if(_MCF_once_wait(&__once._M_once, nullptr) != 0)
++        {
++          once_flag::_Prepare_execution __exec(&__once._M_once);
++          std::__invoke(std::forward<_Callable>(__f), std::forward<_Args>(__args)...);
++          __exec._M_set_done();
++        }
++    }
++
++# else // __USING_MCFGTHREAD__
++
+   /// @cond undocumented
+ # ifdef _GLIBCXX_HAVE_TLS
+   // If TLS is available use thread-local state for the type-erased callable
+@@ -917,6 +956,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+ 	__throw_system_error(__e);
+     }
+ 
++# endif // __USING_MCFGTHREAD__
++
+ #else // _GLIBCXX_HAS_GTHREADS
+ 
+   /// Flag type used by std::call_once
+-- 
+2.47.0
+
