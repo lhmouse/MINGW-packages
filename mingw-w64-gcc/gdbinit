@@ -1,3 +1,5 @@
+set disassembly-flavor intel
+
 python
 import sys
 sys.path.insert(0, sys.path[0] + '/../../%GCC_NAME%/python')

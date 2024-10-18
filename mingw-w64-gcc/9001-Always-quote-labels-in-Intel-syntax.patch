@@ -1,0 +1,117 @@
+From 07baacbc7de1f5dc5db9e834b030c1b642774a37 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Thu, 20 Feb 2025 18:12:14 +0800
+Subject: [PATCH] i386: Quote user-defined symbols in assembly in Intel syntax
+
+With `-masm=intel`, GCC generates registers without % prefixes. If a
+user-declared symbol happens to match a register, it will confuse the
+assembler. User-defined symbols should be quoted, so they are not to
+be mistaken for registers or operators.
+
+Support for quoted symbols were added in Binutils 2.26, originally
+for ARM assembly, where registers are also unprefixed:
+https://sourceware.org/git/gitweb.cgi?p=binutils-gdb.git;h=d02603dc201f80cd9d2a1f4b1a16110b1e04222b
+
+This change is required for `@SECREL32` to work in Intel syntax when
+targeting Windows, where `@` is allowed as part of a symbol. GNU AS
+fails to parse a plain symbol with that suffix:
+https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80881#c79
+
+gcc/config/:
+	PR target/53929
+	PR target/80881
+	* gcc/config/i386/i386-protos.h (ix86_asm_output_labelref): Declare new
+	function for quoting user-defined symbols in Intel syntax.
+	* gcc/config/i386/i386.cc (ix86_asm_output_labelref): Implement it.
+	* gcc/config/i386/i386.h (ASM_OUTPUT_LABELREF): Use it.
+	* gcc/config/i386/cygming.h (ASM_OUTPUT_LABELREF): Use it.
+---
+ gcc/config/i386/cygming.h     |  5 +++--
+ gcc/config/i386/i386-protos.h |  1 +
+ gcc/config/i386/i386.cc       | 22 ++++++++++++++++++++++
+ gcc/config/i386/i386.h        |  7 +++++++
+ 4 files changed, 33 insertions(+), 2 deletions(-)
+
+diff --git a/gcc/config/i386/cygming.h b/gcc/config/i386/cygming.h
+index 3ddcbecb22fd..4a192900045a 100644
+--- a/gcc/config/i386/cygming.h
++++ b/gcc/config/i386/cygming.h
+@@ -247,9 +247,10 @@ do {							\
+ #undef ASM_OUTPUT_LABELREF
+ #define  ASM_OUTPUT_LABELREF(STREAM, NAME)	\
+ do {						\
++  const char* prefix = "";			\
+   if ((NAME)[0] != FASTCALL_PREFIX)		\
+-    fputs (user_label_prefix, (STREAM));	\
+-  fputs ((NAME), (STREAM));			\
++    prefix = user_label_prefix;			\
++  ix86_asm_output_labelref ((STREAM), prefix, (NAME));	\
+ } while (0)
+ 
+ /* This does much the same in memory rather than to a stream.  */
+diff --git a/gcc/config/i386/i386-protos.h b/gcc/config/i386/i386-protos.h
+index bea3fd4b2e2a..3b9e28ced91c 100644
+--- a/gcc/config/i386/i386-protos.h
++++ b/gcc/config/i386/i386-protos.h
+@@ -198,6 +198,7 @@ extern int ix86_attr_length_vex_default (rtx_insn *, bool, bool);
+ extern rtx ix86_libcall_value (machine_mode);
+ extern bool ix86_function_arg_regno_p (int);
+ extern void ix86_asm_output_function_label (FILE *, const char *, tree);
++extern void ix86_asm_output_labelref (FILE *, const char *, const char *);
+ extern void ix86_call_abi_override (const_tree);
+ extern int ix86_reg_parm_stack_space (const_tree);
+ 
+diff --git a/gcc/config/i386/i386.cc b/gcc/config/i386/i386.cc
+index 3128973ba79c..6cbed7e4906e 100644
+--- a/gcc/config/i386/i386.cc
++++ b/gcc/config/i386/i386.cc
+@@ -1709,6 +1709,28 @@ ix86_asm_output_function_label (FILE *out_file, const char *fname,
+     }
+ }
+ 
++/* Output a user-defined label.  In AT&T syntax, registers are prefixed
++   with %, so labels require no punctuation.  In Intel syntax, registers
++   are unprefixed, so labels may clash with registers or other operators,
++   and require quoting.  */
++void
++ix86_asm_output_labelref (FILE *file, const char *prefix, const char *label)
++{
++  if (ASSEMBLER_DIALECT != ASM_INTEL)
++    fprintf (file, "%s%s", prefix, label);
++  else
++    {
++      /* When generating DWARF2 debug info, GCC may emit an expression
++	 like `label+42`, where only `label` shall be quoted.  */
++      const char* op = strpbrk (label, "+-");
++      if (op == NULL)
++	fprintf (file, "\"%s%s\"", prefix, label);
++      else
++	fprintf (file, "\"%s%.*s\"%s",
++		 prefix, static_cast<int> (op - label), label, op);
++    }
++}
++
+ /* Implementation of call abi switching target hook. Specific to FNDECL
+    the specific call register sets are set.  See also
+    ix86_conditional_register_usage for more details.  */
+diff --git a/gcc/config/i386/i386.h b/gcc/config/i386/i386.h
+index 40b1aa4e6dfe..79a1afdde02c 100644
+--- a/gcc/config/i386/i386.h
++++ b/gcc/config/i386/i386.h
+@@ -2251,6 +2251,13 @@ extern unsigned int const svr4_debugger_register_map[FIRST_PSEUDO_REGISTER];
+   } while (0)
+ #endif
+ 
++/* In Intel syntax, we have to quote user-defined labels that would
++   match (unprefixed) registers or operators.  */
++
++#undef ASM_OUTPUT_LABELREF
++#define ASM_OUTPUT_LABELREF(STREAM, NAME)	\
++  ix86_asm_output_labelref ((STREAM), user_label_prefix, (NAME))
++
+ /* Under some conditions we need jump tables in the text section,
+    because the assembler cannot handle label differences between
+    sections.  */
+-- 
+2.48.1
+
