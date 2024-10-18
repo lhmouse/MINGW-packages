@@ -1,0 +1,94 @@
+From c2abbe2eba4aa92f01d23f6679bbdd1cbd57299b Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Sun, 27 Apr 2025 18:18:34 +0800
+Subject: [PATCH] i386/cygming: Decrease default preferred stack boundary for
+ 32-bit targets
+
+This commit decreases the default preferred stack boundary to 4.
+
+In i386-options.cc, there's
+
+   ix86_default_incoming_stack_boundary = PREFERRED_STACK_BOUNDARY;
+
+which sets the default incoming stack boundary to this value, if it's not
+overridden by other options or attributes.
+
+Previously, GCC preferred 16-byte alignment like other platforms, unless
+`-miamcu` was specified. However, the Microsoft x86 ABI only requires the
+stack be aligned to 4-byte boundaries. Callback functions from MSVC code may
+break this assumption by GCC (see reference below), causing local variables
+to be misaligned.
+
+For compatibility reasons, when the attribute `force_align_arg_pointer` is
+attached to a function, it continues to ensure the stack is at least aligned
+to a 16-byte boundary, as the documentation seems to suggest.
+
+After this change, `STACK_REALIGN_DEFAULT` no longer has an effect on this
+target, so it is removed.
+
+Reference: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=111107#c9
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+
+gcc/ChangeLog:
+
+	PR 111107
+	* config/i386/cygming.h (PREFERRED_STACK_BOUNDARY_DEFAULT): Override
+	definition from i386.h.
+	(STACK_REALIGN_DEFAULT): Undefine, as it no longer has an effect.
+	* config/i386/i386.cc (ix86_update_stack_boundary): Force minimum
+	128-bit alignment if `force_align_arg_pointer`.
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ gcc/config/i386/cygming.h | 9 ++++-----
+ gcc/config/i386/i386.cc   | 9 +++++++++
+ 2 files changed, 13 insertions(+), 5 deletions(-)
+
+diff --git a/gcc/config/i386/cygming.h b/gcc/config/i386/cygming.h
+index 3ddcbecb22fd..743cc38f5852 100644
+--- a/gcc/config/i386/cygming.h
++++ b/gcc/config/i386/cygming.h
+@@ -28,16 +28,15 @@ along with GCC; see the file COPYING3.  If not see
+ #undef TARGET_SEH
+ #define TARGET_SEH  (TARGET_64BIT_MS_ABI && flag_unwind_tables)
+ 
++#undef PREFERRED_STACK_BOUNDARY_DEFAULT
++#define PREFERRED_STACK_BOUNDARY_DEFAULT \
++  (TARGET_64BIT ? 128 : MIN_STACK_BOUNDARY)
++
+ /* Win64 with SEH cannot represent DRAP stack frames.  Disable its use.
+    Force the use of different mechanisms to allocate aligned local data.  */
+ #undef MAX_STACK_ALIGNMENT
+ #define MAX_STACK_ALIGNMENT  (TARGET_SEH ? 128 : MAX_OFILE_ALIGNMENT)
+ 
+-/* 32-bit Windows aligns the stack on a 4-byte boundary but SSE instructions
+-   may require 16-byte alignment.  */
+-#undef STACK_REALIGN_DEFAULT
+-#define STACK_REALIGN_DEFAULT TARGET_SSE
+-
+ /* Support hooks for SEH.  */
+ #undef  TARGET_ASM_UNWIND_EMIT
+ #define TARGET_ASM_UNWIND_EMIT  i386_pe_seh_unwind_emit
+diff --git a/gcc/config/i386/i386.cc b/gcc/config/i386/i386.cc
+index 38df84f7db24..61e2acc53b7d 100644
+--- a/gcc/config/i386/i386.cc
++++ b/gcc/config/i386/i386.cc
+@@ -7920,6 +7920,15 @@ ix86_update_stack_boundary (void)
+   if (ix86_tls_descriptor_calls_expanded_in_cfun
+       && crtl->preferred_stack_boundary < 128)
+     crtl->preferred_stack_boundary = 128;
++
++  /* For 32-bit MS ABI, both the incoming and preferred stack boundaries
++     are 32 bits, but if force_align_arg_pointer is specified, it should
++     prefer 128 bits for a backward-compatibility reason, which is also
++     what the doc suggests.  */
++  if (lookup_attribute ("force_align_arg_pointer",
++			TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl)))
++      && crtl->preferred_stack_boundary < 128)
++    crtl->preferred_stack_boundary = 128;
+ }
+ 
+ /* Handle the TARGET_GET_DRAP_RTX hook.  Return NULL if no DRAP is
+-- 
+2.49.0
+
