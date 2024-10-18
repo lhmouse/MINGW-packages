@@ -5,21 +5,13 @@
 # Contributor: wirx6 <wirx654@gmail.com>
 # Contributor: Kirill Müller <krlmlr@mailbox.org>
 
-if [[ ${CARCH} != i686 ]]; then
-  _enable_fortran=yes
-  _enable_ada=yes
-  _enable_objc=yes
-  _enable_rust=no
-  _enable_jit=yes
-else
-  _enable_fortran=yes # Change it to no after dropping gimp
-  _enable_ada=no
-  _enable_objc=no
-  _enable_rust=no
-  _enable_jit=no
-fi
+_enable_fortran=yes
+_enable_ada=no
+_enable_objc=yes
+_enable_rust=no
+_enable_jit=yes
 
-_threads="posix"
+_threads="mcf"
 
 _realname=gcc
 pkgbase=mingw-w64-${_realname}
@@ -34,24 +26,11 @@ pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
          $([[ "$_enable_rust" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-${_realname}-rust")
          $([[ "$_enable_jit" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-libgccjit")
         )
-pkgver=15.1.0
-_rc=""
-_snapshot=
-if [[ -z ${_rc} ]]; then
-  _version=${pkgver%%.*}
-  _libdir=lib/gcc/${CHOST}/${pkgver%%+*}
-else
-  _version=${pkgver}-${_rc}
-  _libdir=lib/gcc/${CHOST}/${pkgver%%.*}.0.1
-fi
-if [[ -z ${_snapshot} ]]; then
-  _sourcedir=${_realname}-${pkgver}
-  _url=https://ftp.gnu.org/gnu/gcc/${_realname}-${pkgver%%+*}
-else
-  _sourcedir=${_realname}-${_version}-${_snapshot}
-  _url=https://gcc.gnu.org/pub/gcc/snapshots/${_version}-${_snapshot}
-fi
-pkgrel=4
+pkgver=15.1.1+20250516
+_branch=releases/gcc-15
+_sourcedir=gcc
+_libdir=lib/gcc/${CHOST}/${pkgver%%+*}
+pkgrel=1
 pkgdesc="GCC for the MinGW-w64"
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64')
@@ -76,10 +55,11 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-${_realname}"
              "${MINGW_PACKAGE_PREFIX}-python"
              "${MINGW_PACKAGE_PREFIX}-windows-default-manifest"
              "${MINGW_PACKAGE_PREFIX}-winpthreads"
+             "${MINGW_PACKAGE_PREFIX}-mcfgthread"
              "${MINGW_PACKAGE_PREFIX}-zlib"
              "${MINGW_PACKAGE_PREFIX}-zstd")
 options=('!emptydirs') # '!strip' 'debug')
-source=(${_url}/${_sourcedir}.tar.xz{,.sig}
+source=(${_sourcedir}::"git+https://gcc.gnu.org/git/gcc.git#branch=${_branch}"
         "gdbinit"
         0003-Windows-Follow-Posix-dir-exists-semantics-more-close.patch
         0005-Windows-Don-t-ignore-native-system-header-dir.patch
@@ -94,10 +74,14 @@ source=(${_url}/${_sourcedir}.tar.xz{,.sig}
         0200-add-m-no-align-vector-insn-option-for-i386.patch
         2001-fix-building-rust-on-mingw-w64.patch
         3001-fix-codeview-crashes.patch
-        9002-native-tls.patch)
-sha256sums=('e2b09ec21660f01fecffb715e0120265216943f038d0e48a9868713e54f06cea'
-            'SKIP'
-            'bce81824fc89e5e62cca350de4c17a27e27a18a1a1ad5ca3492aec1fc5af3234'
+        9000-gcc-Make-stupid-AT-T-syntax-not-default.patch
+        9001-Always-quote-labels-in-Intel-syntax.patch
+        9002-native-tls.patch
+        9003-libstdc-Avoid-thread-local-states-for-MCF-thread-mod.patch
+        9005-i386-cygming-Decrease-default-preferred-stack-bounda.patch
+        9007-Enable-mcf-thread-model-for-aarch64-mingw.patch)
+sha256sums=('SKIP'
+            '073a62609f2b62ce14d8a2c06f5f386d5ae600f98ea490e69cff80bd6dc4b84d'
             '3fc35067823f87e48dd3bfd265e7593000dc110fa9ad5f16c81b896765fc897a'
             'f7da015a69cff58fbc4b39c7072dfff334a01024470bb092ba31ad648899adf0'
             '90d5cb570083f9dea4ac0f0f87e3e8d2230f5052e6f9b946061a20a224a9d195'
@@ -111,7 +95,12 @@ sha256sums=('e2b09ec21660f01fecffb715e0120265216943f038d0e48a9868713e54f06cea'
             '1484911163634f30324827619c873a6267b377abba0df8bbedfd128163c53ea4'
             'a411f59953553a3d01dd64c79b1acbb91eca092c4cb01bfd26b1c51c3eb798e8'
             'f21f9ab731e9cab8fd4ca8c289497f859ef7004e6fa0507877dc2559ac2071c3'
-            'd977683efc6f6b4dd675a8f1978416d22d5b5d1fa53614b9a18bc18efa231391')
+            'f3b3838a64e5d3c2ddab91015bebc0bbc626087f4d58198c966c5863f88dc099'
+            '7609644ca0352b87696fdff3a63864ce797e074b085f16ec5096d0f831fa10bf'
+            'd977683efc6f6b4dd675a8f1978416d22d5b5d1fa53614b9a18bc18efa231391'
+            '77659729168b077ba65be0e78a79932b02b8908f64f8a0d639bc8119dc9ed368'
+            'e167fc5b1377edf6f449e7f2e34e8ffc5340332cb218229b06f166fd38849c1f'
+            '13e00f7cedb13f94ffdb96a558e4800ccddb769f9a02639eee1f52117630306f')
 validpgpkeys=(F3691687D867B81B51CE07D9BBE43771487328A9  # bpiotrowski@archlinux.org
               86CFFCA918CF3AF47147588051E8B148A9999C34  # evangelos@foutrelis.com
               13975A70E63C361C73AE69EF6EEB81F8981C74C7  # richard.guenther@gmail.com
@@ -136,8 +125,17 @@ del_file_exists() {
 }
 # =========================================== #
 
+pkgver() {
+  cd "${srcdir}/${_sourcedir}"
+  _gcc_version=$(head -n 34 gcc/BASE-VER | sed -e 's/.* //' | tr -d '"\n')
+  _gcc_date=$(head -n 34 gcc/DATESTAMP | sed -e 's/.* //' | tr -d '"\n')
+  printf "%s+%s" "$_gcc_version" "$_gcc_date"
+}
+
 prepare() {
   cd "${srcdir}"/${_sourcedir}
+  git reset --hard
+  git clean -fdx
 
   apply_patch_with_msg \
     0003-Windows-Follow-Posix-dir-exists-semantics-more-close.patch \
@@ -171,8 +169,17 @@ prepare() {
   apply_patch_with_msg \
     3001-fix-codeview-crashes.patch
 
-  # apply_patch_with_msg \
-  #   9002-native-tls.patch
+  # backported from master
+  apply_patch_with_msg \
+    9001-Always-quote-labels-in-Intel-syntax.patch \
+    9002-native-tls.patch \
+    9005-i386-cygming-Decrease-default-preferred-stack-bounda.patch \
+    9007-Enable-mcf-thread-model-for-aarch64-mingw.patch
+
+  # GCC with the MCF thread model
+  apply_patch_with_msg \
+    9000-gcc-Make-stupid-AT-T-syntax-not-default.patch \
+    9003-libstdc-Avoid-thread-local-states-for-MCF-thread-mod.patch
 
   autoreconf -fiv
 
@@ -187,6 +194,7 @@ prepare() {
 }
 
 build() {
+  [[ -d build-${MSYSTEM} ]] && rm -rf build-${MSYSTEM}
   mkdir -p "${srcdir}"/build-${MSYSTEM} && cd "${srcdir}"/build-${MSYSTEM}
 
   declare -a _extra_config
@@ -202,10 +210,10 @@ build() {
       "--with-dwarf2"
     )
     LDFLAGS+=" -Wl,--large-address-aware"
-    local _arch=pentium4
+    local _arch=x86-64-v2
   else
     _extra_config+=("--enable-plugin")
-    local _arch=nocona
+    local _arch=x86-64-v2
   fi
 
   local _languages="c,lto,c++"
@@ -252,7 +260,7 @@ build() {
     --enable-bootstrap \
     --enable-checking=release \
     --with-arch=${_arch} \
-    --with-tune=generic \
+    --with-tune=intel \
     --enable-mingw-wildcard \
     --enable-languages=${_languages} \
     --enable-shared \
@@ -264,6 +272,8 @@ build() {
     --enable-libstdcxx-backtrace=yes \
     --enable-libstdcxx-filesystem-ts \
     --enable-libstdcxx-time \
+    --enable-__cxa_atexit \
+    --enable-tls \
     --disable-libstdcxx-pch \
     --enable-lto \
     --enable-libgomp \
@@ -277,8 +287,8 @@ build() {
     --with-libiconv \
     --with-system-zlib \
     --with-{gmp,mpfr,mpc,isl}=${MINGW_PREFIX} \
-    --with-pkgversion="Rev${pkgrel}, Built by MSYS2 project" \
-    --with-bugurl="https://github.com/msys2/MINGW-packages/issues" \
+    --with-pkgversion="GCC with the MCF thread model, built by LH_Mouse" \
+    --with-bugurl="https://github.com/lhmouse/MINGW-packages/issues" \
     --with-gnu-as \
     --with-gnu-ld \
     "${_extra_config[@]}"
@@ -297,7 +307,8 @@ build() {
 
 package_gcc-libs() {
   pkgdesc="GNU Compiler Collection (libraries) for MinGW-w64"
-  depends=("${MINGW_PACKAGE_PREFIX}-libwinpthread")
+  depends=("${MINGW_PACKAGE_PREFIX}-libwinpthread"
+           "${MINGW_PACKAGE_PREFIX}-mcfgthread-libs")
   provides=("${MINGW_PACKAGE_PREFIX}-omp")
 
   # Licensing information
@@ -349,6 +360,7 @@ package_gcc() {
            "${MINGW_PACKAGE_PREFIX}-${_realname}-libs=${pkgver}-${pkgrel}"
            "${MINGW_PACKAGE_PREFIX}-windows-default-manifest"
            "${MINGW_PACKAGE_PREFIX}-winpthreads"
+           "${MINGW_PACKAGE_PREFIX}-mcfgthread"
            "${MINGW_PACKAGE_PREFIX}-zlib"
            "${MINGW_PACKAGE_PREFIX}-zstd")
   provides=("${MINGW_PACKAGE_PREFIX}-${_realname}-base"
@@ -431,6 +443,9 @@ package_gcc() {
   # install "custom" system gdbinit
   install -D -m644 "${srcdir}"/gdbinit "${pkgdir}"${MINGW_PREFIX}/etc/gdbinit
   sed -i 's|%GCC_NAME%|gcc-'${pkgver%%+*}'|g' "${pkgdir}"${MINGW_PREFIX}/etc/gdbinit
+  if [[ "${CARCH}" == "i686" || "${CARCH}" == "x86_64" ]]; then
+    sed -i '/#set disassembly-flavor intel/s/#//' "${pkgdir}"${MINGW_PREFIX}/etc/gdbinit
+  fi
 
   # byte-compile python libraries
   ${MINGW_PREFIX}/bin/python -m compileall -o 0 -o 1 "${pkgdir}"${MINGW_PREFIX}/share/gcc-${pkgver%%+*}/
@@ -458,6 +473,7 @@ package_gcc-fortran() {
            "${MINGW_PACKAGE_PREFIX}-gmp"
            "${MINGW_PACKAGE_PREFIX}-isl"
            "${MINGW_PACKAGE_PREFIX}-libwinpthread"
+           "${MINGW_PACKAGE_PREFIX}-mcfgthread-libs"
            "${MINGW_PACKAGE_PREFIX}-mpc"
            "${MINGW_PACKAGE_PREFIX}-mpfr"
            "${MINGW_PACKAGE_PREFIX}-zlib"
@@ -480,6 +496,7 @@ package_gcc-ada() {
            "${MINGW_PACKAGE_PREFIX}-gmp"
            "${MINGW_PACKAGE_PREFIX}-isl"
            "${MINGW_PACKAGE_PREFIX}-libwinpthread"
+           "${MINGW_PACKAGE_PREFIX}-mcfgthread-libs"
            "${MINGW_PACKAGE_PREFIX}-mpc"
            "${MINGW_PACKAGE_PREFIX}-mpfr"
            "${MINGW_PACKAGE_PREFIX}-zlib"
@@ -499,6 +516,7 @@ package_gcc-objc() {
            "${MINGW_PACKAGE_PREFIX}-gmp"
            "${MINGW_PACKAGE_PREFIX}-isl"
            "${MINGW_PACKAGE_PREFIX}-libwinpthread"
+           "${MINGW_PACKAGE_PREFIX}-mcfgthread-libs"
            "${MINGW_PACKAGE_PREFIX}-mpc"
            "${MINGW_PACKAGE_PREFIX}-mpfr"
            "${MINGW_PACKAGE_PREFIX}-zlib"
@@ -522,6 +540,7 @@ package_gcc-rust() {
            "${MINGW_PACKAGE_PREFIX}-gmp"
            "${MINGW_PACKAGE_PREFIX}-isl"
            "${MINGW_PACKAGE_PREFIX}-libwinpthread"
+           "${MINGW_PACKAGE_PREFIX}-mcfgthread-libs"
            "${MINGW_PACKAGE_PREFIX}-mpc"
            "${MINGW_PACKAGE_PREFIX}-mpfr"
            "${MINGW_PACKAGE_PREFIX}-zlib"
@@ -540,6 +559,7 @@ package_gcc-lto-dump() {
            "${MINGW_PACKAGE_PREFIX}-gmp"
            "${MINGW_PACKAGE_PREFIX}-isl"
            "${MINGW_PACKAGE_PREFIX}-libwinpthread"
+           "${MINGW_PACKAGE_PREFIX}-mcfgthread-libs"
            "${MINGW_PACKAGE_PREFIX}-mpc"
            "${MINGW_PACKAGE_PREFIX}-mpfr"
            "${MINGW_PACKAGE_PREFIX}-zlib"
@@ -557,6 +577,7 @@ package_libgccjit() {
            "${MINGW_PACKAGE_PREFIX}-gmp"
            "${MINGW_PACKAGE_PREFIX}-isl"
            "${MINGW_PACKAGE_PREFIX}-libwinpthread"
+           "${MINGW_PACKAGE_PREFIX}-mcfgthread-libs"
            "${MINGW_PACKAGE_PREFIX}-mpc"
            "${MINGW_PACKAGE_PREFIX}-mpfr"
            "${MINGW_PACKAGE_PREFIX}-zlib"
