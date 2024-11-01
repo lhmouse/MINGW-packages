@@ -5,8 +5,10 @@
 _realname=binutils
 pkgbase=mingw-w64-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}")
-pkgver=2.43.1
-pkgrel=2
+pkgver=2.43.1+20250119
+_branch=binutils-2_43-branch
+_sourcedir=binutils-gdb
+pkgrel=1
 pkgdesc="A set of programs to assemble and manipulate binary and object files (mingw-w64)"
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64')
@@ -23,8 +25,10 @@ depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime"
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-gettext-tools"
              "${MINGW_PACKAGE_PREFIX}-autotools")
-source=(https://ftp.gnu.org/gnu/binutils/${_realname}-${pkgver}.tar.bz2{,.sig}
+source=(${_sourcedir}::"git+https://sourceware.org/git/binutils-gdb.git#branch=${_branch}"
         0002-check-for-unusual-file-harder.patch
+        0401-opcodes-i386-dis-Use-Intel-syntax-by-default.patch
+        9001-ld-PE-no-base-relocs-for-section-relative-ones.patch
         0010-bfd-Increase-_bfd_coff_max_nscns-to-65279.patch
         0110-binutils-mingw-gnu-print.patch
         2001-ld-option-to-move-default-bases-under-4GB.patch
@@ -34,9 +38,10 @@ source=(https://ftp.gnu.org/gnu/binutils/${_realname}-${pkgver}.tar.bz2{,.sig}
         3001-hack-libiberty-link-order.patch
         3005-Make-.CRT-and-.idata-read-only.patch
         3006-Merge-.CRT-.ctors-and-.dtors-into-.rdata.patch)
-sha256sums=('becaac5d295e037587b63a42fad57fe3d9d7b83f478eb24b67f9eec5d0f1872f'
-            'SKIP'
+sha256sums=('SKIP'
             '2c99345fc575c3a060d6677537f636c6c4154fac0fde508070f3b6296c1060d4'
+            '18fa935462f50d2588d121da20310c4479cc1d22328add1c768027b1e79e3aab'
+            '3601e8900276c1beb3ce6913422fb2bbc2eb8939d570090496dbac23020689c0'
             '4e8ac055df61b1b5d6ae29dc87e1154737c2e87c7b244b44866702cabf1a5d18'
             '5f3fc3949172d2d6e7cd595f9359077e012391a8c3c2aebc02e30fa656ded833'
             '0b6e1b4c72aa0af0627a75df2bd85774e21a8528deb684c0403c57ece1746199'
@@ -57,18 +62,31 @@ apply_patch_with_msg() {
   done
 }
 
+pkgver() {
+  cd "${srcdir}"/${_sourcedir}
+  _bfd_date=$(sed -n -e 's/^.* BFD_VERSION_DATE \(.*\)$/\1/p'  bfd/version.h)
+  head -n 1 bfd/version.m4 | sed -E -n -e "s/^m4_define\\(\\[BFD_VERSION\\], \\[([^]]+)\\]\\)$/\1+$_bfd_date/p"
+}
+
 prepare() {
-  cd "${srcdir}"/${_realname}-${pkgver}
+  cd "${srcdir}"/${_sourcedir}
+  git reset --hard
+  git clean -fdx
 
   apply_patch_with_msg \
     0002-check-for-unusual-file-harder.patch \
     0010-bfd-Increase-_bfd_coff_max_nscns-to-65279.patch \
-    0110-binutils-mingw-gnu-print.patch
+    0110-binutils-mingw-gnu-print.patch \
+    9001-ld-PE-no-base-relocs-for-section-relative-ones.patch
 
   # https://sourceware.org/bugzilla/show_bug.cgi?id=32264
   apply_patch_with_msg \
     3005-Make-.CRT-and-.idata-read-only.patch \
     3006-Merge-.CRT-.ctors-and-.dtors-into-.rdata.patch
+
+  # ZZZ
+  apply_patch_with_msg \
+    0401-opcodes-i386-dis-Use-Intel-syntax-by-default.patch
 
   # Add an option to change default bases back below 4GB to ease transition
   # https://github.com/msys2/MINGW-packages/issues/7027
@@ -100,6 +118,7 @@ prepare() {
 }
 
 build() {
+  [[ -d build-${MSYSTEM} ]] && rm -rf build-${MSYSTEM}
   mkdir -p build-${MSYSTEM} && cd build-${MSYSTEM}
 
   if check_option "debug" "y"; then
@@ -113,7 +132,7 @@ build() {
     LDFLAGS+=" -Wl,--large-address-aware"
   fi
 
-  ../${_realname}-${pkgver}/configure \
+  ../${_sourcedir}/configure \
     --prefix=${MINGW_PREFIX} \
     --build=${MINGW_CHOST} \
     --host=${MINGW_CHOST} \
@@ -130,6 +149,7 @@ build() {
     --with-libiconv-prefix=${MINGW_PREFIX} \
     --with-sysroot=${MINGW_PREFIX} \
     --with-system-zlib \
+    --disable-{gdb,gdbserver}  \
     "${extra_config[@]}"
 
   make
@@ -140,14 +160,14 @@ check() {
 
   # unset LDFLAGS as testsuite makes assumptions about which ones are active
   # do not abort on errors - manually check log files
-  make LDFLAGS="" -k check || true
+  #make LDFLAGS="" -k check || true
 }
 
 package() {
   cd "${srcdir}"/build-${MSYSTEM}
   make DESTDIR="${pkgdir}" install
 
-  install -Dm644 "${srcdir}/${_realname}-${pkgver}/COPYING"* -t "${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}"
+  install -Dm644 "${srcdir}/${_sourcedir}/COPYING"* -t "${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}"
 
   # https://github.com/msys2/MINGW-packages/issues/7890
   rm -f "${pkgdir}${MINGW_PREFIX}/lib/bfd-plugins/libdep.a"
