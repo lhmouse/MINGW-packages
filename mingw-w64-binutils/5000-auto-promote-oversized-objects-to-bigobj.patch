@@ -1,0 +1,124 @@
+From 18ca02157d9cc245f035452e397a07a3787034d0 Mon Sep 17 00:00:00 2001
+From: Oleg Tolmatcev <oleg.tolmatcev@gmail.com>
+Date: Mon, 29 Jun 2026 15:48:11 +0200
+Subject: [PATCH] PE/COFF: auto-promote oversized objects to bigobj
+
+PE/COFF object files use 16-bit section numbers in normal symbols.
+When an object grows past that limit, current BFD already rejects it with
+a "too many sections" / "file too big" error.
+
+BFD already has PE bigobj targets for the backends that support them, but
+oversized PE/COFF output still requires selecting bigobj explicitly.
+
+Teach coff_compute_section_file_positions to switch PE/COFF output to the
+corresponding bigobj target when the normal section-number limit is
+exceeded. This preserves the existing hard error for targets without
+bigobj support, but lets supported PE targets transparently emit a valid
+bigobj object instead of requiring manual selection.
+
+bfd/
+	* coffcode.h (coff_compute_section_file_positions): Auto-promote
+	oversized PE/COFF objects to the bigobj target.
+
+gas/
+	* testsuite/gas/pe/big-obj-auto.d: New test.
+	* testsuite/gas/pe/big-obj-auto.s: New test.
+	* testsuite/gas/pe/pe.exp: Run big-obj-auto.
+
+Signed-off-by: Oleg Tolmatcev <oleg.tolmatcev@gmail.com>
+---
+ bfd/coffcode.h                      | 14 ++++++++++++++
+ gas/testsuite/gas/pe/big-obj-auto.d |  9 +++++++++
+ gas/testsuite/gas/pe/big-obj-auto.s | 16 ++++++++++++++++
+ gas/testsuite/gas/pe/pe.exp         |  5 ++++-
+ 4 files changed, 43 insertions(+), 1 deletion(-)
+ create mode 100644 gas/testsuite/gas/pe/big-obj-auto.d
+ create mode 100644 gas/testsuite/gas/pe/big-obj-auto.s
+
+diff --git a/bfd/coffcode.h b/bfd/coffcode.h
+index 7439fca6763..12cc7c3ca79 100644
+--- a/bfd/coffcode.h
++++ b/bfd/coffcode.h
+@@ -360,6 +360,10 @@ CODE_FRAGMENT
+ #include "coffswap.h"
+ #endif
+ 
++#ifdef COFF_WITH_PE_BIGOBJ
++extern const bfd_target TARGET_SYM_BIG;
++#endif
++
+ #define STRING_SIZE_SIZE 4
+ 
+ #define DOT_DEBUG	".debug"
+@@ -3154,6 +3158,16 @@ coff_compute_section_file_positions (bfd * abfd)
+ 
+   if (target_index >= bfd_coff_max_nscns (abfd))
+     {
++#if defined(COFF_WITH_PE_BIGOBJ) && !defined(COFF_IMAGE_WITH_PE)
++      if (abfd->xvec != &TARGET_SYM_BIG)
++	{
++	  /* Regular PE/COFF uses 16-bit section numbers in symbols.
++	     Promote oversized objects to the matching bigobj target
++	     before any headers or symbols are finalized.  */
++	  abfd->xvec = &TARGET_SYM_BIG;
++	  return coff_compute_section_file_positions (abfd);
++	}
++#endif
+       bfd_set_error (bfd_error_file_too_big);
+       _bfd_error_handler
+ 	/* xgettext:c-format */
+diff --git a/gas/testsuite/gas/pe/big-obj-auto.d b/gas/testsuite/gas/pe/big-obj-auto.d
+new file mode 100644
+index 00000000000..7b4d0efae9e
+--- /dev/null
++++ b/gas/testsuite/gas/pe/big-obj-auto.d
+@@ -0,0 +1,9 @@
++#objdump: -h
++#name: PE big obj auto-promotion
++
++.*: *file format pe-bigobj-.*
++
++Sections:
++#...
++80002 +\.data\$a79999  .*
++                  CONTENTS, ALLOC, LOAD, DATA
+diff --git a/gas/testsuite/gas/pe/big-obj-auto.s b/gas/testsuite/gas/pe/big-obj-auto.s
+new file mode 100644
+index 00000000000..f09ccd03a9e
+--- /dev/null
++++ b/gas/testsuite/gas/pe/big-obj-auto.s
+@@ -0,0 +1,16 @@
++	.file "big-obj-auto.s"
++
++	.irp n,0,1,2,3,4,5,6,7
++	.irp m,0,1,2,3,4,5,6,7,8,9
++	.irp c,0,1,2,3,4,5,6,7,8,9
++	.irp d,0,1,2,3,4,5,6,7,8,9
++	.irp u,0,1,2,3,4,5,6,7,8,9
++	.globl a\n\m\c\d\u
++	.section .data$a\n\m\c\d\u,"w"
++a\n\m\c\d\u :
++	.byte 1
++	.endr
++	.endr
++	.endr
++	.endr
++	.endr
+diff --git a/gas/testsuite/gas/pe/pe.exp b/gas/testsuite/gas/pe/pe.exp
+index e25de3cfa9d..82f217cf948 100644
+--- a/gas/testsuite/gas/pe/pe.exp
++++ b/gas/testsuite/gas/pe/pe.exp
+@@ -68,6 +68,9 @@ if {[istarget "aarch64-*-pe*"] || [istarget "aarch64-*-mingw*"]} {
+ # Big obj
+ 
+ 
+-if ([istarget "*-*-mingw*"]) then {
++if { [istarget "aarch64-*-*"]
++     || ([istarget "i*86-*-*"] && ![istarget "*-*-interix*"])
++     || [istarget "x86_64-*-*"] } then {
+ 	run_dump_test "big-obj"
++	run_dump_test "big-obj-auto"
+ }
+-- 
+2.43.7
+

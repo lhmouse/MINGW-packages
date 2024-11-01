@@ -1,0 +1,154 @@
+From 9717e928d4a19791df2d312f6b00c4cbe30f450c Mon Sep 17 00:00:00 2001
+From: Peter Damianov <peter0x44@disroot.org>
+Date: Tue, 23 Jun 2026 17:38:04 -0400
+Subject: [PATCH 9101/9104] PE-COFF: Fix weak external symbol resolution when
+ strong undef is seen first
+
+When linking PE-COFF objects, a weak external symbol (C_NT_WEAK with an
+aux record specifying a fallback alias) may fail to resolve if a strong
+undefined reference to the same symbol is encountered before the weak
+definition.  This causes "undefined reference" errors for symbols like
+operator new or personality routines that GCC emits as weak externals
+with a fallback to a default implementation.
+
+There are two problems:
+
+1. In coff_link_add_symbols, when the generic linker resolves a weak
+   undefined against an existing strong undefined (NOACT in the action
+   table), the COFF-specific symbol_class and aux record were not stored
+   because the existing hash entry already had non-null class/type from
+   the first (strong) object file.
+
+2. In _bfd_coff_generic_relocate_section, the weak alias fallback only
+   triggered for bfd_link_hash_undefweak symbols.  When a strong undef
+   is seen first, the hash type stays bfd_link_hash_undefined (the
+   generic linker does not downgrade it), so the fallback was skipped.
+
+Fix by extending the condition in coff_link_add_symbols to also update
+symbol_class and aux when the incoming symbol is a PE weak external
+with aux and the existing hash is still undefined.  Also extend the
+relocation handler to resolve the weak alias fallback for
+bfd_link_hash_undefined symbols that carry C_NT_WEAK class and have
+an aux record.
+
+bfd/
+        * cofflink.c (coff_link_add_symbols): Also store symbol_class
+        and aux record when a PE weak external with aux meets an
+        existing undefined hash entry.
+        (_bfd_coff_generic_relocate_section): Also resolve weak alias
+        fallback for undefined symbols with C_NT_WEAK class and aux.
+
+(cherry picked from commit 2e2848327d8f8490f77af1a8aebf8aa3a2de588c)
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ bfd/cofflink.c | 54 ++++++++++++++++++++++++++++++++++++++------------
+ 1 file changed, 41 insertions(+), 13 deletions(-)
+
+diff --git a/bfd/cofflink.c b/bfd/cofflink.c
+index 02b68814ab4..34305dbfb08 100644
+--- a/bfd/cofflink.c
++++ b/bfd/cofflink.c
+@@ -477,13 +477,20 @@ coff_link_add_symbols (bfd *abfd,
+ 	      /* If we don't have any symbol information currently in
+ 		 the hash table, or if we are looking at a symbol
+ 		 definition, then update the symbol class and type in
+-		 the hash table.  */
++		 the hash table.  Also update if the incoming symbol is
++		 a weak external with an aux record (PE COFF weak alias)
++		 and the existing symbol is still undefined, so the
++		 fallback alias information is preserved for the linker's
++		 relocation resolution.  */
+ 	      if (((*sym_hash)->symbol_class == C_NULL
+ 		   && (*sym_hash)->type == T_NULL)
+ 		  || sym.n_scnum != 0
+ 		  || (sym.n_value != 0
+ 		      && (*sym_hash)->root.type != bfd_link_hash_defined
+-		      && (*sym_hash)->root.type != bfd_link_hash_defweak))
++		      && (*sym_hash)->root.type != bfd_link_hash_defweak)
++		  || (IS_WEAK_EXTERNAL (abfd, sym)
++		      && sym.n_numaux > 0
++		      && (*sym_hash)->root.type == bfd_link_hash_undefined))
+ 		{
+ 		  (*sym_hash)->symbol_class = sym.n_sclass;
+ 		  if (sym.n_type != T_NULL)
+@@ -521,10 +528,9 @@ coff_link_add_symbols (bfd *abfd,
+ 		      union internal_auxent *iaux;
+ 
+ 		      (*sym_hash)->numaux = sym.n_numaux;
+-		      alloc = ((union internal_auxent *)
+-			       bfd_hash_allocate (&info->hash->table,
+-						  (sym.n_numaux
+-						   * sizeof (*alloc))));
++		      alloc = bfd_hash_allocate (&info->hash->table,
++						 (sym.n_numaux
++						  * sizeof (*alloc)));
+ 		      if (alloc == NULL)
+ 			goto error_return;
+ 		      for (i = 0, eaux = esym + symesz, iaux = alloc;
+@@ -3051,14 +3057,24 @@ _bfd_coff_generic_relocate_section (bfd *output_bfd,
+ 		     + sec->output_offset);
+ 	    }
+ 
+-	  else if (h->root.type == bfd_link_hash_undefweak)
++	  else if (h->root.type == bfd_link_hash_undefweak
++		   || (h->root.type == bfd_link_hash_undefined
++		       && h->symbol_class == C_NT_WEAK && h->numaux == 1))
+ 	    {
+-	      if (h->symbol_class == C_NT_WEAK && h->numaux == 1)
++	      /* Weak undefined symbol: either GNU weak (no aux record) or
++		 PE COFF weak external (C_NT_WEAK with aux record).
++		 Also handles strong undefined symbols that carry PE weak
++		 external metadata (when strong undef is seen before weak def,
++		 the hash type stays bfd_link_hash_undefined but we preserve
++		 the weak external class and aux for later resolution).  */
++
++	      bool is_pe_weak = (h->symbol_class == C_NT_WEAK && h->numaux == 1);
++
++	      if (is_pe_weak)
+ 		{
+-		  /* See _Microsoft Portable Executable and Common Object
++		  /* PE COFF weak external: resolve via fallback alias.
++		     See _Microsoft Portable Executable and Common Object
+ 		     File Format Specification_, section 5.5.3.
+-		     Note that weak symbols without aux records are a GNU
+-		     extension.
+ 		     FIXME: All weak externals are treated as having
+ 		     characteristic IMAGE_WEAK_EXTERN_SEARCH_NOLIBRARY (1).
+ 		     These behave as per SVR4 ABI:  A library member
+@@ -3071,19 +3087,31 @@ _bfd_coff_generic_relocate_section (bfd *output_bfd,
+ 
+ 		  if (!h2 || h2->root.type == bfd_link_hash_undefined)
+ 		    {
++		      /* Fallback alias not found or still undefined.
++			 Resolve to NULL.  */
+ 		      sec = bfd_abs_section_ptr;
+ 		      val = 0;
+ 		    }
+ 		  else
+ 		    {
++		      /* Use fallback alias target.  */
+ 		      sec = h2->root.u.def.section;
+ 		      val = h2->root.u.def.value
+ 			+ sec->output_section->vma + sec->output_offset;
+ 		    }
+ 		}
+ 	      else
+-		/* This is a GNU extension.  */
+-		val = 0;
++		{
++		  /* GNU extension: ELF-style weak symbol in COFF without
++		     PE weak external aux record.  COFF has no native support
++		     for weak symbols (unlike ELF where they're part of the
++		     format).  PE COFF adds them via C_NT_WEAK storage class
++		     with an aux record pointing to a fallback symbol.  GNU ld
++		     extends this by allowing __attribute__((weak)) in COFF
++		     objects even without the PE aux structure, treating them
++		     like ELF weak symbols: resolve to NULL if not defined.  */
++		  val = 0;
++		}
+ 	    }
+ 
+ 	  else if (! bfd_link_relocatable (info))
+-- 
+2.55.0
+

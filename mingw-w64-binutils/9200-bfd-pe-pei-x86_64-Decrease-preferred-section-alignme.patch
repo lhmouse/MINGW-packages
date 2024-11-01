@@ -1,0 +1,267 @@
+From e0e0e754169682ecd1777109c1cbf9161f4b4b36 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Fri, 28 Mar 2025 11:17:41 +0800
+Subject: [PATCH] bfd/{pe,pei}-x86_64: Decrease preferred section alignment
+ from 16 to 4
+
+On x86-64, sections require only 4-byte alignment. For example, we compile this
+program with Clang for x86_64-w64-mingw32:
+
+   ```
+   $ cat pe.c
+   int fn(int x) { return x; }
+   extern const int ro = 42;
+   int rw = 43;
+
+   $ clang -target x86_64-w64-mingw32 -Wno-extern-initializer -Os pe.c -c -o pe.Os.o
+
+   $ clang -target x86_64-w64-mingw32 -Wno-extern-initializer -O2 pe.c -c -o pe.O2.o
+
+   $ objdump -hw pe.Os.o pe.O2.o
+
+   pe.Os.o:     file format pe-x86-64
+
+   Sections:
+   Idx Name          Size      VMA               LMA               File off  Algn  Flags
+     0 .text         00000003  0000000000000000  0000000000000000  000000dc  2**2  CONTENTS, ALLOC, LOAD, READONLY, CODE
+     1 .data         00000004  0000000000000000  0000000000000000  000000df  2**2  CONTENTS, ALLOC, LOAD, DATA
+     2 .bss          00000000  0000000000000000  0000000000000000  00000000  2**2  ALLOC
+     3 .rdata        00000004  0000000000000000  0000000000000000  000000e3  2**2  CONTENTS, ALLOC, LOAD, READONLY, DATA
+     4 .llvm_addrsig 00000000  0000000000000000  0000000000000000  000000e7  2**0  CONTENTS, READONLY, EXCLUDE, NOREAD
+
+   pe.O2.o:     file format pe-x86-64
+
+   Sections:
+   Idx Name          Size      VMA               LMA               File off  Algn  Flags
+     0 .text         00000003  0000000000000000  0000000000000000  000000dc  2**4  CONTENTS, ALLOC, LOAD, READONLY, CODE
+     1 .data         00000004  0000000000000000  0000000000000000  000000df  2**2  CONTENTS, ALLOC, LOAD, DATA
+     2 .bss          00000000  0000000000000000  0000000000000000  00000000  2**2  ALLOC
+     3 .rdata        00000004  0000000000000000  0000000000000000  000000e3  2**2  CONTENTS, ALLOC, LOAD, READONLY, DATA
+     4 .llvm_addrsig 00000000  0000000000000000  0000000000000000  000000e7  2**0  CONTENTS, READONLY, EXCLUDE, NOREAD
+   ```
+
+The exact same behavior is also observed when compiling with MSVC. For example,
+we compile the same source file with the Microsoft compiler v14, which can be
+obtained for free from Microsoft website, as part of Microsoft Platform SDK for
+Windows 2003 and Windows XP 64-bit, respectively the first server version and
+the first client version on x86-64:
+
+   ```
+   > cl /c /Os my_add.c /Fope.Os.obj
+   Microsoft (R) C/C++ Optimizing Compiler Version 14.00.40310.41 for AMD64
+   Copyright (C) Microsoft Corporation.  All rights reserved.
+
+   my_add.c
+
+   > cl /c /O2 my_add.c /Fope.O2.obj
+   Microsoft (R) C/C++ Optimizing Compiler Version 14.00.40310.41 for AMD64
+   Copyright (C) Microsoft Corporation.  All rights reserved.
+
+   my_add.c
+
+   > objdump -hw pe.Os.obj pe.O2.obj
+
+   pe.Os.obj:     file format pe-x86-64
+
+   Sections:
+   Idx Name          Size      VMA               LMA               File off  Algn  Flags
+     0 .drectve      0000002f  0000000000000000  0000000000000000  0000008c  2**0  CONTENTS, READONLY, DEBUGGING, EXCLUDE, NOREAD
+     1 .debug$S      00000070  0000000000000000  0000000000000000  000000bb  2**0  CONTENTS, READONLY, DEBUGGING
+     2 .text         00000015  0000000000000000  0000000000000000  0000012b  2**2  CONTENTS, ALLOC, LOAD, READONLY, CODE
+
+   pe.O2.obj:     file format pe-x86-64
+
+   Sections:
+   Idx Name          Size      VMA               LMA               File off  Algn  Flags
+     0 .drectve      0000002f  0000000000000000  0000000000000000  0000008c  2**0  CONTENTS, READONLY, DEBUGGING, EXCLUDE, NOREAD
+     1 .debug$S      00000070  0000000000000000  0000000000000000  000000bb  2**0  CONTENTS, READONLY, DEBUGGING
+     2 .text         00000004  0000000000000000  0000000000000000  0000012b  2**4  CONTENTS, ALLOC, LOAD, READONLY, CODE
+   ```
+
+By default (even without optimization) Clang emits `.p2align 4` to increase the
+alignment of `.text` to 16, which is turned off when optimizing for size. When
+not using `.p2align` we get an alignment of 4:
+
+   ```
+   $ cat my_add.s
+   .intel_syntax noprefix
+   .text
+
+     .def my_add; .scl 2; .type 32; .endef
+     .globl my_add
+     my_add:
+       lea eax, [rcx + rdx]
+       ret
+
+   $ clang -target x86_64-w64-mingw32 my_add.s -c
+
+   $ objdump -hw my_add.o
+
+   my_add.o:     file format pe-x86-64
+
+   Sections:
+   Idx Name          Size      VMA               LMA               File off  Algn  Flags
+     0 .text         00000004  0000000000000000  0000000000000000  0000008c  2**2  CONTENTS, ALLOC, LOAD, READONLY, CODE
+   ```
+
+The purpose of this change is to shrink padding gaps between functions from
+different subsections or object files.
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ bfd/pe-x86_64.c                             | 8 ++++----
+ bfd/pei-x86_64.c                            | 8 ++++----
+ gas/testsuite/gas/i386/x86-64-secidx.d      | 4 ++--
+ gas/testsuite/gas/pe/peseh-x64-5.d          | 2 +-
+ gas/testsuite/gas/pe/peseh-x64-6.d          | 2 +-
+ ld/testsuite/ld-pe/pr26659-weak-undef-sym.d | 2 +-
+ ld/testsuite/ld-pe/pr26659-weak-undef-sym.s | 2 ++
+ ld/testsuite/ld-pe/secidx.d                 | 8 ++++----
+ ld/testsuite/ld-pe/secidx_64.d              | 6 +++---
+ 9 files changed, 22 insertions(+), 20 deletions(-)
+
+diff --git a/bfd/pe-x86_64.c b/bfd/pe-x86_64.c
+index d56d75dabd0..1fa1f02aed7 100644
+--- a/bfd/pe-x86_64.c
++++ b/bfd/pe-x86_64.c
+@@ -48,13 +48,13 @@
+ 
+ #define COFF_SECTION_ALIGNMENT_ENTRIES \
+ { COFF_SECTION_NAME_EXACT_MATCH (".bss"), \
+-  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 4 }, \
++  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 2 }, \
+ { COFF_SECTION_NAME_PARTIAL_MATCH (".data"), \
+-  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 4 }, \
++  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 2 }, \
+ { COFF_SECTION_NAME_PARTIAL_MATCH (".rdata"), \
+-  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 4 }, \
++  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 2 }, \
+ { COFF_SECTION_NAME_PARTIAL_MATCH (".text"), \
+-  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 4 }, \
++  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 2 }, \
+ { COFF_SECTION_NAME_PARTIAL_MATCH (".idata"), \
+   COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 2 }, \
+ { COFF_SECTION_NAME_EXACT_MATCH (".pdata"), \
+diff --git a/bfd/pei-x86_64.c b/bfd/pei-x86_64.c
+index 3f8f255af33..23ead5b5ac3 100644
+--- a/bfd/pei-x86_64.c
++++ b/bfd/pei-x86_64.c
+@@ -42,13 +42,13 @@
+ 
+ #define COFF_SECTION_ALIGNMENT_ENTRIES \
+ { COFF_SECTION_NAME_EXACT_MATCH (".bss"), \
+-  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 4 }, \
++  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 2 }, \
+ { COFF_SECTION_NAME_PARTIAL_MATCH (".data"), \
+-  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 4 }, \
++  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 2 }, \
+ { COFF_SECTION_NAME_PARTIAL_MATCH (".rdata"), \
+-  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 4 }, \
++  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 2 }, \
+ { COFF_SECTION_NAME_PARTIAL_MATCH (".text"), \
+-  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 4 }, \
++  COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 2 }, \
+ { COFF_SECTION_NAME_PARTIAL_MATCH (".idata"), \
+   COFF_ALIGNMENT_FIELD_EMPTY, COFF_ALIGNMENT_FIELD_EMPTY, 2 }, \
+ { COFF_SECTION_NAME_EXACT_MATCH (".pdata"), \
+diff --git a/gas/testsuite/gas/i386/x86-64-secidx.d b/gas/testsuite/gas/i386/x86-64-secidx.d
+index 8affc0a4f51..09937feabed 100644
+--- a/gas/testsuite/gas/i386/x86-64-secidx.d
++++ b/gas/testsuite/gas/i386/x86-64-secidx.d
+@@ -1,5 +1,5 @@
+ #objdump: -rs
+-#name: x86-64 imgrel (RVA) reloc
++#name: x86-64 secidx (RVA) reloc
+ 
+ .*: +file format pe-x86-64
+ 
+@@ -22,4 +22,4 @@ Contents of section \.text:
+  0010 f10000.*
+ 
+ Contents of section \.data:
+- 0000 00000000 04000000 00000000 00000000  .*
++ 0000 00000000 04000000 .*
+diff --git a/gas/testsuite/gas/pe/peseh-x64-5.d b/gas/testsuite/gas/pe/peseh-x64-5.d
+index 430b9024945..69f451b4ce1 100644
+--- a/gas/testsuite/gas/pe/peseh-x64-5.d
++++ b/gas/testsuite/gas/pe/peseh-x64-5.d
+@@ -6,5 +6,5 @@
+ 
+ Sections:
+ Idx Name          Size      VMA               LMA               File off  Algn
+-  4 .xdata\$_ZN5VBase1fEv 00000008  0000000000000000  0000000000000000  000007a4  2\*\*2
++  4 .xdata\$_ZN5VBase1fEv 00000008  0000000000000000  0000000000000000  [0-9a-f]{8}  2\*\*2
+                   CONTENTS, ALLOC, LOAD, READONLY, DATA, LINK_ONCE_DISCARD
+diff --git a/gas/testsuite/gas/pe/peseh-x64-6.d b/gas/testsuite/gas/pe/peseh-x64-6.d
+index f76c2fbf4e8..86dcb56e473 100644
+--- a/gas/testsuite/gas/pe/peseh-x64-6.d
++++ b/gas/testsuite/gas/pe/peseh-x64-6.d
+@@ -6,5 +6,5 @@
+ 
+ Sections:
+ Idx Name          Size      VMA               LMA               File off  Algn
+-  5 .pdata\$_ZN5VBase1fEv 0000000c  0000000000000000  0000000000000000  000007ac  2\*\*2
++  5 .pdata\$_ZN5VBase1fEv 0000000c  0000000000000000  0000000000000000  [0-9a-f]{8}  2\*\*2
+                   CONTENTS, ALLOC, LOAD, RELOC, READONLY, DATA, LINK_ONCE_DISCARD
+diff --git a/ld/testsuite/ld-pe/pr26659-weak-undef-sym.d b/ld/testsuite/ld-pe/pr26659-weak-undef-sym.d
+index 354f6e20ae2..0fbd36db4e4 100644
+--- a/ld/testsuite/ld-pe/pr26659-weak-undef-sym.d
++++ b/ld/testsuite/ld-pe/pr26659-weak-undef-sym.d
+@@ -13,7 +13,7 @@
+  *[0-9a-f]+:	48 85 c0             	test   %rax,%rax
+  *[0-9a-f]+:	74 05                	je     [0-9a-f]+ <foo\+0x1c>
+  *[0-9a-f]+:	e8 e4 ef [fb]f [fb]f       	call   100000000 <__size_of_stack_reserve__\+0xffe00000>
+- *[0-9a-f]+:	48 8b 05 ed 0f 00 00 	mov    0xfed\(%rip\),%rax        # [0-9a-f]+ <.refptr.bar2>
++ *[0-9a-f]+:	48 8b 05 e5 0f 00 00 	mov    0xfe5\(%rip\),%rax        # [0-9a-f]+ <.refptr.bar2>
+  *[0-9a-f]+:	48 85 c0             	test   %rax,%rax
+  *[0-9a-f]+:	74 05                	je     [0-9a-f]+ <foo\+0x2d>
+  *[0-9a-f]+:	e8 d3 ef [fb]f [fb]f       	call   100000000 <__size_of_stack_reserve__\+0xffe00000>
+diff --git a/ld/testsuite/ld-pe/pr26659-weak-undef-sym.s b/ld/testsuite/ld-pe/pr26659-weak-undef-sym.s
+index 7a42759e752..b5ba9e41e38 100644
+--- a/ld/testsuite/ld-pe/pr26659-weak-undef-sym.s
++++ b/ld/testsuite/ld-pe/pr26659-weak-undef-sym.s
+@@ -26,11 +26,13 @@ foo:
+         .def    bar1;   .scl    2;      .type   32;     .endef
+         .def    bar2;   .scl    2;      .type   32;     .endef
+         .section        .rdata$.refptr.bar2, "dr"
++        .p2align 3, 0
+         .globl  .refptr.bar2
+         .linkonce       discard
+ .refptr.bar2:
+         .quad   bar2
+         .section        .rdata$.refptr.bar1, "dr"
++        .p2align 3, 0
+         .globl  .refptr.bar1
+         .linkonce       discard
+ .refptr.bar1:
+diff --git a/ld/testsuite/ld-pe/secidx_64.d b/ld/testsuite/ld-pe/secidx_64.d
+index 0d5b971d198..3d2fa236921 100644
+--- a/ld/testsuite/ld-pe/secidx_64.d
++++ b/ld/testsuite/ld-pe/secidx_64.d
+@@ -4,7 +4,7 @@ tmpdir/secidx\.x: +file format pei-.*
+ Contents of section \.text:
+  .*1000 3e3e3e3e 3c3c3c3c 3e3e3e3e 3e3c3c3c  .*
+  .*1010 3e3e3e3e 3e3e3c3c 3e3e3e3e 3e3e3e3c  .*
+- .*1020 3c3c3c3c 3e3e3e3e 3e909090 90909090  .*
++ .*1020 3c3c3c3c 3e3e3e3e 3e909090 .*
+ Contents of section \.data:
+  .*2000 3e3e3e3e 3c3c3c3c 3e3e3e3e 3e3c3c3c  .*
+  .*2010 3e3e3e3e 3e3e3c3c 3e3e3e3e 3e3e3e3c  .*
+@@ -14,12 +14,12 @@ Contents of section \.data:
+  .*2050 3e3e3e3e 03001103 00110300 11030011  .*
+  .*2060 3c3c3c3c 3c3c3c3c 3e3e3e3e 01001102  .*
+  .*2070 00110300 113c3c3c 3c3c3c3c 3c000000  .*
+- .*2080 3c3c3c3e 3e3e3e3e 3e000000 00000000  .*
++ .*2080 3c3c3c3e 3e3e3e3e 3e000000 .*
+ Contents of section \.rdata:
+  .*3000 3e3e3e3e 3c3c3c3c 3e3e3e3e 3e3c3c3c  .*
+  .*3010 3e3e3e3e 3e3e3c3c 3e3e3e3e 3e3e3e3c  .*
+  .*3020 3e3e3e3e 00000000 00000000 00000000  .*
+- .*3030 3c3c3c3e 3e3e3e3e 3e000000 00000000  .*
++ .*3030 3c3c3c3e 3e3e3e3e 3e000000 .*
+  .*3040 ffffffff ffffffff 00000000 00000000  .*
+  .*3050 ffffffff ffffffff 00000000 00000000  .*
+ Contents of section \.idata:
+-- 
+2.49.0
+
