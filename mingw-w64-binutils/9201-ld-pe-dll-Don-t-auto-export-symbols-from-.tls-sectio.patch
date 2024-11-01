@@ -1,0 +1,46 @@
+From 046189ef51b60c45d2c167b757de02b42d5c7f13 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Mon, 8 Dec 2025 19:41:55 +0800
+Subject: [PATCH] ld/pe-dll: Don't auto-export symbols from .tls section
+
+The .tls section of an image contains template data that will be duplicated
+for each new thread to be created. Accessing thread-local data involves an
+image-specific global variable, _tls_used, for calculation. Therefore, it is
+impossible to export thread-local variables from a DLL.
+
+The only symbol that exists in the .tls input section is _tls_start, but it's
+a CRT symbol and is never auto-exported. It's only necessary to check for
+user symbols, which are always generated in the subsection .tls$ by default,
+or in subsections like .tls$$<symbol> when -fdata-sections is specified.
+
+Reference: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80881
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ ld/pe-dll.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/ld/pe-dll.c b/ld/pe-dll.c
+index 853425dc287..c294acce1ec 100644
+--- a/ld/pe-dll.c
++++ b/ld/pe-dll.c
+@@ -806,9 +806,16 @@ process_def_file_and_drectve (bfd *abfd ATTRIBUTE_UNUSED, struct bfd_link_info *
+ 	    {
+ 	      /* We should export symbols which are either global or not
+ 		 anything at all.  (.bss data is the latter)
+-		 We should not export undefined symbols.  */
++		 We should not export undefined symbols.
++		 Compilers may generate template data (initializers) for
++		 thread-local variables in .tls$* sections, but they are only
++		 used by the DLL loader.  Symbols in those sections are not
++		 used to access thread-local variables; only offsets to the
++		 beginning of the .tls output section matter, but the offsets
++		 can't be exported.  PE targets don't use BSF_THREAD_LOCAL.  */
+ 	      bool would_export
+ 		= (symbols[j]->section != bfd_und_section_ptr
++		   && !startswith (symbols[j]->section->name, ".tls$")
+ 		   && ((symbols[j]->flags & BSF_GLOBAL)
+ 		       || (symbols[j]->flags == 0)));
+ 	      if (link_info.version_info && would_export)
+-- 
+2.52.0
+
