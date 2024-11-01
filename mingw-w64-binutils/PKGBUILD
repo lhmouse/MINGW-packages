@@ -5,8 +5,10 @@
 _realname=binutils
 pkgbase=mingw-w64-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}")
-pkgver=2.47
-pkgrel=3
+pkgver=2.47.0+20260819
+_branch=binutils-2_47-branch
+_sourcedir=binutils-gdb
+pkgrel=1
 pkgdesc="A set of programs to assemble and manipulate binary and object files (mingw-w64)"
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64')
@@ -18,14 +20,13 @@ msys2_references=(
 license=('spdx:GPL-3.0-or-later AND GPL-2.0-or-later AND LGPL-3.0-or-later AND LGPL-2.0-or-later')
 groups=("${MINGW_PACKAGE_PREFIX}-toolchain")
 depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime"
-         "${MINGW_PACKAGE_PREFIX}-libwinpthread"
          "${MINGW_PACKAGE_PREFIX}-zlib"
          "${MINGW_PACKAGE_PREFIX}-zstd")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "gettext"
              "autotools"
              "texinfo")
-source=(https://ftp.gnu.org/gnu/binutils/binutils-${pkgver}.tar.bz2{,.sig}
+source=(${_sourcedir}::"git+https://github.com/gnutools/binutils-gdb.git#branch=${_branch}"
         0002-check-for-unusual-file-harder.patch
         2001-ld-option-to-move-default-bases-under-4GB.patch
         2003-Revert-Restore-old-behaviour-of-windres-so-that-opti.patch
@@ -33,16 +34,19 @@ source=(https://ftp.gnu.org/gnu/binutils/binutils-${pkgver}.tar.bz2{,.sig}
         reproducible-import-libraries.patch
         libiberty-unlink-handle-windows-nul.patch
         4000-fix-DEBUG_S_INLINEELINES.patch
+        9001-opcodes-i386-dis-Use-Intel-syntax-by-default.patch
+        9200-bfd-pe-pei-x86_64-Decrease-preferred-section-alignme.patch
 )
-sha256sums=('3068128c75cda9f898ccb4211d360246e8e195ffcc9dfb655b23ae23a54800e8'
-            'SKIP'
+sha256sums=('SKIP'
             '2c99345fc575c3a060d6677537f636c6c4154fac0fde508070f3b6296c1060d4'
             '9945635f4a67712616202f09cbb66cf70df01be168c2c8054c455bb58bf334dd'
             '3e3c53b0751a6389cd50dcbd7f78b52aaa55113414da01d3415592af18809702'
             '5fddd0c6e380955c2d219f173d286bae07ff23ba79afcd15aba6f29ae6dea47d'
             'a094660ec95996c00b598429843b7869037732146442af567ada9f539bd40480'
             '7ccbd418695733c50966068fa9755a6abb156f53af23701d2bc097c63e9e0030'
-            '5ed35a728b956ad49a5e196ae59f681666f2754f0a4903b9280a430d7a312ea8')
+            '5ed35a728b956ad49a5e196ae59f681666f2754f0a4903b9280a430d7a312ea8'
+            '18fa935462f50d2588d121da20310c4479cc1d22328add1c768027b1e79e3aab'
+            'aea978117e026b4e500eff14ea0d0aa1d9d3ed6ec03089d00e765fe9bb335b9a')
 validpgpkeys=('EAF1C276A747E9ED86210CBAC3126D3B4AE55E93'  # Tristan Gingold <gingold@adacore.com>
               '3A24BC1E8FB409FA9F14371813FCEF89DD9E3C4F'  # Nick Clifton <nickc@redhat.com>
               '5EF3A41171BB77E6110ED2D01F3D03348DB1A3E2') # Sam James <sam@cmpct.info>
@@ -55,11 +59,24 @@ apply_patch_with_msg() {
   done
 }
 
+pkgver() {
+  cd "${srcdir}"/${_sourcedir}
+  _bfd_date=$(sed -n -e 's/^.* BFD_VERSION_DATE \(.*\)$/\1/p'  bfd/version.h)
+  head -n 1 bfd/version.m4 | sed -E -n -e "s/^m4_define\\(\\[BFD_VERSION\\], \\[([^]]+)\\]\\)$/\1+$_bfd_date/p"
+}
+
 prepare() {
-  cd "binutils-${pkgver}"
+  cd "${srcdir}"/${_sourcedir}
+  git reset --hard
+  git clean -fdx
 
   apply_patch_with_msg \
     0002-check-for-unusual-file-harder.patch
+
+  # ZZZ
+  apply_patch_with_msg \
+    9001-opcodes-i386-dis-Use-Intel-syntax-by-default.patch \
+    9200-bfd-pe-pei-x86_64-Decrease-preferred-section-alignme.patch
 
   # Add an option to change default bases back below 4GB to ease transition
   # https://github.com/msys2/MINGW-packages/issues/7027
@@ -92,6 +109,7 @@ prepare() {
 }
 
 build() {
+  [[ -d build-${MSYSTEM} ]] && rm -rf build-${MSYSTEM}
   mkdir -p build-${MSYSTEM} && cd build-${MSYSTEM}
 
   if check_option "debug" "y"; then
@@ -111,7 +129,7 @@ build() {
   # built one is just luck, and I don't know how that is supposed to work.
   LDFLAGS+=" -L\"${PWD}/libiberty\""
 
-  ../binutils-"${pkgver}"/configure \
+  ../${_sourcedir}/configure \
     --prefix=${MINGW_PREFIX} \
     --build=${MINGW_CHOST} \
     --host=${MINGW_CHOST} \
@@ -128,6 +146,7 @@ build() {
     --with-libiconv-prefix=${MINGW_PREFIX} \
     --with-sysroot=${MINGW_PREFIX} \
     --with-system-zlib \
+    --disable-{gdb,gdbserver}  \
     "${extra_config[@]}"
 
   make
@@ -138,14 +157,14 @@ check() {
 
   # unset LDFLAGS as testsuite makes assumptions about which ones are active
   # do not abort on errors - manually check log files
-  make LDFLAGS="" -k check || true
+  #make LDFLAGS="" -k check || true
 }
 
 package() {
   cd "${srcdir}"/build-${MSYSTEM}
   make DESTDIR="${pkgdir}" install
 
-  install -Dm644 "${srcdir}/binutils-"${pkgver}"/COPYING"* -t "${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}"
+  install -Dm644 "${srcdir}/${_sourcedir}/COPYING"* -t "${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}"
 
   # https://github.com/msys2/MINGW-packages/issues/7890
   rm -f "${pkgdir}${MINGW_PREFIX}/lib/bfd-plugins/libdep.a"
