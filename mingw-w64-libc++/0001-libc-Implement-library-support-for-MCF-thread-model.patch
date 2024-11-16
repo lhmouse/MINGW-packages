@@ -1,0 +1,431 @@
+From d81fcafb0930a5e8b6f18b76c22979db98b213ef Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Sun, 17 Nov 2024 23:56:57 +0800
+Subject: [PATCH] [libc++] Implement library support for MCF thread model
+
+This commit allows building libcxx and libcxxabi with
+
+  cmake -DLIBCXX_HAS_MCF_THREAD_API=ON \
+        -DLIBCXXABI_HAS_MCF_THREAD_API=ON \
+        ...
+
+This commit adds a new macro, `_LIBCPP_HAS_THREAD_API_MCF`, to indicate that
+the libraries have been built with MCF thread model.
+
+These functions, and member functions of these classes, are implemented
+directly in libmcfgthread. The list is exhaustive. If someone wants to
+implement more, such as `std::counting_semaphore` and `std::timed_mutex`,
+please let me know:
+
+  * `__cxa_guard_acquire()`
+  * `__cxa_guard_release()`
+  * `__cxa_guard_abort()`
+  * `std::mutex`
+  * `std::call_once()`
+  * `std::recursive_mutex`
+  * `std::condition_variable`
+  * `std::thread`
+  * `std::this_thread::get_id()`
+  * `std::this_thread::sleep_for()`
+  * `std::this_thread::yield()`
+
+Reference: https://gcc.gnu.org/git/?p=gcc.git;a=commit;h=f036d759ecee538555fa8c6b11963e4033732463
+Reference: https://github.com/lhmouse/mcfgthread/wiki/How-the-MCF-thread-model-works
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ libcxx/CMakeLists.txt                         | 25 +++++++++-
+ .../docs/DesignDocs/ThreadingSupportAPI.rst   |  4 ++
+ libcxx/include/__config                       |  6 ++-
+ libcxx/include/__config_site.in               |  1 +
+ libcxx/include/__thread/support.h             |  2 +
+ libcxx/src/CMakeLists.txt                     |  2 +-
+ libcxxabi/CMakeLists.txt                      | 28 +++++++++++
+ libcxxabi/src/CMakeLists.txt                  |  4 ++
+ libcxxabi/src/cxa_guard_impl.h                | 47 ++++++++++++++++++-
+ libcxxabi/src/cxa_thread_atexit.cpp           | 17 ++++---
+ .../gn/secondary/libcxx/include/BUILD.gn      |  1 +
+ 11 files changed, 126 insertions(+), 11 deletions(-)
+
+diff --git a/libcxx/CMakeLists.txt b/libcxx/CMakeLists.txt
+index abe12c2805a7..616b31dd7914 100644
+--- a/libcxx/CMakeLists.txt
++++ b/libcxx/CMakeLists.txt
+@@ -295,6 +295,7 @@ endif()
+ option(LIBCXX_HAS_MUSL_LIBC "Build libc++ with support for the Musl C library" OFF)
+ option(LIBCXX_HAS_PTHREAD_API "Ignore auto-detection and force use of pthread API" OFF)
+ option(LIBCXX_HAS_WIN32_THREAD_API "Ignore auto-detection and force use of win32 thread API" OFF)
++option(LIBCXX_HAS_MCF_THREAD_API "Ignore auto-detection and force use of mcfgthread API" OFF)
+ option(LIBCXX_HAS_EXTERNAL_THREAD_API
+   "Build libc++ with an externalized threading API.
+    This option may only be set to ON when LIBCXX_ENABLE_THREADS=ON." OFF)
+@@ -342,7 +343,10 @@ if(NOT LIBCXX_ENABLE_THREADS)
+     message(FATAL_ERROR "LIBCXX_HAS_WIN32_THREAD_API can only be set to ON"
+                         " when LIBCXX_ENABLE_THREADS is also set to ON.")
+   endif()
+-
++  if (LIBCXX_HAS_MCF_THREAD_API)
++    message(FATAL_ERROR "LIBCXX_HAS_MCF_THREAD_API can only be set to ON"
++                        " when LIBCXX_ENABLE_THREADS is also set to ON.")
++  endif()
+ endif()
+ 
+ if (LIBCXX_HAS_EXTERNAL_THREAD_API)
+@@ -356,6 +360,11 @@ if (LIBCXX_HAS_EXTERNAL_THREAD_API)
+                         " and LIBCXX_HAS_WIN32_THREAD_API cannot be both"
+                         " set to ON at the same time.")
+   endif()
++  if (LIBCXX_HAS_MCF_THREAD_API)
++    message(FATAL_ERROR "The options LIBCXX_HAS_EXTERNAL_THREAD_API"
++                        " and LIBCXX_HAS_MCF_THREAD_API cannot be both"
++                        " set to ON at the same time.")
++  endif()
+ endif()
+ 
+ if (LIBCXX_HAS_PTHREAD_API)
+@@ -364,6 +373,19 @@ if (LIBCXX_HAS_PTHREAD_API)
+                         " and LIBCXX_HAS_WIN32_THREAD_API cannot be both"
+                         " set to ON at the same time.")
+   endif()
++  if (LIBCXX_HAS_MCF_THREAD_API)
++    message(FATAL_ERROR "The options LIBCXX_HAS_PTHREAD_API"
++                        " and LIBCXX_HAS_MCF_THREAD_API cannot be both"
++                        " set to ON at the same time.")
++  endif()
++endif()
++
++if (LIBCXX_HAS_WIN32_THREAD_API)
++  if (LIBCXX_HAS_MCF_THREAD_API)
++    message(FATAL_ERROR "The options LIBCXX_HAS_WIN32_THREAD_API"
++                        " and LIBCXX_HAS_MCF_THREAD_API cannot be both"
++                        " set to ON at the same time.")
++  endif()
+ endif()
+ 
+ if (NOT LIBCXX_ENABLE_RTTI AND LIBCXX_ENABLE_EXCEPTIONS)
+@@ -754,6 +776,7 @@ endif()
+ config_define(${LIBCXX_HAS_PTHREAD_API} _LIBCPP_HAS_THREAD_API_PTHREAD)
+ config_define(${LIBCXX_HAS_EXTERNAL_THREAD_API} _LIBCPP_HAS_THREAD_API_EXTERNAL)
+ config_define(${LIBCXX_HAS_WIN32_THREAD_API} _LIBCPP_HAS_THREAD_API_WIN32)
++config_define(${LIBCXX_HAS_MCF_THREAD_API} _LIBCPP_HAS_THREAD_API_MCF)
+ config_define(${LIBCXX_HAS_MUSL_LIBC} _LIBCPP_HAS_MUSL_LIBC)
+ config_define_if(LIBCXX_NO_VCRUNTIME _LIBCPP_NO_VCRUNTIME)
+ config_define(${LIBCXX_ENABLE_FILESYSTEM} _LIBCPP_HAS_FILESYSTEM)
+diff --git a/libcxx/docs/DesignDocs/ThreadingSupportAPI.rst b/libcxx/docs/DesignDocs/ThreadingSupportAPI.rst
+index d103c49e2595..a8cf749fbaff 100644
+--- a/libcxx/docs/DesignDocs/ThreadingSupportAPI.rst
++++ b/libcxx/docs/DesignDocs/ThreadingSupportAPI.rst
+@@ -65,3 +65,7 @@ Threading Configuration Macros
+ **_LIBCPP_HAS_THREAD_API_WIN32**
+   This macro is defined when libc++ should use Win32 threads to implement the
+   internal threading API.
++
++**_LIBCPP_HAS_THREAD_API_MCF**
++  This macro is defined when libc++ should use the mcfgthread library to
++  implement the internal threading API.
+diff --git a/libcxx/include/__config b/libcxx/include/__config
+index fe01b58b8e62..11ae66d3a5cc 100644
+--- a/libcxx/include/__config
++++ b/libcxx/include/__config
+@@ -813,6 +813,7 @@ typedef __char32_t char32_t;
+ #  if _LIBCPP_HAS_THREADS &&                                                                                           \
+       !_LIBCPP_HAS_THREAD_API_PTHREAD &&                                                                               \
+       !_LIBCPP_HAS_THREAD_API_WIN32 &&                                                                                 \
++      !_LIBCPP_HAS_THREAD_API_MCF &&                                                                                   \
+       !_LIBCPP_HAS_THREAD_API_EXTERNAL
+ 
+ #    if defined(__FreeBSD__) ||                                                                                        \
+@@ -886,7 +887,7 @@ typedef __char32_t char32_t;
+ // clang-format off
+ #  if (_LIBCPP_HAS_THREAD_API_PTHREAD && defined(__GLIBC__)) ||                                                        \
+       (_LIBCPP_HAS_THREAD_API_C11 && defined(__Fuchsia__)) ||                                                          \
+-       _LIBCPP_HAS_THREAD_API_WIN32
++      _LIBCPP_HAS_THREAD_API_WIN32 || _LIBCPP_HAS_THREAD_API_MCF
+ // clang-format on
+ #    define _LIBCPP_HAS_TRIVIAL_MUTEX_DESTRUCTION 1
+ #  else
+@@ -901,7 +902,8 @@ typedef __char32_t char32_t;
+ //
+ // TODO(EricWF): This is potentially true for some pthread implementations
+ // as well.
+-#  if (_LIBCPP_HAS_THREAD_API_C11 && defined(__Fuchsia__)) || _LIBCPP_HAS_THREAD_API_WIN32
++#  if (_LIBCPP_HAS_THREAD_API_C11 && defined(__Fuchsia__)) ||                                                          \
++      _LIBCPP_HAS_THREAD_API_WIN32 || _LIBCPP_HAS_THREAD_API_MCF
+ #    define _LIBCPP_HAS_TRIVIAL_CONDVAR_DESTRUCTION 1
+ #  else
+ #    define _LIBCPP_HAS_TRIVIAL_CONDVAR_DESTRUCTION 0
+diff --git a/libcxx/include/__config_site.in b/libcxx/include/__config_site.in
+index fc01aaf2d874..f5d2f0240c10 100644
+--- a/libcxx/include/__config_site.in
++++ b/libcxx/include/__config_site.in
+@@ -20,6 +20,7 @@
+ #cmakedefine01 _LIBCPP_HAS_THREAD_API_PTHREAD
+ #cmakedefine01 _LIBCPP_HAS_THREAD_API_EXTERNAL
+ #cmakedefine01 _LIBCPP_HAS_THREAD_API_WIN32
++#cmakedefine01 _LIBCPP_HAS_THREAD_API_MCF
+ #define _LIBCPP_HAS_THREAD_API_C11 0 // FIXME: Is this guarding dead code?
+ #cmakedefine _LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS
+ #cmakedefine01 _LIBCPP_HAS_VENDOR_AVAILABILITY_ANNOTATIONS
+diff --git a/libcxx/include/__thread/support.h b/libcxx/include/__thread/support.h
+index 50a18daf2b68..6b2e6851b201 100644
+--- a/libcxx/include/__thread/support.h
++++ b/libcxx/include/__thread/support.h
+@@ -114,6 +114,8 @@ _LIBCPP_END_NAMESPACE_STD
+ #    include <__thread/support/c11.h>
+ #  elif _LIBCPP_HAS_THREAD_API_WIN32
+ #    include <__thread/support/windows.h>
++#  elif defined(_LIBCPP_HAS_THREAD_API_MCF)
++#    include <mcfgthread/libcxx.h>
+ #  else
+ #    error "No threading API was selected"
+ #  endif
+diff --git a/libcxx/src/CMakeLists.txt b/libcxx/src/CMakeLists.txt
+index cce8b8976f73..95509cb37f1e 100644
+--- a/libcxx/src/CMakeLists.txt
++++ b/libcxx/src/CMakeLists.txt
+@@ -105,7 +105,7 @@ if(WIN32)
+     support/win32/support.cpp
+     )
+ 
+-  if (NOT LIBCXX_HAS_PTHREAD_API)
++  if (LIBCXX_HAS_WIN32_THREAD_API)
+     list(APPEND LIBCXX_SOURCES
+       support/win32/thread_win32.cpp
+       )
+diff --git a/libcxxabi/CMakeLists.txt b/libcxxabi/CMakeLists.txt
+index da0e8b286cdd..a876e4d74ae3 100644
+--- a/libcxxabi/CMakeLists.txt
++++ b/libcxxabi/CMakeLists.txt
+@@ -56,6 +56,7 @@ option(LIBCXXABI_USE_COMPILER_RT "Use compiler-rt instead of libgcc" OFF)
+ option(LIBCXXABI_ENABLE_THREADS "Build with threads enabled" ON)
+ option(LIBCXXABI_HAS_PTHREAD_API "Ignore auto-detection and force use of pthread API" OFF)
+ option(LIBCXXABI_HAS_WIN32_THREAD_API "Ignore auto-detection and force use of win32 thread API" OFF)
++option(LIBCXXABI_HAS_MCF_THREAD_API "Ignore auto-detection and force use of mcfgthread API" OFF)
+ option(LIBCXXABI_HAS_EXTERNAL_THREAD_API
+   "Build libc++abi with an externalized threading API.
+   This option may only be set to ON when LIBCXXABI_ENABLE_THREADS=ON." OFF)
+@@ -318,6 +319,11 @@ if (NOT LIBCXXABI_ENABLE_THREADS)
+                         " be set to ON when LIBCXXABI_ENABLE_THREADS"
+                         " is also set to ON.")
+   endif()
++  if (LIBCXXABI_HAS_MCF_THREAD_API)
++    message(FATAL_ERROR "LIBCXXABI_HAS_MCF_THREAD_API can only"
++                        " be set to ON when LIBCXXABI_ENABLE_THREADS"
++                        " is also set to ON.")
++  endif()
+   add_definitions(-D_LIBCXXABI_HAS_NO_THREADS)
+ endif()
+ 
+@@ -332,6 +338,11 @@ if (LIBCXXABI_HAS_EXTERNAL_THREAD_API)
+                         " and LIBCXXABI_HAS_WIN32_THREAD_API cannot be both"
+                         " set to ON at the same time.")
+   endif()
++  if (LIBCXXABI_HAS_MCF_THREAD_API)
++    message(FATAL_ERROR "The options LIBCXXABI_HAS_EXTERNAL_THREAD_API"
++                        " and LIBCXXABI_HAS_MCF_THREAD_API cannot be both"
++                        " set to ON at the same time.")
++  endif()
+ endif()
+ 
+ if (LIBCXXABI_HAS_PTHREAD_API)
+@@ -340,6 +351,19 @@ if (LIBCXXABI_HAS_PTHREAD_API)
+             "and LIBCXXABI_HAS_WIN32_THREAD_API cannot be both"
+             "set to ON at the same time.")
+   endif()
++  if (LIBCXXABI_HAS_MCF_THREAD_API)
++    message(FATAL_ERROR "The options LIBCXXABI_HAS_PTHREAD_API"
++            "and LIBCXXABI_HAS_MCF_THREAD_API cannot be both"
++            "set to ON at the same time.")
++  endif()
++endif()
++
++if (LIBCXXABI_HAS_WIN32_THREAD_API)
++  if (LIBCXXABI_HAS_MCF_THREAD_API)
++    message(FATAL_ERROR "The options LIBCXXABI_HAS_WIN32_THREAD_API"
++            "and LIBCXXABI_HAS_MCF_THREAD_API cannot be both"
++            "set to ON at the same time.")
++  endif()
+ endif()
+ 
+ if (LLVM_ENABLE_MODULES)
+@@ -375,6 +399,10 @@ if (LIBCXXABI_HAS_EXTERNAL_THREAD_API)
+   add_definitions(-D_LIBCPP_HAS_THREAD_API_EXTERNAL)
+ endif()
+ 
++if (LIBCXXABI_HAS_MCF_THREAD_API)
++  add_definitions(-D_LIBCPP_HAS_THREAD_API_MCF)
++endif()
++
+ if (MSVC)
+   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+ endif()
+diff --git a/libcxxabi/src/CMakeLists.txt b/libcxxabi/src/CMakeLists.txt
+index 84fe2784bec5..17c5d5e335f7 100644
+--- a/libcxxabi/src/CMakeLists.txt
++++ b/libcxxabi/src/CMakeLists.txt
+@@ -90,6 +90,10 @@ if (ANDROID AND ANDROID_PLATFORM_LEVEL LESS 21)
+   list(APPEND LIBCXXABI_LIBRARIES android_support)
+ endif()
+ 
++if (LIBCXXABI_HAS_MCF_THREAD_API)
++  list(APPEND LIBCXXABI_LIBRARIES mcfgthread ntdll)
++endif()
++
+ # Setup flags.
+ if (CXX_SUPPORTS_NOSTDLIBXX_FLAG)
+   add_link_flags_if_supported(-nostdlib++)
+diff --git a/libcxxabi/src/cxa_guard_impl.h b/libcxxabi/src/cxa_guard_impl.h
+index 7b05bf32f3ed..5adc8edd37f4 100644
+--- a/libcxxabi/src/cxa_guard_impl.h
++++ b/libcxxabi/src/cxa_guard_impl.h
+@@ -68,6 +68,9 @@
+ #  if defined(__ELF__) && defined(_LIBCXXABI_LINK_PTHREAD_LIB)
+ #    pragma comment(lib, "pthread")
+ #  endif
++#  if _LIBCPP_HAS_THREAD_API_MCF
++#    include <mcfgthread/cxa.h>
++#  endif
+ #endif
+ 
+ #if defined(__clang__)
+@@ -608,6 +611,38 @@ public:
+   }
+ };
+ 
++//===----------------------------------------------------------------------===//
++//                          GuardObject for MCF
++//===----------------------------------------------------------------------===//
++
++/// Forwards everything to libmcfgthread
++struct GuardObject_MCF;
++#if _LIBCPP_HAS_THREAD_API_MCF
++struct GuardObject_MCF {
++  GuardObject_MCF() = delete;
++  GuardObject_MCF(GuardObject_MCF const&) = delete;
++  GuardObject_MCF& operator=(GuardObject_MCF const&) = delete;
++
++private:
++  int64_t* guard_ptr;
++
++public:
++  explicit GuardObject_MCF(uint64_t* raw_guard_object)
++      : guard_ptr(reinterpret_cast<int64_t*>(raw_guard_object)) { }
++
++  /// Implements __cxa_guard_acquire.
++  AcquireResult cxa_guard_acquire() {
++    return static_cast<AcquireResult>(__MCF_cxa_guard_acquire(guard_ptr));
++  }
++
++  /// Implements __cxa_guard_release.
++  void cxa_guard_release() { __MCF_cxa_guard_release(guard_ptr); }
++
++  /// Implements __cxa_guard_abort.
++  void cxa_guard_abort() { __MCF_cxa_guard_abort(guard_ptr); }
++};
++#endif
++
+ //===----------------------------------------------------------------------===//
+ //                          Convenience Classes
+ //===----------------------------------------------------------------------===//
+@@ -628,6 +663,9 @@ template <void (*Wait)(int*, int) = PlatformFutexWait, void (*Wake)(int*) = Plat
+           uint32_t (*GetThreadIDArg)() = PlatformThreadID>
+ using FutexGuard = GuardObject<InitByteFutex<Wait, Wake, GetThreadIDArg>>;
+ 
++/// MCFGuard - Forwards everything to libmcfgthread
++using MCFGuard = GuardObject_MCF;
++
+ //===----------------------------------------------------------------------===//
+ //
+ //===----------------------------------------------------------------------===//
+@@ -639,7 +677,7 @@ struct GlobalStatic {
+ template <class T>
+ _LIBCPP_CONSTINIT T GlobalStatic<T>::instance = {};
+ 
+-enum class Implementation { NoThreads, GlobalMutex, Futex };
++enum class Implementation { NoThreads, GlobalMutex, Futex, MCF };
+ 
+ template <Implementation Impl>
+ struct SelectImplementation;
+@@ -660,6 +698,11 @@ struct SelectImplementation<Implementation::Futex> {
+   using type = FutexGuard<PlatformFutexWait, PlatformFutexWake, PlatformThreadID>;
+ };
+ 
++template <>
++struct SelectImplementation<Implementation::MCF> {
++  using type = MCFGuard;
++};
++
+ // TODO(EricWF): We should prefer the futex implementation when available. But
+ // it should be done in a separate step from adding the implementation.
+ constexpr Implementation CurrentImplementation =
+@@ -667,6 +710,8 @@ constexpr Implementation CurrentImplementation =
+     Implementation::NoThreads;
+ #elif defined(_LIBCXXABI_USE_FUTEX)
+     Implementation::Futex;
++#elif _LIBCPP_HAS_THREAD_API_MCF
++    Implementation::MCF;
+ #else
+     Implementation::GlobalMutex;
+ #endif
+diff --git a/libcxxabi/src/cxa_thread_atexit.cpp b/libcxxabi/src/cxa_thread_atexit.cpp
+index 8546cfe48c39..445eeb41aa69 100644
+--- a/libcxxabi/src/cxa_thread_atexit.cpp
++++ b/libcxxabi/src/cxa_thread_atexit.cpp
+@@ -10,9 +10,12 @@
+ #include "cxxabi.h"
+ #include <__thread/support.h>
+ #ifndef _LIBCXXABI_HAS_NO_THREADS
+-#if defined(__ELF__) && defined(_LIBCXXABI_LINK_PTHREAD_LIB)
+-#pragma comment(lib, "pthread")
+-#endif
++#  if defined(__ELF__) && defined(_LIBCXXABI_LINK_PTHREAD_LIB)
++#    pragma comment(lib, "pthread")
++#  endif
++#  if _LIBCPP_HAS_THREAD_API_MCF
++#    include <mcfgthread/cxa.h>
++#  endif
+ #endif
+ 
+ #include <stdlib.h>
+@@ -22,14 +25,14 @@ namespace __cxxabiv1 {
+   using Dtor = void(*)(void*);
+ 
+   extern "C"
+-#ifndef HAVE___CXA_THREAD_ATEXIT_IMPL
++#if !defined(HAVE___CXA_THREAD_ATEXIT_IMPL)
+   // A weak symbol is used to detect this function's presence in the C library
+   // at runtime, even if libc++ is built against an older libc
+   _LIBCXXABI_WEAK
+ #endif
+   int __cxa_thread_atexit_impl(Dtor, void*, void*);
+ 
+-#ifndef HAVE___CXA_THREAD_ATEXIT_IMPL
++#if !(_LIBCPP_HAS_THREAD_API_MCF || defined(HAVE___CXA_THREAD_ATEXIT_IMPL))
+ 
+ namespace {
+   // This implementation is used if the C library does not provide
+@@ -109,7 +112,9 @@ namespace {
+ extern "C" {
+ 
+   _LIBCXXABI_FUNC_VIS int __cxa_thread_atexit(Dtor dtor, void* obj, void* dso_symbol) throw() {
+-#ifdef HAVE___CXA_THREAD_ATEXIT_IMPL
++#if _LIBCPP_HAS_THREAD_API_MCF
++    return __MCF_cxa_thread_atexit(dtor, obj, dso_symbol);
++#elif defined(HAVE___CXA_THREAD_ATEXIT_IMPL)
+     return __cxa_thread_atexit_impl(dtor, obj, dso_symbol);
+ #else
+     if (__cxa_thread_atexit_impl) {
+diff --git a/llvm/utils/gn/secondary/libcxx/include/BUILD.gn b/llvm/utils/gn/secondary/libcxx/include/BUILD.gn
+index 98bd40a56eea..485cd642e5da 100644
+--- a/llvm/utils/gn/secondary/libcxx/include/BUILD.gn
++++ b/llvm/utils/gn/secondary/libcxx/include/BUILD.gn
+@@ -26,6 +26,7 @@ if (current_toolchain == default_toolchain) {
+       "_LIBCPP_HAS_THREAD_API_PTHREAD=",
+       "_LIBCPP_HAS_THREAD_API_EXTERNAL=",
+       "_LIBCPP_HAS_THREAD_API_WIN32=",
++      "_LIBCPP_HAS_THREAD_API_MCF=",
+       "_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS=",
+       "_LIBCPP_HAS_VENDOR_AVAILABILITY_ANNOTATIONS=",
+       "_LIBCPP_NO_VCRUNTIME=",
+-- 
+2.47.1
+

@@ -11,7 +11,9 @@ pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
 _version=19.1.4
 _rc=""
 _tag=llvmorg-${_version}${_rc}
-pkgver=${_version}${_rc/-/}
+_branch=main
+_sourcedir=llvm-project
+pkgver=20.0.0+20241127
 pkgrel=1
 arch=(any)
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clang32' 'clangarm64')
@@ -32,41 +34,35 @@ if [[ ${MINGW_PACKAGE_PREFIX} != *-clang-* ]]; then
   options=('!strip')
 fi
 _url=https://github.com/llvm/llvm-project/releases/download/${_tag}
-source=("${_url}/libcxx-${pkgver}.src.tar.xz"{,.sig}
-        "${_url}/libcxxabi-${pkgver}.src.tar.xz"{,.sig}
-        "${_url}/libunwind-${pkgver}.src.tar.xz"{,.sig}
-        "${_url}/runtimes-${pkgver}.src.tar.xz"{,.sig}
-        "${_url}/llvm-${pkgver}.src.tar.xz"{,.sig}
-        "${_url}/cmake-${pkgver}.src.tar.xz"{,.sig})
-sha256sums=('a8842bc2c76afb01dd2bba3ade323194b630b90607174129b22a21caf0a11060'
-            'SKIP'
-            '6105412c1dc37505bb41650fb71f4c9445b75342a2128881570916a138fb6a45'
-            'SKIP'
-            'b1457326fc72053cae58d5f79a067a4025877729b479a387bc99e5cb96aaa6f7'
-            'SKIP'
-            '16778f7cd3b1bb05ac9cf47ba9df20caf663eb076849ebf4a34fd6d8c2ac2352'
-            'SKIP'
-            '4fe1bc197ff13f33af6179f836ce1cf2ae9886b822974a736f3a20c8aed0c1b2'
-            'SKIP'
-            'dd13ce8eba6ece85cad567f028b8e16d72f3e142cdcbbd693ac23a88b4013803'
-            'SKIP')
+source=(${_sourcedir}::"git+https://github.com/llvm/llvm-project.git#branch=${_branch}"
+        0001-libc-Implement-library-support-for-MCF-thread-model.patch)
+sha256sums=('SKIP'
+            '14334fad54dbf721e78e1042c46184792735a8bce3ef457b3575537f2021d300')
 validpgpkeys=('B6C8F98282B944E3B0D5C2530FC3042E345AD05D'  # Hans Wennborg, Google.
               '474E22316ABF4785A88C6E8EA2C794A986419D8A'  # Tom Stellard
               'D574BD5D1D0E98895E3BF90044F2485E45D59042') # Tobias Hieta
 noextract=(libcxx-${pkgver}.src.tar.xz)
 
+pkgver() {
+  cd ${srcdir}/${_sourcedir}
+  _ver_x=$(sed -En 's/^ *set\(LLVM_VERSION_MAJOR +([0-9]+).*$/\1/p' cmake/Modules/LLVMVersion.cmake)
+  _ver_y=$(sed -En 's/^ *set\(LLVM_VERSION_MINOR +([0-9]+).*$/\1/p' cmake/Modules/LLVMVersion.cmake)
+  _ver_z=$(sed -En 's/^ *set\(LLVM_VERSION_PATCH +([0-9]+).*$/\1/p' cmake/Modules/LLVMVersion.cmake)
+  _commit_date=$(date '+%Y%m%d' -ud$(git log -n1 --pretty='format:%cI'))
+  printf "%s.%s.%s+%s" "$_ver_x" "$_ver_y" "$_ver_z" "$_commit_date"
+}
+
 prepare() {
-  plain "Extracting libcxx-${pkgver}.src.tar.xz due to symlink(s) without pre-existing target(s)"
-  cd "${srcdir}"
-  tar -xJf ${srcdir}/libcxx-${pkgver}.src.tar.xz -C ${srcdir} || true
-  # Rename Directories
-  for pkg in cmake libcxx libcxxabi libunwind llvm runtimes; do
-    mv ${pkg}-$pkgver.src ${pkg}
-  done
+  cd ${srcdir}/${_sourcedir}
+  git reset --hard
+  git clean -fdx
+
+  git apply -3 ../0001-libc-Implement-library-support-for-MCF-thread-model.patch
 }
 
 build() {
-  mkdir -p build-${MSYSTEM} && cd build-${MSYSTEM}
+  [[ -d build-${MSYSTEM} ]] && rm -rf build-${MSYSTEM}
+  mkdir -p "${srcdir}"/build-${MSYSTEM} && cd "${srcdir}"/build-${MSYSTEM}
 
   declare -a _extra_config
   if check_option "debug" "n"; then
@@ -113,12 +109,12 @@ build() {
     -DLIBCXX_ENABLE_SHARED=ON \
     -DLIBCXX_ENABLE_STATIC=ON \
     -DLIBCXX_ENABLE_STATIC_ABI_LIBRARY=ON \
-    -DLIBCXX_HAS_WIN32_THREAD_API=ON \
+    -DLIBCXX_HAS_MCF_THREAD_API=ON \
     -DLIBCXX_INSTALL_MODULES=ON \
     -DLIBCXX_INCLUDE_BENCHMARKS=OFF \
     -DLIBCXXABI_ENABLE_SHARED=OFF \
     -DLIBCXXABI_ENABLE_STATIC=ON \
-    -DLIBCXXABI_HAS_WIN32_THREAD_API=ON \
+    -DLIBCXXABI_HAS_MCF_THREAD_API=ON \
     -DLIBUNWIND_ENABLE_FRAME_APIS=ON \
     -DLIBUNWIND_ENABLE_SHARED=ON \
     -DLIBUNWIND_ENABLE_STATIC=ON \
@@ -126,7 +122,7 @@ build() {
     "${_extra_config[@]}" \
     -DPython3_EXECUTABLE=${MINGW_PREFIX}/bin/python.exe \
     -Wno-dev \
-    ../runtimes
+    ../${_sourcedir}/runtimes
 
   ${MINGW_PREFIX}/bin/cmake --build . -- unwind cxxabi cxx cxx_experimental
 }
@@ -146,7 +142,7 @@ package_libc++() {
 
   DESTDIR="${pkgdir}" ${MINGW_PREFIX}/bin/cmake --build "${srcdir}/build-${MSYSTEM}" --target install-cxx install-cxxabi
 
-  install -Dm644 "${srcdir}"/libcxx/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/libc++/LICENSE
+  install -Dm644 "${srcdir}/${_sourcedir}"/libcxx/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/libc++/LICENSE
 }
 
 package_libunwind() {
@@ -156,7 +152,7 @@ package_libunwind() {
 
   DESTDIR="${pkgdir}" cmake --build "${srcdir}/build-${MSYSTEM}" --target install-unwind
 
-  install -Dm644 "${srcdir}"/libunwind/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/libunwind/LICENSE
+  install -Dm644 "${srcdir}/${_sourcedir}"/libunwind/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/libunwind/LICENSE
 }
 
 # template start; name=mingw-w64-splitpkg-wrappers; version=1.0;

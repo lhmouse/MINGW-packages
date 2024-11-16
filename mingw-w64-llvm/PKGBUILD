@@ -11,7 +11,7 @@ if [[ $MINGW_PACKAGE_PREFIX == *-clang-* ]]; then
   _clangprefix=1
   _compiler=clang
   if [[ ${CARCH} != i686 ]]; then
-    _pgo=1
+    _pgo=0
   fi
 else
   _compiler=clang
@@ -31,7 +31,9 @@ pkgname=("${MINGW_PACKAGE_PREFIX}-llvm"
 _version=19.1.4
 _rc=""
 _tag=llvmorg-${_version}${_rc}
-pkgver=${_version}${_rc/-/}
+_branch=release/19.x
+_sourcedir=llvm-project
+pkgver=19.1.4+20241115
 pkgrel=1
 pkgdesc="C language family frontend for LLVM (mingw-w64)"
 arch=('any')
@@ -57,14 +59,7 @@ makedepends=($([[ "$_compiler" == "clang" ]] && echo \
                "${MINGW_PACKAGE_PREFIX}-libc++")
              "git"
              )
-_url=https://github.com/llvm/llvm-project/releases/download/${_tag}
-source=("${_url}/llvm-${pkgver}.src.tar.xz"{,.sig}
-        "${_url}/clang-${pkgver}.src.tar.xz"{,.sig}
-        "${_url}/clang-tools-extra-${pkgver}.src.tar.xz"{,.sig}
-        "${_url}/compiler-rt-${pkgver}.src.tar.xz"{,.sig}
-        "${_url}/lld-${pkgver}.src.tar.xz"{,.sig}
-        "${_url}/cmake-${pkgver}.src.tar.xz"{,.sig}
-        "${_url}/third-party-${pkgver}.src.tar.xz"{,.sig}
+source=(${_sourcedir}::"git+https://github.com/llvm/llvm-project.git#branch=${_branch}"
         # 0001-0099 -> llvm
         "0001-Fix-GetHostTriple-for-mingw-w64-in-msys.patch"
         "0002-Fix-Findzstd-on-MINGW.patch"
@@ -78,20 +73,7 @@ source=("${_url}/llvm-${pkgver}.src.tar.xz"{,.sig}
         "0303-ignore-new-bfd-options.patch"
         # 0401-0499 -> clang-tools-extra
         )
-sha256sums=('4fe1bc197ff13f33af6179f836ce1cf2ae9886b822974a736f3a20c8aed0c1b2'
-            'SKIP'
-            'b6d123a4435f1869af709f3288c4c4db48173acaf621088400d91521bc5aa225'
-            'SKIP'
-            'e09d0becbbe4dc3dec45dbda44649357456e559b46a72004696674c963734fa6'
-            'SKIP'
-            '433f9f513313b6e34626fab516e92a97ea087484fce40218e928b9538910cd27'
-            'SKIP'
-            'f4309e05f6a278ee2ecb5b76dfbbec6db858c13099e7e29342e29400588e8d70'
-            'SKIP'
-            'dd13ce8eba6ece85cad567f028b8e16d72f3e142cdcbbd693ac23a88b4013803'
-            'SKIP'
-            '97292083d9718d3a6bedbafddf2fa1740c2d9cba8c72ee8ea391a63f12c0a472'
-            'SKIP'
+sha256sums=('SKIP'
             'eb03df53671df6627768141b3aaa76abe176a14e5e47911c97bec544387c4aff'
             'ff8bf96fae9531cf6231b502e8c2f38843f826a9dc7e0d98a37cb80fddd36cf4'
             '790eb0fccb4ef29c3795bceb8a62c8f4ecd0bdd6c49b2812352b04cfbc552342'
@@ -103,6 +85,15 @@ validpgpkeys=('B6C8F98282B944E3B0D5C2530FC3042E345AD05D'  # Hans Wennborg, Googl
               '474E22316ABF4785A88C6E8EA2C794A986419D8A'  # Tom Stellard
               'D574BD5D1D0E98895E3BF90044F2485E45D59042') # Tobias Hieta
 noextract=(clang-${pkgver}.src.tar.xz)
+
+pkgver() {
+  cd ${srcdir}/${_sourcedir}
+  _ver_x=$(sed -En 's/^ *set\(LLVM_VERSION_MAJOR +([0-9]+).*$/\1/p' cmake/Modules/LLVMVersion.cmake)
+  _ver_y=$(sed -En 's/^ *set\(LLVM_VERSION_MINOR +([0-9]+).*$/\1/p' cmake/Modules/LLVMVersion.cmake)
+  _ver_z=$(sed -En 's/^ *set\(LLVM_VERSION_PATCH +([0-9]+).*$/\1/p' cmake/Modules/LLVMVersion.cmake)
+  _commit_date=$(date '+%Y%m%d' -ud$(git log -n1 --pretty='format:%cI'))
+  printf "%s.%s.%s+%s" "$_ver_x" "$_ver_y" "$_ver_z" "$_commit_date"
+}
 
 apply_patch_with_msg() {
   for _patch in "$@"
@@ -121,17 +112,12 @@ revert_patch_with_msg() {
 }
 
 prepare() {
-  cd "${srcdir}"
-  plain "Extracting clang-${pkgver}.src.tar.xz due to symlink(s) without pre-existing target(s)"
-  tar -xJf "${srcdir}"/clang-${pkgver}.src.tar.xz -C "${srcdir}" || true
-
-  # Rename Directories
-  for pkg in llvm clang clang-tools-extra compiler-rt lld cmake third-party; do
-    mv ${pkg}-$pkgver.src ${pkg}
-  done
+  cd ${srcdir}/${_sourcedir}
+  git reset --hard
+  git clean -fdx
 
   # Patch llvm
-  cd "${srcdir}"/llvm
+  cd "${srcdir}/${_sourcedir}"/llvm
   apply_patch_with_msg \
     "0001-Fix-GetHostTriple-for-mingw-w64-in-msys.patch" \
     "0002-Fix-Findzstd-on-MINGW.patch"
@@ -143,7 +129,7 @@ prepare() {
   fi
 
   # Patch clang
-  cd "${srcdir}"/clang
+  cd "${srcdir}/${_sourcedir}"/clang
 
   if (( ! _clangprefix )); then
     apply_patch_with_msg \
@@ -154,16 +140,19 @@ prepare() {
     "0102-Rename-flang-new-flang-experimental-exec-to-flang.patch"
 
   # Patch lld
-  cd "${srcdir}"/lld
+  cd "${srcdir}/${_sourcedir}"/lld
 
   apply_patch_with_msg \
     "0303-ignore-new-bfd-options.patch"
 
   # Patch clang-tools-extra
-  cd "${srcdir}"/clang-tools-extra
+  cd "${srcdir}/${_sourcedir}"/clang-tools-extra
 }
 
 build() {
+  [[ -d build-${MSYSTEM} ]] && rm -rf build-${MSYSTEM}
+  mkdir -p "${srcdir}"/build-${MSYSTEM} && cd "${srcdir}"/build-${MSYSTEM}
+
   case "${CARCH}" in
     i?86|armv7)
       # lld needs all the address space it can get.
@@ -222,7 +211,7 @@ build() {
       -DCOMPILER_RT_BUILD_SANITIZERS=OFF \
       -DCOMPILER_RT_BUILD_PROFILE=OFF \
       "${common_cmake_args[@]}" \
-      ../llvm
+      ../${_sourcedir}/llvm
     ${MINGW_PREFIX}/bin/cmake --build . --target compiler-rt --target clang
     # Use that to build part of llvm to generate a profile.
     mkdir -p "${srcdir}"/build-${MSYSTEM}-train && cd "${srcdir}"/build-${MSYSTEM}-train
@@ -233,7 +222,7 @@ build() {
       -DLLVM_ENABLE_PROJECTS="clang" \
       -DLLVM_TARGETS_TO_BUILD=Native \
       "${common_cmake_args[@]}" \
-      ../llvm
+      ../${_sourcedir}/llvm
     # Drop profiles generated from running cmake; those are not representative.
     rm "${srcdir}"/build-${MSYSTEM}-instrument/profiles/*.profraw
     ${MINGW_PREFIX}/bin/cmake --build . --target clangSema
@@ -294,7 +283,7 @@ build() {
     -DLLD_DEFAULT_LD_LLD_IS_MINGW=ON \
     "${common_cmake_args[@]}" \
     "${platform_config[@]}" \
-    ../llvm
+    ../${_sourcedir}/llvm
 
   ${MINGW_PREFIX}/bin/cmake.exe --build .
 }
@@ -304,7 +293,7 @@ check() {
   # Remove || true once testcase doesn't cause failures.
   # make check || true
   # make check-clang || true
-  ${MINGW_PREFIX}/bin/cmake.exe -DLLVM_INCLUDE_TESTS=ON ../llvm
+  ${MINGW_PREFIX}/bin/cmake.exe -DLLVM_INCLUDE_TESTS=ON ../${_sourcedir}/llvm
   ${MINGW_PREFIX}/bin/cmake.exe --build .
   ${MINGW_PREFIX}/bin/cmake.exe --build . -- check-lld || true
 }
@@ -330,13 +319,13 @@ package_clang() {
   sed -i.orig '/\(extra\|scan-build\|scan-build-py\|scan-view\)\/cmake_install.cmake/d' build-${MSYSTEM}/tools/clang/tools/cmake_install.cmake
   DESTDIR="${pkgdir}" ${MINGW_PREFIX}/bin/cmake --install "${srcdir}"/build-${MSYSTEM}/tools/clang
 
-  install -Dm644 "${srcdir}"/clang/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/clang/LICENSE
+  install -Dm644 "${srcdir}/${_sourcedir}"/clang/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/clang/LICENSE
 
   # Install Python bindings
   _site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
   site_packages=$(cygpath ${_site_packages})
   install -d "${pkgdir}"/${site_packages}
-  cp -a "${srcdir}"/clang/bindings/python/clang "${pkgdir}"/${site_packages}
+  cp -a "${srcdir}/${_sourcedir}"/clang/bindings/python/clang "${pkgdir}"/${site_packages}
   ${MINGW_PREFIX}/bin/python -m compileall -o 0 -o 1 "${pkgdir}"/${site_packages}
 
   # Runtime libraries
@@ -354,7 +343,7 @@ package_clang-libs() {
 
   cp -r "${srcdir}"/clang-libs/${MINGW_PREFIX} "${pkgdir}"${MINGW_PREFIX}
 
-  install -Dm644 "${srcdir}"/clang/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/clang-libs/LICENSE
+  install -Dm644 "${srcdir}/${_sourcedir}"/clang/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/clang-libs/LICENSE
 }
 
 package_clang-analyzer() {
@@ -371,7 +360,7 @@ package_clang-analyzer() {
   # Compile Python scripts
   ${MINGW_PREFIX}/bin/python -m compileall -o 0 -o 1 "${pkgdir}"${MINGW_PREFIX}/lib/libscanbuild
 
-  install -Dm644 "${srcdir}"/clang/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/clang-analyzer/LICENSE
+  install -Dm644 "${srcdir}/${_sourcedir}"/clang/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/clang-analyzer/LICENSE
 }
 
 package_clang-tools-extra() {
@@ -381,7 +370,7 @@ package_clang-tools-extra() {
 
   DESTDIR="${pkgdir}" ${MINGW_PREFIX}/bin/cmake --install "${srcdir}"/build-${MSYSTEM}/tools/clang/tools/extra
 
-  install -Dm644 "${srcdir}"/clang-tools-extra/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/clang-tools-extra/LICENSE
+  install -Dm644 "${srcdir}/${_sourcedir}"/clang-tools-extra/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/clang-tools-extra/LICENSE
 }
 
 package_compiler-rt() {
@@ -396,7 +385,7 @@ package_compiler-rt() {
   # remove bin dir we created if it is still empty
   rmdir "${pkgdir}"${MINGW_PREFIX}/bin/ 2>/dev/null || true
 
-  install -Dm644 "${srcdir}"/compiler-rt/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/compiler-rt/LICENSE
+  install -Dm644 "${srcdir}/${_sourcedir}"/compiler-rt/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/compiler-rt/LICENSE
 }
 
 package_gcc-compat() {
@@ -430,7 +419,7 @@ package_lld() {
     install -Dm755 "${pkgdir}"${MINGW_PREFIX}/bin/lld.exe "${pkgdir}"${MINGW_PREFIX}/bin/ld.exe
   fi
 
-  install -Dm644 "${srcdir}"/lld/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/lld/LICENSE
+  install -Dm644 "${srcdir}/${_sourcedir}"/lld/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/lld/LICENSE
 }
 
 package_llvm() {
@@ -443,7 +432,7 @@ package_llvm() {
   sed -i.orig '/compiler-rt\/cmake_install.cmake/d' build-${MSYSTEM}/projects/cmake_install.cmake
   DESTDIR="${pkgdir}" ${MINGW_PREFIX}/bin/cmake --install build-${MSYSTEM}
 
-  install -Dm644 "${srcdir}"/llvm/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/llvm/LICENSE
+  install -Dm644 "${srcdir}/${_sourcedir}"/llvm/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/llvm/LICENSE
 
   # Runtime libraries
   rm -rf "${srcdir}"/llvm-libs
@@ -457,8 +446,8 @@ package_llvm() {
 
   # Install CMake stuff
   install -d "${pkgdir}"${MINGW_PREFIX}/share/llvm/cmake/{modules,platforms}
-  install -Dm644 "${srcdir}"/llvm/cmake/modules/*.cmake "${pkgdir}"${MINGW_PREFIX}/share/llvm/cmake/modules/
-  install -Dm644 "${srcdir}"/llvm/cmake/platforms/*.cmake "${pkgdir}"${MINGW_PREFIX}/share/llvm/cmake/platforms/
+  install -Dm644 "${srcdir}/${_sourcedir}"/llvm/cmake/modules/*.cmake "${pkgdir}"${MINGW_PREFIX}/share/llvm/cmake/modules/
+  install -Dm644 "${srcdir}/${_sourcedir}"/llvm/cmake/platforms/*.cmake "${pkgdir}"${MINGW_PREFIX}/share/llvm/cmake/platforms/
 
   # fix cmake files.
   local PREFIX_WIN=$(cygpath -wm ${MINGW_PREFIX})
@@ -476,7 +465,7 @@ package_llvm-libs() {
 
   cp -r "${srcdir}"/llvm-libs/${MINGW_PREFIX} "${pkgdir}"${MINGW_PREFIX}
 
-  install -Dm644 "${srcdir}"/llvm/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/llvm-libs/LICENSE
+  install -Dm644 "${srcdir}/${_sourcedir}"/llvm/LICENSE.TXT "${pkgdir}"${MINGW_PREFIX}/share/licenses/llvm-libs/LICENSE
 }
 
 # template start; name=mingw-w64-splitpkg-wrappers; version=1.0;
