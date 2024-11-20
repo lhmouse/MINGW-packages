@@ -59,6 +59,11 @@ build() {
   # nanosleep is only defined in pthread library
   export cf_cv_func_nanosleep=no
 
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
+
   ../${_realname}-${_base_ver}-${_date_rev}/configure \
     --prefix=${MINGW_PREFIX} \
     --program-prefix="${MINGW_CHOST}-" \
