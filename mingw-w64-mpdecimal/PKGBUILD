@@ -11,7 +11,6 @@ mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url='https://www.bytereef.org/mpdecimal/index.html'
 license=('custom')
 depends=("${MINGW_PACKAGE_PREFIX}-gcc-libs")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
 checkdepends=("wget")
 source=("http://www.bytereef.org/software/${_realname}/releases/${_realname}-$pkgver.tar.gz")
 sha256sums=('942445c3245b22730fd41a67a7c5c231d11cb1b9936b9c0f76334fb7d0b4468c')
@@ -26,6 +25,12 @@ build() {
   [[ -d "${srcdir}"/build-${MSYSTEM} ]] && rm -rf "${srcdir}"/build-${MSYSTEM}
   cp -R "$srcdir/${_realname}-${pkgver}" "${srcdir}"/build-${MSYSTEM}
   cd "${srcdir}"/build-${MSYSTEM}
+
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
+
   ../${_realname}-${pkgver}/configure \
     --prefix=${MINGW_PREFIX} \
     --build=${MINGW_CHOST} \
