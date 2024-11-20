@@ -72,6 +72,11 @@ build() {
 
   mkdir -p "${srcdir}"/build-${MSYSTEM} && cd "${srcdir}/build-${MSYSTEM}"
 
+  if [[ "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
+
   "${srcdir}"/tcl${pkgver}/win/configure \
     --prefix=${MINGW_PREFIX} \
     --build=${MINGW_CHOST} \
