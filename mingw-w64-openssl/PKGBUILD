@@ -80,6 +80,11 @@ build() {
       ;;
   esac
 
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
+
   MSYS2_ARG_CONV_EXCL="--prefix=" \
   /usr/bin/perl ../"${_realname}-${pkgver}"/Configure \
     --prefix="${MINGW_PREFIX}" \
