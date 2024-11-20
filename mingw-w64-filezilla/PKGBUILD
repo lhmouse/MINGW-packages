@@ -25,7 +25,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-wxwidgets${_wx_basever}-msw-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-boost"
              "${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-wxwidgets${_wx_basever}-msw")
 # Upstream download link became (purposely) unstable
 # See https://trac.filezilla-project.org/ticket/13186

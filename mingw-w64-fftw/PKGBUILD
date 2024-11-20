@@ -14,7 +14,7 @@ msys2_repository_url='https://github.com/FFTW/fftw3'
 license=("spdx:GPL-2.0-or-later")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-omp")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-cmake"
              $([[ ${MINGW_PACKAGE_PREFIX} == *-clang-* ]] || echo "${MINGW_PACKAGE_PREFIX}-fc"))

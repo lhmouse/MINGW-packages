@@ -19,7 +19,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-readline")
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  
   "${MINGW_PACKAGE_PREFIX}-tcl")
 source=("https://github.com/${_realname}/${_realname}/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz"
         "02-fix-tcl-find.patch")

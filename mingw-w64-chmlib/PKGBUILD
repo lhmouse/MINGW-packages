@@ -10,7 +10,7 @@ arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url='http://www.jedrea.com/chmlib/'
 license=('spdx:LGPL-2.1-or-later')
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("http://www.jedrea.com/chmlib/chmlib-${pkgver}.tar.bz2"
         0001-chmlib-allow-ffs-win32.patch)

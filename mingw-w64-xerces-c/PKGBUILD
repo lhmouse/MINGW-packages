@@ -17,7 +17,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          # "${MINGW_PACKAGE_PREFIX}-curl"
          "${MINGW_PACKAGE_PREFIX}-icu")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=("https://archive.apache.org/dist/xerces/c/3/sources/xerces-c-${pkgver}.tar.gz"
         001-no-undefined.patch
         002-duplicate-instantiation.patch

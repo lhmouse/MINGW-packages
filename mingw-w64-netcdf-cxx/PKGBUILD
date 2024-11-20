@@ -17,7 +17,7 @@ depends=(
   )
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  
   )
 source=("${url}/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz"
         '0001-netcdf-cxx-4.3.1-examples-fix-plugin-name-on-MINGW32-64-and-CLANG32-64.patch')

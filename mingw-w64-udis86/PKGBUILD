@@ -12,7 +12,7 @@ url="https://udis86.sourceforge.io/"
 msys2_repository_url="https://github.com/vmt/udis86"
 license=("spdx:BSD-2-Clause")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-python"
              "git")
 source=(${_realname}::git+https://github.com/vmt/udis86.git#commit=56ff6c87c11de0ffa725b14339004820556e343d

@@ -23,7 +23,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-ca-certificates")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-cmake"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "perl-XML-Parser")
 provides=("${MINGW_PACKAGE_PREFIX}-monodoc")
 conflicts=("${MINGW_PACKAGE_PREFIX}-monodoc")

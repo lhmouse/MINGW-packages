@@ -16,7 +16,7 @@ license=('spdx:GPL-2.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-libusb")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=("https://gitlab.zapb.de/libjaylink/libjaylink/-/archive/${pkgver}/${_realname}-${pkgver}.tar.bz2"
         "010-socket.patch"
         "011-avoid-hidden-visibility.patch")

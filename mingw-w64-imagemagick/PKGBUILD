@@ -56,7 +56,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-bzip2"
          "${MINGW_PACKAGE_PREFIX}-zstd"
         )
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
              "${MINGW_PACKAGE_PREFIX}-cairo"
              "${MINGW_PACKAGE_PREFIX}-ghostscript"

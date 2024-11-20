@@ -19,7 +19,7 @@ url='https://core.tcl.tk/tklib/home'
 license=('BSD')
 depends=("${MINGW_PACKAGE_PREFIX}-tk"
          "${MINGW_PACKAGE_PREFIX}-tcllib")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=()
 source=("https://core.tcl-lang.org/tklib/tarball/$_hash/$_dir.tar.gz")
 sha256sums=('2622a3888dbb597b5856c341d1cd6b65abf346bae86519952d6f284a93a2cb7c')
 

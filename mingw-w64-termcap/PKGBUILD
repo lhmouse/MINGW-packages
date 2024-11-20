@@ -10,24 +10,29 @@ arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url="https://www.gnu.org/software/termutils/"
 license=("GPL" "LGPL")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 source=("https://ftp.gnu.org/gnu/termcap/${_realname}-${pkgver}.tar.gz"
-        "0001-tparam-replace-write-with-fprintf.patch")
+        "0001-tparam-replace-write-with-fprintf.patch"
+        "0002-no-CFLAGS-in-Makefile-in.patch")
 sha256sums=('91a0e22e5387ca4467b5bcb18edf1c51b930262fd466d5fda396dd9d26719100'
-            '47d5da2df6bc7f3401b7e33eb80d40153bca60278e58b503ffb19589acd7c2da')
+            '47d5da2df6bc7f3401b7e33eb80d40153bca60278e58b503ffb19589acd7c2da'
+            '2b5b1146ab7df8077e02c4c55debd1e0d9b68551cdbd003d38fa2b457b3c1b6f')
 
 prepare() {
   cd "${srcdir}/${_realname}-${pkgver}"
 
   # fixes tparam.c: warning: implicit declaration of function 'write'
   patch -Nbp1 -i "${srcdir}/0001-tparam-replace-write-with-fprintf.patch"
+  patch -Nbp1 -i "${srcdir}/0002-no-CFLAGS-in-Makefile-in.patch"
 
   autoconf
 }
 
 build() {
   mkdir -p "${srcdir}"/build-${MSYSTEM} && cd "${srcdir}"/build-${MSYSTEM}
+
+  export CFLAGS+=' -std=gnu89'
 
   ../${_realname}-${pkgver}/configure \
     --prefix=${MINGW_PREFIX} \

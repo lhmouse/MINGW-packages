@@ -12,7 +12,7 @@ url='https://www.mcternan.me.uk/mscgen/'
 license=('spdx:GPL-2.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-libgd")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-freetype")
 source=("https://www.mcternan.me.uk/mscgen/software/${_realname}-src-${pkgver}.tar.gz"
         "0.20-escape.patch"

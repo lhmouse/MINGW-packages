@@ -15,7 +15,7 @@ msys2_references=(
 )
 license=('spdx:GPL-2.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-igraph")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://master.dl.sourceforge.net/project/rankwidth/rw-${pkgver}.tar.gz")
 sha256sums=('89a8ed364893ac1b70ab70a152e3e7db3cf348bb69098aa6dbb969639df927db')

@@ -14,7 +14,7 @@ license=(custom:SIL)
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-meson"
              "${MINGW_PACKAGE_PREFIX}-appstream-glib"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             
              "${MINGW_PACKAGE_PREFIX}-pkgconf")
 source=("cantarell-fonts-${pkgver}.tar.xz::https://gitlab.gnome.org/GNOME/cantarell-fonts/-/package_files/1276/download")
 sha256sums=('706778e6f9468d534d7afe05e4f6e1586110395ef37d24df259746736fd6b702')

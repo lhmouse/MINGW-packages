@@ -35,7 +35,7 @@ optdepends=(
 )
 makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "autoconf-archive"
              "${MINGW_PACKAGE_PREFIX}-asciidoc"
 )

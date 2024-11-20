@@ -69,7 +69,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-aom"
          "${MINGW_PACKAGE_PREFIX}-zlib"
          "${MINGW_PACKAGE_PREFIX}-zvbi")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
              "${MINGW_PACKAGE_PREFIX}-dlfcn"
              "${MINGW_PACKAGE_PREFIX}-vulkan-headers"

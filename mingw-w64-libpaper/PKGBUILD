@@ -12,7 +12,7 @@ url='https://github.com/rrthomas/libpaper'
 msys2_repository_url='https://github.com/rrthomas/libpaper'
 license=('spdx:LGPL-2.1-or-later AND GPL-3.0-or-later')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "help2man")
 source=("https://github.com/rrthomas/libpaper/releases/download/v${pkgver}/${_realname}-${pkgver}.tar.gz"
         "0001-fix-relocation.patch")

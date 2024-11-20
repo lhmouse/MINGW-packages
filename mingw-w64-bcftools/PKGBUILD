@@ -15,7 +15,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-htslib"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  
 )
 source=(https://github.com/samtools/bcftools/releases/download/$pkgver/$_realname-$pkgver.tar.bz2)
 sha256sums=('01899a46f9420cdc1385d52fcfc84cce2806f9c996b787081a90d7dfc85eafa3')

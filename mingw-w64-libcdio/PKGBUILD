@@ -16,7 +16,7 @@ msys2_references=(
   "cpe: cpe:/a:gnu:libcdio"
 )
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 depends=("${MINGW_PACKAGE_PREFIX}-libiconv"
          "${MINGW_PACKAGE_PREFIX}-libcddb")
 source=("https://github.com/libcdio/libcdio/releases/download/${pkgver}/libcdio-${pkgver}.tar.bz2"

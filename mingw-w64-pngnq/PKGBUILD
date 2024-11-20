@@ -11,7 +11,7 @@ url="https://pngnq.sourceforge.io/"
 license=("BSD")
 arch=(any)
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" )
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs" "${MINGW_PACKAGE_PREFIX}-libpng" "${MINGW_PACKAGE_PREFIX}-zlib")
 source=("https://downloads.sourceforge.net/${_realname}/${_realname}-${pkgver}.tar.gz"
         no-syslog.patch

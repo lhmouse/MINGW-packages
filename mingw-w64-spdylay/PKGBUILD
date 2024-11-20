@@ -14,7 +14,7 @@ license=('spdx:MIT')
 depends=("${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  
   "${MINGW_PACKAGE_PREFIX}-libxml2")
 source=("https://github.com/tatsuhiro-t/spdylay/releases/download/v${pkgver}/spdylay-${pkgver}.tar.gz"
          spdylay-1.4.0-fix-zlib.patch)

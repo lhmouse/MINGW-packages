@@ -17,7 +17,7 @@ msys2_references=(
 license=('spdx:GPL-2.0-or-later')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-fc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 depends=($([[ ${MINGW_PACKAGE_PREFIX} == *-clang-* ]] || echo "${MINGW_PACKAGE_PREFIX}-gcc-libgfortran")
          "${MINGW_PACKAGE_PREFIX}-gsl>=${gsl_required}")
 source=(https://github.com/reinh-bader/fgsl/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz)

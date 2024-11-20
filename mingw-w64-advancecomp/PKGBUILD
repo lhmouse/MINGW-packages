@@ -16,7 +16,7 @@ msys2_references=(
 license=('spdx:GPL-3.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-zlib")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://github.com/amadvance/advancecomp/releases/download/v${pkgver}/advancecomp-${pkgver}.tar.gz"
         001-fix-building-on-ucrt.patch)

@@ -18,7 +18,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-libpng"
          "${MINGW_PACKAGE_PREFIX}-libwinpthread")
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  
   "${MINGW_PACKAGE_PREFIX}-SDL")
 source=(https://github.com/fukuchi/libqrencode/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz)
 sha256sums=('5385bc1b8c2f20f3b91d258bf8ccc8cf62023935df2d2676b5b67049f31a049c')

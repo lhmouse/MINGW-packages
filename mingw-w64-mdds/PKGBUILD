@@ -15,7 +15,7 @@ msys2_references=(
 )
 license=('spdx:MIT')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 checkdepends=("${MINGW_PACKAGE_PREFIX}-boost")
 source=("https://gitlab.com/mdds/mdds/-/archive/${pkgver}/${_realname}-${pkgver}.tar.bz2")
 sha256sums=('2d056dbec3a3a16c48e3451532ff53afe8fc23ed1f56bed4191197fa99a4b202')

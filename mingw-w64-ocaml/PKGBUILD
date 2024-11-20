@@ -21,7 +21,7 @@ msys2_references=(
 )
 license=('spdx:LGPL-2.1-or-later WITH OCaml-LGPL-linking-exception')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-ncurses"
              "${MINGW_PACKAGE_PREFIX}-zstd"
              $( (( _bootstrap_flexdll )) || echo "${MINGW_PACKAGE_PREFIX}-flexdll"))

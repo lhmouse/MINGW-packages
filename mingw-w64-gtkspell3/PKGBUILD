@@ -13,7 +13,7 @@ license=("GPL")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
              "${MINGW_PACKAGE_PREFIX}-iso-codes"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-vala"
              "intltool")
 depends=("${MINGW_PACKAGE_PREFIX}-gtk3"

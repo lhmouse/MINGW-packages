@@ -17,7 +17,7 @@ provides=("${MINGW_PACKAGE_PREFIX}-winstorecompat-git=${pkgver}")
 conflicts=("${MINGW_PACKAGE_PREFIX}-winstorecompat-git")
 replaces=("${MINGW_PACKAGE_PREFIX}-winstorecompat-git")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-crt"
              "${MINGW_PACKAGE_PREFIX}-headers"
              "git")

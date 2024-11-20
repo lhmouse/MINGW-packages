@@ -23,7 +23,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cairo"
          "${MINGW_PACKAGE_PREFIX}-librsvg"
          "${MINGW_PACKAGE_PREFIX}-libtiff"
          "${MINGW_PACKAGE_PREFIX}-libwebp")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-gtk-doc")
 source=(https://github.com/hpjansson/chafa/releases/download/${pkgver}/chafa-${pkgver}.tar.xz{,.asc})

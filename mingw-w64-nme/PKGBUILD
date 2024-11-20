@@ -19,7 +19,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-gtk4"
          "${MINGW_PACKAGE_PREFIX}-libltdl"
          "${MINGW_PACKAGE_PREFIX}-sdl3")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=("https://github.com/phabrics/nme/releases/download/${pkgver}/${_realname}-${pkgver}-libopenvpn-2.3.8.tar.xz")
 sha256sums=('68ec7becba2e2cbc8487ba1402d7ac4ab889df3b8b4b7e8d2bb7b2c106c84341')
 options=('libtool')

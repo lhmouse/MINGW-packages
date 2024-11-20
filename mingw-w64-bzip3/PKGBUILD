@@ -19,7 +19,7 @@ msys2_references=(
 )
 license=('spdx:LGPL-3.0-or-later OR Apache-2.0')
 depends=("${MINGW_PACKAGE_PREFIX}-libwinpthread")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=(https://github.com/iczelia/bzip3/releases/download/${pkgver}/bzip3-${pkgver}.tar.xz)
 sha256sums=('58a53d002eb80c6f74c292ddf37d4f53604f6e2126cb3ae2bff738971302aa85')

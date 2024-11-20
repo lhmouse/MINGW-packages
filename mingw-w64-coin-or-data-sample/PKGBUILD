@@ -15,7 +15,7 @@ msys2_references=(
 )
 license=('spdx:EPL-2.0')
 groups=("${MINGW_PACKAGE_PREFIX}-coin-or")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-coin-or-buildtools")
 source=("https://github.com/coin-or-tools/Data-Sample/archive/releases/${pkgver}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('cb4c3713b2a2510d0b6387c24a68c88ba5eff27e2c392429653b1bdef50f06c9')

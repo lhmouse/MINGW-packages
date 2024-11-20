@@ -15,7 +15,7 @@ msys2_references=(
   'gentoo: sci-mathematics/cliquer'
 )
 license=('spdx:GPL-2.0-or-later')
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://github.com/dimpase/autocliquer/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz"
         "0001-fix-timing-code.patch")

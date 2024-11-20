@@ -21,7 +21,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-wxwidgets${_wx_basever}-msw-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-wxwidgets${_wx_basever}-msw")
 source=("https://github.com/brettbode/wxmacmolplt/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz"
         "001-fix-building-on-mingw.patch")

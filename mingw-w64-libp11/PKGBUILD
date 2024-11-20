@@ -16,7 +16,7 @@ msys2_references=(
 )
 license=('spdx:LGPL-2.1-or-later')
 makedepends=("${MINGW_PACKAGE_PREFIX}-openssl"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-cc")
 depends=("${MINGW_PACKAGE_PREFIX}-openssl")
 optdepends=("${MINGW_PACKAGE_PREFIX}-p11-kit: seamless PKCS#11 modules integration")

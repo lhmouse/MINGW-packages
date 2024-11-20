@@ -14,7 +14,7 @@ pkgdesc="C Template (Parser) Library (mingw-w64)"
 depends=("${MINGW_PACKAGE_PREFIX}-glib2")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-gtk-doc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 license=("spdx:GPL-3.0-or-later")
 url="https://ctpl.tuxfamily.org/"
 msys2_repository_url="https://github.com/b4n/ctpl"

@@ -16,8 +16,8 @@ msys2_references=(
 license=('GPL3')
 depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             
+             
              "${MINGW_PACKAGE_PREFIX}-gperf")
 source=(https://ftp.gnu.org/gnu/indent/${_realname}-${pkgver}.tar.xz{,.sig}
         indent-2.2.11-segfault.patch

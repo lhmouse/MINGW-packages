@@ -22,7 +22,7 @@ msys2_ignore_vulnerabilities=(
   "CVE-2026-22184" # only affects demo program untgz which we don't ship
 )
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-bzip2")
 source=("https://github.com/madler/zlib/releases/download/v${pkgver}/zlib-${pkgver}.tar.xz"{,.asc}
         01-zlib-1.2.11-1-buildsys.mingw.patch

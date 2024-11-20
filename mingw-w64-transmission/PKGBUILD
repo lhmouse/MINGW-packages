@@ -34,7 +34,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-qt6-base"
              "${MINGW_PACKAGE_PREFIX}-qt6-svg"
              "${MINGW_PACKAGE_PREFIX}-qt6-tools"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools")
+             )
 source=("https://github.com/transmission/transmission/releases/download/${pkgver}/transmission-${pkgver}.tar.xz"
         "0001-transmission-relocate-web-dir.patch"
         "0003-disable-com.patch")

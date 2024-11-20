@@ -32,7 +32,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-vala"
              "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
              "${MINGW_PACKAGE_PREFIX}-appstream-glib"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             
              "${MINGW_PACKAGE_PREFIX}-yelp-tools") # Used in package step
 source=(https://download.gnome.org/sources/${_realname}/${pkgver%.*}/${_realname}-${pkgver}.tar.xz
         001-win.patch)

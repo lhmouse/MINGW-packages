@@ -18,7 +18,7 @@ license=('GPL3')
 depends=($([[ ${CARCH} == aarch64 ]] || echo "${MINGW_PACKAGE_PREFIX}-libsigsegv")
          "${MINGW_PACKAGE_PREFIX}-libwinpthread"
          "${MINGW_PACKAGE_PREFIX}-gettext")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=( "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://ftp.gnu.org/gnu/${_realname}/${_realname}-${pkgver}.tar.xz"
         "001-msvc_invalid_parameter_handler.patch")
 sha256sums=('7c8b7f9fc8609141fdea9cece85249d308624391ff61dedaf528fcb337727dfd'

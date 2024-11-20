@@ -17,9 +17,9 @@ msys2_references=(
 license=("LGPL-2.1")
 depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools")
+             )
 source=(https://github.com/libexif/libexif/archive/libexif-${pkgver//./_}-release.tar.gz)
 sha256sums=('ee0795432c20d2fdb2a8a579dd6fc0e19d402e36f14f42c03ab60d2345950f09')
 

@@ -17,7 +17,7 @@ msys2_references=(
 )
 license=('spdx:Unlicense')
 depends=("${MINGW_PACKAGE_PREFIX}-gc")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://github.com/miguelmarco/libhomfly/archive/${pkgver}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('da0e2b00ef285ba0ccf1d7599076d926353da40abd487421fc4da9493401dd29')

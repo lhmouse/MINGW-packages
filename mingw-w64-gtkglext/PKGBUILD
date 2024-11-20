@@ -10,7 +10,7 @@ arch=('any')
 mingw_arch=('mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url="https://gtkglext.sourceforge.io/"
 license=("LGPL")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" )
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-gtk2"
          "${MINGW_PACKAGE_PREFIX}-gdk-pixbuf2")

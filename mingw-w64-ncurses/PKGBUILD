@@ -17,7 +17,7 @@ license=('spdx:MIT')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-pcre2")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-libsystre")
 source=("https://invisible-mirror.net/archives/ncurses/${_realname}-${pkgver}.tar.gz"{,.asc}
         002-ncurses-config-win-paths.patch
@@ -58,6 +58,11 @@ build() {
   # nanosleep is only defined in pthread library
   export cf_cv_func_nanosleep=no
 
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
+
   ../${_realname}-${pkgver}/configure \
     --prefix=${MINGW_PREFIX} \
     --program-prefix="${MINGW_CHOST}-" \
@@ -69,6 +74,7 @@ build() {
     --without-ada \
     --without-debug \
     --without-pthread \
+    --without-manpages \
     --enable-assertions \
     --enable-colorfgbg \
     --enable-database \

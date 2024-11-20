@@ -13,7 +13,7 @@ msys2_repository_url='https://github.com/hyperrealm/libconfig'
 license=('spdx:LGPL-2.1-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 options=('!emptydirs')
 source=("https://github.com/hyperrealm/libconfig/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz"
         "001-mingw-fixes.patch")

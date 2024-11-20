@@ -14,7 +14,7 @@ msys2_references=(
 msys2_repository_url='https://git.hadrons.org/cgit/libmd.git'
 url='https://www.hadrons.org/software/libmd/'
 license=('spdx:BSD-3-Clause')
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://libbsd.freedesktop.org/releases/${_realname}-${pkgver}.tar.xz"{,.asc})
 sha256sums=('1bd6aa42275313af3141c7cf2e5b964e8b1fd488025caf2f971f43b00776b332'

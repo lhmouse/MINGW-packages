@@ -28,7 +28,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-gdal"
          "${MINGW_PACKAGE_PREFIX}-sfcgal")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-libxslt")
 source=("https://download.osgeo.org/postgis/source/${_realname}-${pkgver}.tar.gz"
         pg_config

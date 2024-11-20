@@ -23,7 +23,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-coin-or-osi"
          "${MINGW_PACKAGE_PREFIX}-libwinpthread")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-coin-or-buildtools"
              "${MINGW_PACKAGE_PREFIX}-nauty")
 source=("${url}/archive/releases/${pkgver}/${_realname}-${pkgver}.tar.gz")

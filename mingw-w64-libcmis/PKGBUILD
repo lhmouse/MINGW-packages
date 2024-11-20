@@ -19,7 +19,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-curl"
          "${MINGW_PACKAGE_PREFIX}-libxml2")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-boost"
              "${MINGW_PACKAGE_PREFIX}-cppunit")
 source=("https://github.com/tdf/libcmis/releases/download/v${pkgver}/${_realname}-${pkgver}.tar.xz"

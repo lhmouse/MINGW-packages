@@ -16,7 +16,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-dbus"
          "${MINGW_PACKAGE_PREFIX}-libwinpthread")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-expat")
 optdepends=("${MINGW_PACKAGE_PREFIX}-expat: For dbusxx-xml2cpp")
 source=("${_realname}-${pkgver}.tar.gz"::"https://sourceforge.net/projects/${_upstream}/files/${_realname}/${pkgver}/${_srcname}-${pkgver}.tar.gz"

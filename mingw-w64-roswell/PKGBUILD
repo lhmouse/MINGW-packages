@@ -11,7 +11,7 @@ arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 license=("spdx:MIT")
 depends=()
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 optdepends=()
 source=("https://github.com/roswell/roswell/archive/v$pkgver.tar.gz")

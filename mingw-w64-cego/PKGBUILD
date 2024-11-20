@@ -15,7 +15,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-lfcxml"
          "${MINGW_PACKAGE_PREFIX}-readline")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=("http://www.lemke-it.com/${_realname}-${pkgver}.tar.gz")
 sha256sums=('1a2d0ec39e8123adcb69df33005000f7f7713255d7e16656c4ecb2acdf1d7168')
 

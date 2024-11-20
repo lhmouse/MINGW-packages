@@ -22,7 +22,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-zlib"
           "${MINGW_PACKAGE_PREFIX}-libsndfile"
           "${MINGW_PACKAGE_PREFIX}-flac")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=("https://lib.openmpt.org/files/${_realname}/src/${_realname}-${pkgver}+release.autotools.tar.gz")
 sha256sums=('caa2fa959e389f4374d9e2df3af5c633452c12dd80442cba2e89cb7ff2b93c5b')
 

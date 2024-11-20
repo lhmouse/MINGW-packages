@@ -16,7 +16,7 @@ msys2_references=(
 license=('spdx:EPL-1.0')
 groups=("${MINGW_PACKAGE_PREFIX}-coin-or")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=("${url}/archive/releases/${pkgver}/${_realname}-${pkgver}.tar.gz"
        "https://coin-or-tools.github.io/ThirdParty-ASL/solvers-64919f75f.tgz")
 sha256sums=('633e9d42b015a5a6a9ae324cac5736af1605fb74eb18299a54912b67d1a69be7'

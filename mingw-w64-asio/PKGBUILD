@@ -13,7 +13,7 @@ msys2_repository_url="https://github.com/chriskohlhoff/asio"
 license=('spdx:BSL-1.0')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              #"${MINGW_PACKAGE_PREFIX}-boost"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-openssl")
 source=("https://github.com/chriskohlhoff/asio/archive/asio-${pkgver//./-}.tar.gz")
 sha256sums=('0310a76b27e1854f09f696b30de57dc490b5e1b17faed1eb8c9a2891f956e52b')

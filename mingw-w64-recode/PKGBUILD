@@ -13,9 +13,9 @@ msys2_repository_url='https://github.com/rrthomas/recode'
 license=('GPL3' 'LGPL')
 depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime")
 makedepends=("${MINGW_PACKAGE_PREFIX}-python"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             
              "help2man")
 source=("https://github.com/rrthomas/recode/releases/download/v${pkgver}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('f590407fc51badb351973fc1333ee33111f05ec83a8f954fd8cf0c5e30439806')

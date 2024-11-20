@@ -20,7 +20,7 @@ depends=(#"${MINGW_PACKAGE_PREFIX}-jbigkit"
 # Uses dtplite for generating the man pages:
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-tcllib"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  
   "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://downloads.sourceforge.net/project/tkimg/tkimg/${pkgver:0:3}/tkimg%20${pkgver}/Img-${pkgver}.tar.gz"
         002-dtplite_tcl.patch)
