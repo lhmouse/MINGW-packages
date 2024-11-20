@@ -17,7 +17,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-qt6-5compat"
          "${MINGW_PACKAGE_PREFIX}-qt6-base")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-qt6-tools")
 source=("https://downloads.sourceforge.net/djvu/${_realname}-${pkgver}.tar.gz")
 sha256sums=('17bfb9731ab8070e01235381f08e57b1231ffb5f49eb031873ebfa189cdaf47d')

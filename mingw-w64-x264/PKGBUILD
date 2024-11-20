@@ -12,7 +12,7 @@ url="https://www.videolan.org/developers/x264.html"
 msys2_repository_url="https://code.videolan.org/videolan/x264"
 license=("custom")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-ffmpeg"
              "${MINGW_PACKAGE_PREFIX}-l-smash"
              "${MINGW_PACKAGE_PREFIX}-ffms2"

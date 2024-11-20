@@ -20,7 +20,7 @@ provides=("${MINGW_PACKAGE_PREFIX}-${_realname}-git=${pkgver}")
 conflicts=(${MINGW_PACKAGE_PREFIX}-${_realname}-git)
 replaces=(${MINGW_PACKAGE_PREFIX}-${_realname}-git)
 depends=(${MINGW_PACKAGE_PREFIX}-cc-libs)
-makedepends=(${MINGW_PACKAGE_PREFIX}-curl rsync git "${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=(${MINGW_PACKAGE_PREFIX}-curl rsync git  "${MINGW_PACKAGE_PREFIX}-cc")
 _commit="79099fdf668ae097c9eca7052fd5c4c5de6c9098"
 source=(${_realname}.git::"git+https://chromium.googlesource.com/breakpad/breakpad#commit=${_commit}"
         0001-Remove-local-copy-of-curl-headers.patch

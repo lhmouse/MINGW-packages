@@ -14,7 +14,7 @@ license=("spdx:GPL-3.0-or-later")
 depends=("${MINGW_PACKAGE_PREFIX}-python"
          "${MINGW_PACKAGE_PREFIX}-python-lxml")
 makedepends=("${MINGW_PACKAGE_PREFIX}-python-setuptools"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-cc")
 options=('!strip')
 source=("https://files.itstool.org/itstool/${_realname}-${pkgver}.tar.bz2"

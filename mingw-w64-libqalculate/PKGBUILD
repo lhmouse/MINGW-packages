@@ -25,8 +25,8 @@ depends=(
 )
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
-  "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+  
+  
   "intltool"
 )
 source=("https://github.com/Qalculate/libqalculate/releases/download/v${pkgver}/${_realname}-${pkgver}.tar.gz")

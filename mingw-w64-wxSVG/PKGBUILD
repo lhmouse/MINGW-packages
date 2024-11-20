@@ -21,7 +21,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-wxwidgets${_wx_basever}-msw-libs"
          "${MINGW_PACKAGE_PREFIX}-libexif"
          "${MINGW_PACKAGE_PREFIX}-ffmpeg")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-wxwidgets${_wx_basever}-msw")
 source=("https://downloads.sourceforge.net/project/wxsvg/wxsvg/${pkgver}/wxsvg-${pkgver}.tar.bz2"
         '001-Add-include-of-cstdint.patch'

@@ -15,7 +15,7 @@ msys2_references=(
   "cpe: cpe:/a:surina:soundtouch"
 )
 license=("spdx:LGPL-2.1-or-later")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 source=(https://www.surina.net/${_realname}/${_realname}-${pkgver}.tar.gz

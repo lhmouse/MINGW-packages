@@ -18,7 +18,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-suitesparse"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=("https://ftp.gnu.org/gnu/glpk/glpk-${pkgver}.tar.gz"
         'timeval-64bit.patch'
         'fix-platform-check.patch'

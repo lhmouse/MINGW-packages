@@ -15,7 +15,7 @@ msys2_repository_url='https://github.com/kkos/oniguruma'
 msys2_references=(
   "cpe: cpe:/a:oniguruma_project:oniguruma"
 )
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=( "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://github.com/kkos/${_fullname}/releases/download/v${pkgver}/${_realname}-${pkgver}.tar.gz"
         0001-onig-config-win-paths.patch)
 sha256sums=('2a5cfc5ae259e4e97f86b68dfffc152cdaffe94e2060b770cb827238d769fc05'

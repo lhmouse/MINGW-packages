@@ -11,7 +11,7 @@ mingw_arch=('ucrt64' 'clang64' 'clangarm64')
 url='https://gitlab.xiph.org/xiph/rnnoise'
 msys2_repository_url='https://gitlab.xiph.org/xiph/rnnoise'
 license=('spdx:BSD-3-Clause')
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 _model_version='0b50c45' # cat model_version
 source=("https://gitlab.xiph.org/xiph/rnnoise/-/archive/v${pkgver}/${_realname}-v${pkgver}.tar.gz"

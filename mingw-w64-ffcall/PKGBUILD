@@ -11,7 +11,7 @@ mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64')
 url="https://www.gnu.org/software/libffcall/"
 license=('GPL2')
 depends=("${MINGW_PACKAGE_PREFIX}-libwinpthread")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 options=('!makeflags')
 source=("https://ftp.gnu.org/gnu/libffcall/lib${_realname}-${pkgver}.tar.gz")

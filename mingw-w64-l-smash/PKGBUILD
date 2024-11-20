@@ -11,7 +11,7 @@ mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url="https://l-smash.github.io/l-smash/"
 msys2_repository_url='https://github.com/l-smash/l-smash'
 license=('spdx:ISC')
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" )
 source=("https://github.com/l-smash/l-smash/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz"
         "0001-remove-version-script.patch"
         "0002-use-cc-instead-of-gcc.patch")

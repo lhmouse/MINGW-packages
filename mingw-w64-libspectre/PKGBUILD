@@ -14,7 +14,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-ghostscript"
          "${MINGW_PACKAGE_PREFIX}-cairo")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-libidn"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=("https://libspectre.freedesktop.org/releases/${_realname}-${pkgver}.tar.gz"{,.sig}
         libspectre-0.2.9-mingw-fix-decoration.patch
         libspectre-0.2.9-fix-include-dirs.patch)

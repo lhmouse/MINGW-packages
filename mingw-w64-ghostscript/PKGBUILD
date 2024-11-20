@@ -37,7 +37,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-dbus"
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-gtk3"
              "${MINGW_PACKAGE_PREFIX}-gnutls"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 optdepends=("${MINGW_PACKAGE_PREFIX}-gtk3: needed for gsx")
 source=(https://github.com/ArtifexSoftware/ghostpdl-downloads/releases/download/gs${pkgver//./}/ghostscript-${pkgver}.tar.xz
         001-mingw-build.patch

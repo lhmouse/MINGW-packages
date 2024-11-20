@@ -18,7 +18,7 @@ depends=(
 )
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  
   "${MINGW_PACKAGE_PREFIX}-doxygen"
 )
 source=("https://github.com/NFFT/nfft/releases/download/$pkgver/$_realname-$pkgver.tar.gz")

@@ -13,7 +13,7 @@ msys2_references=(
   'cpe: cpe:2.3:a:linuxsampler:libgig'
 )
 license=('spdx:gpl-2.0-or-later')
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-libsndfile")

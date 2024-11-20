@@ -13,7 +13,7 @@ msys2_repository_url='https://github.com/imageworks/pystring'
 license=('spdx:BSD-3-Clause')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=(https://github.com/imageworks/pystring/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz
         01-makefile.patch)
 sha256sums=('49da0fe2a049340d3c45cce530df63a2278af936003642330287b68cefd788fb'

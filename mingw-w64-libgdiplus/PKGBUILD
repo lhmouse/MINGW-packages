@@ -23,7 +23,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cairo"
          "${MINGW_PACKAGE_PREFIX}-libpng"
          "${MINGW_PACKAGE_PREFIX}-libtiff")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=("https://download.mono-project.com/sources/libgdiplus/${_realname}-${pkgver}.tar.gz"
         "0001-libgdiplus-5.4-fix-shared-installation.patch"
         "0002-libgdiplus-5.4-fix-conflicting-types-error.patch"

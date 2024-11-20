@@ -16,7 +16,7 @@ msys2_references=(
 )
 license=('GPL3')
 depends=("${MINGW_PACKAGE_PREFIX}-gettext")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://ftp.gnu.org/gnu/${_realname}/${_realname}-${pkgver}.tar.xz"{,.sig}
         msvc_invalid_parameter_handler.patch

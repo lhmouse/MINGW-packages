@@ -20,7 +20,7 @@ msys2_repository_url='https://github.com/ruby/ruby'
 msys2_documentation_url='https://docs.ruby-lang.org/en/master/index.html'
 license=('spdx:Ruby AND BSD-2-Clause')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-pkgconf")
 depends=("${MINGW_PACKAGE_PREFIX}-gdbm"
          "${MINGW_PACKAGE_PREFIX}-gmp"

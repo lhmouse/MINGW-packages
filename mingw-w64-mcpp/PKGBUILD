@@ -17,7 +17,7 @@ license=('spdx:BSD-2-Clause')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-libiconv")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=("https://github.com/museoa/mcpp/archive/${pkgver}/${_realname}-${pkgver}.tar.gz"
         "001-aarch64.patch")
 sha256sums=('ec6c2ead79b2334fccf56b8811256c4fccbbe2350e6a2e52dc83a1c7ad995af4'

@@ -11,7 +11,7 @@ mingw_arch=('mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url='https://gnustep.github.org/'
 msys2_repository_url='https://github.com/gnustep/libs-back'
 license=('spdx:LGPL-2.1-or-later')
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-clang"
              "${MINGW_PACKAGE_PREFIX}-lld"
              "${MINGW_PACKAGE_PREFIX}-gnustep-make"

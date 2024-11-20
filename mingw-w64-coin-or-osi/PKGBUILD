@@ -18,7 +18,7 @@ groups=("${MINGW_PACKAGE_PREFIX}-coin-or")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-coin-or-coinutils")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-coin-or-buildtools")
 source=("${url}/archive/releases/${pkgver}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('1d80d0b4275f2e1ceefc6dda66b8616e3a8c8b07a926ef4456db4a0d55249333')

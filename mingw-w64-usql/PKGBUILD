@@ -18,7 +18,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-antlr3")
 checkdepends=("${MINGW_PACKAGE_PREFIX}-boost")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools" \
+              \
              "${checkdepends[@]}")
 source=("https://github.com/cybergarage/usql/archive/${pkgver}/${_realname}-${pkgver}.tar.gz"
         "usql-0.8.1.patch")

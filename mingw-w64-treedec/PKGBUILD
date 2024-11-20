@@ -13,7 +13,7 @@ msys2_references=(
 )
 license=('spdx:GPL-2.0-or-later AND GPL-3.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-boost")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc"
              "git")
 conflicts=("${MINGW_PACKAGE_PREFIX}-tdlib")

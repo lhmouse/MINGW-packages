@@ -23,7 +23,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-freetype"
          "${MINGW_PACKAGE_PREFIX}-libxml2"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=(https://github.com/caolanm/libwmf/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz
         libwmf-0.2.8.4-libpng.patch)
 sha256sums=('dea2a07ed27fc041a9b2901dc9d12f0d68b76cee6578df955a559b340c32a86c'

@@ -22,7 +22,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-openblas"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-coin-or-buildtools"
              "${MINGW_PACKAGE_PREFIX}-fc")
 source=("${url}/archive/releases/${pkgver}/${_realname}-${pkgver}.tar.gz")

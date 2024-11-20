@@ -29,7 +29,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-curl"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  
   "${MINGW_PACKAGE_PREFIX}-wxwidgets${_wx_basever}-msw"
 )
 source=("https://www.gaia-gis.it/gaia-sins/${_realname}-sources/${_realname/-/_}-${_pkgver}.tar.gz"

@@ -12,7 +12,7 @@ url="https://github.com/jedisct1/libsodium"
 msys2_repository_url='https://github.com/jedisct1/libsodium'
 license=('spdx:ISC')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=( "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://download.libsodium.org/libsodium/releases/${_realname}-${pkgver}.tar.gz")
 sha256sums=('9e4285c7a419e82dedb0be63a72eea357d6943bc3e28e6735bf600dd4883feaf')
 

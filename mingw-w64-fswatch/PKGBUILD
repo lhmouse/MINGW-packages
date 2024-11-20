@@ -21,7 +21,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-ninja"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools")
+             )
 source=("https://github.com/emcrisostomo/fswatch/archive/${pkgver}/${_realname}-${pkgver}.tar.gz"
         '001-Fix-for-MinGW-w64.patch')
 sha256sums=('698f21fe5489311dabe9e90463fb9d40796780abac8d207b857e86ade7345d86'

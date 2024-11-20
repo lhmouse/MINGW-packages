@@ -12,7 +12,7 @@ url="https://www.colm.net/open-source/ragel/"
 msys2_repository_url='https://github.com/adrian-thurston/ragel'
 license=('GPL')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" )
 source=("https://www.colm.net/files/${_realname}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('5f156edb65d20b856d638dd9ee2dfb43285914d9aa2b6ec779dac0270cd56c3f')
 

@@ -11,7 +11,7 @@ mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url="http://aspell.net/"
 license=('custom')
 depends=("${MINGW_PACKAGE_PREFIX}-aspell")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=()
 source=("https://ftp.gnu.org/gnu/aspell/dict/en/aspell6-en-${pkgver}-0.tar.bz2"{,.sig}
         001-unixy-dirs.patch)
 sha256sums=('77a5cb437c45d1115f3b593802c20651d8c93803ed1073278dc1a1240016f10d'

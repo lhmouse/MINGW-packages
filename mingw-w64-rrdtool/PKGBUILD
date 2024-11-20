@@ -14,7 +14,7 @@ msys2_references=(
   "cpe: cpe:/a:rrdtool_project:rrdtool"
 )
 license=('GPL2')
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 depends=("${MINGW_PACKAGE_PREFIX}-glib2"
          "${MINGW_PACKAGE_PREFIX}-pango"

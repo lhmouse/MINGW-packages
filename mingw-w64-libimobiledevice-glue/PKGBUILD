@@ -13,7 +13,7 @@ msys2_repository_url="https://github.com/libimobiledevice/libimobiledevice-glue"
 license=('spdx:LGPL-2.1-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-libplist")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=(https://github.com/libimobiledevice/libimobiledevice-glue/releases/download/${pkgver}/${_realname}-${pkgver}.tar.bz2)
 sha256sums=('6489a3411b874ecd81c87815d863603f518b264a976319725e0ed59935546774')
 

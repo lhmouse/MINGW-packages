@@ -23,8 +23,8 @@ depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime"
          "${MINGW_PACKAGE_PREFIX}-zlib"
          "${MINGW_PACKAGE_PREFIX}-zstd")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             
+             "autotools")
 source=(https://ftp.gnu.org/gnu/binutils/${_sourcedir}.tar.bz2{,.sig}
         0002-check-for-unusual-file-harder.patch
         0010-bfd-Increase-_bfd_coff_max_nscns-to-65279.patch

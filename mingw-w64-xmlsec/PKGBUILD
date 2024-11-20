@@ -22,7 +22,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-gnutls"
          "${MINGW_PACKAGE_PREFIX}-nss"
          "${MINGW_PACKAGE_PREFIX}-openssl")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=(https://github.com/lsh123/xmlsec/releases/download/xmlsec-${pkgver//./_}/${_realname}1-${pkgver}.tar.gz
         01-include-openssl-last.patch
         02-make-new-wincrypt-functions-available.patch)

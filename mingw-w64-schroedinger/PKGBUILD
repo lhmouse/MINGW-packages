@@ -12,7 +12,7 @@ url="http://www.diracvideo.org/"
 license=('GPL2' 'LGPL2.1' 'MPL' 'MIT')
 depends=("${MINGW_PACKAGE_PREFIX}-orc")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-gtk-doc")
 source=(#"http://www.diracvideo.org/download/schroedinger/${_realname}-${pkgver}.tar.gz"
         https://download.videolan.org/contrib/${_realname}-${pkgver}.tar.gz

@@ -23,7 +23,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
              "${MINGW_PACKAGE_PREFIX}-yelp-tools"
              "${MINGW_PACKAGE_PREFIX}-appstream-glib"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             
              "${MINGW_PACKAGE_PREFIX}-desktop-file-utils")
 source=("https://download.gnome.org/sources/${_realname}/${pkgver%.*}/${_realname}-${pkgver}.tar.xz"
         "0001-Open-directory-in-explorer.patch")

@@ -16,7 +16,7 @@ msys2_references=(
 )
 license=('spdx:LGPL-2.1-only')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=("https://github.com/kyz/libmspack/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('284e0e51fee991c40e8cbbc0f5e635f99722796a3642a14397989fc00b862f72')
 noextract=("${_realname}-${pkgver}.tar.gz")

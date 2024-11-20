@@ -15,7 +15,7 @@ msys2_references=(
 license=("PublicDomain")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 conflicts=("${MINGW_PACKAGE_PREFIX}-libopenmpt-modplug")
 source=("https://downloads.sourceforge.net/modplug-xmms/${_realname}-${pkgver}.tar.gz"
         '010-mingw.patch')

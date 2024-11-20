@@ -24,7 +24,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-atkmm"
          "${MINGW_PACKAGE_PREFIX}-pangomm")
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  
   "mm-common"
 )
 source=("https://download.gnome.org/sources/${_realname}/${pkgver%.*}/${_realname}-${pkgver}.tar.xz")

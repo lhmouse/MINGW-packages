@@ -12,7 +12,7 @@ mingw_arch=('mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url="https://github.com/sparsehash/sparsehash"
 msys2_repository_url='https://github.com/sparsehash/sparsehash'
 license=('spdx:BSD-3-Clause')
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" )
 source=("https://github.com/sparsehash/sparsehash/archive/${_realname}-${pkgver}.tar.gz")
 sha256sums=('8cd1a95827dfd8270927894eb77f62b4087735cbede953884647f16c521c7e58')
 

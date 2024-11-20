@@ -14,7 +14,7 @@ msys2_references=(
 )
 license=("custom")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 depends=("${MINGW_PACKAGE_PREFIX}-SDL"
          "${MINGW_PACKAGE_PREFIX}-freetype")
 source=(https://libsdl.org/projects/SDL_ttf/release/${_realname}-${pkgver}.tar.gz

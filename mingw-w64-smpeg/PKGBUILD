@@ -11,7 +11,7 @@ mingw_arch=('mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url="https://icculus.org/smpeg/"
 license=("LGPL")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-gtk2"
              "subversion")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"

@@ -11,7 +11,7 @@ mingw_arch=('mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url="https://github.com/savonet/shine"
 msys2_repository_url='https://github.com/savonet/shine'
 license=('spdx:LGPL-2.0-or-later')
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://github.com/toots/${_realname}/archive/${pkgver}/${_realname}-${pkgver}.tar.gz"
         "0001-shine-3.1.1-fix-include.patch")

@@ -16,7 +16,7 @@ provides=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 conflicts=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 replaces=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 source=("https://download.videolan.org/contrib/libmpeg2/${_realname}-${pkgver}.tar.gz"
         0001-use-system-getopt.patch

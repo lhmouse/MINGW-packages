@@ -14,7 +14,7 @@ license=('spdx:GPL-2.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-cairo"
          "${MINGW_PACKAGE_PREFIX}-glib2"
          "${MINGW_PACKAGE_PREFIX}-poppler")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=( "${MINGW_PACKAGE_PREFIX}-cc")
 source=(https://github.com/dawbarton/pdf2svg/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz)
 sha256sums=('fd765256f18b5890639e93cabdf631b640966ed1ea9ebd561aede9d3be2155e4')
 

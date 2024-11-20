@@ -12,7 +12,7 @@ url="https://yices.csl.sri.com"
 license=('spdx:GPL-3.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-gmp")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             
              "${MINGW_PACKAGE_PREFIX}-gperf"
              "dos2unix")
 source=("https://yices.csl.sri.com/releases/${pkgver}/yices-${pkgver}-src.tar.gz")

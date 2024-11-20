@@ -19,7 +19,7 @@ license=('spdx:GPL-3.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-lfcbase"
          "${MINGW_PACKAGE_PREFIX}-cc-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             )
 source=("https://www.lemke-it.com/${_realname}-${pkgver}.tar.gz")
 sha256sums=('b5f5d601e61724fd1716ee50473cc5833ab23042476991abb084a9d0f9dfdd6d')
 

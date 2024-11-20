@@ -15,7 +15,7 @@ msys2_references=(
 )
 license=('spdx:GPL-3.0-only')
 depends=("${MINGW_PACKAGE_PREFIX}-mpfr")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=(
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("${_realname}-${pkgver}.tar.gz::https://github.com/miguelmarco/SIROCCO2/archive/refs/tags/${pkgver}.tar.gz")
 sha256sums=('8fbcf3ba18846c802480c165772e1a853e13673b1cda25cee7b84847e1ad4e07')

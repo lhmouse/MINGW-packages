@@ -51,7 +51,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-ninja"
              "${MINGW_PACKAGE_PREFIX}-libxslt"
              "${MINGW_PACKAGE_PREFIX}-python-jsonschema"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             
              "intltool"
              "po4a")
 # Disable strip option to write backtraces with drmingw
