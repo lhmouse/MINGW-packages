@@ -14,7 +14,7 @@ msys2_references=(
 url='https://github.com/pypa/build'
 license=('spdx:MIT')
 depends=(
-  "${MINGW_PACKAGE_PREFIX}-python-packaging"
+#  "${MINGW_PACKAGE_PREFIX}-python-packaging"
   "${MINGW_PACKAGE_PREFIX}-python-pyproject-hooks"
 )
 optdepends=(

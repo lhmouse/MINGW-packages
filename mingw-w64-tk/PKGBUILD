@@ -13,7 +13,7 @@ arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url="https://tcl-lang.org/"
 license=("custom")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 depends=("${MINGW_PACKAGE_PREFIX}-tcl>=${_basever}")
 options=() # '!strip' 'debug')
 source=("https://downloads.sourceforge.net/sourceforge/tcl/${_realname}${pkgver}-src.tar.gz"
@@ -59,6 +59,11 @@ build() {
   [[ "${MINGW_CHOST}" = 'aarch64-w64-mingw32' ]] && enable64bit='--enable-64bit=arm64'
 
   mkdir -p "${srcdir}"/build-${MSYSTEM} && cd "${srcdir}/build-${MSYSTEM}"
+
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
 
   "${srcdir}"/tk${_basever}/win/configure \
     --prefix=${MINGW_PREFIX} \

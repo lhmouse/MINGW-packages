@@ -1,0 +1,36 @@
+--- a/gettext-tools/Makefile.am
++++ b/gettext-tools/Makefile.am
+@@ -19,7 +19,7 @@
+ AUTOMAKE_OPTIONS = 1.5 gnu
+ ACLOCAL_AMFLAGS = -I m4 -I ../gettext-runtime/m4 -I ../m4 -I gnulib-m4 -I libgrep/gnulib-m4 -I libgettextpo/gnulib-m4 -I tests/gnulib-m4
+ 
+-SUBDIRS = gnulib-lib libgrep src libgettextpo po its projects styles emacs misc man m4 tests system-tests gnulib-tests install-tests examples doc
++SUBDIRS = gnulib-lib libgrep src libgettextpo po its projects styles emacs misc man m4 tests system-tests gnulib-tests install-tests doc
+ 
+ EXTRA_DIST = misc/disclaim-translations.txt
+ MOSTLYCLEANFILES = core *.stackdump
+@@ -257,11 +257,9 @@ gen-man1: programs-for-distdir \
+ .PHONY: distdir2
+ distdir2: programs-for-distdir
+ 	cd misc && $(MAKE) $(AM_MAKEFLAGS)
+-	cd examples && $(MAKE) $(AM_MAKEFLAGS)
+ 
+ 
+ maintainer-update-po: $(top_builddir)/config.status
+ 	$(SHELL) ./config.status --recheck
+ 	$(SHELL) ./config.status po/Makefile.in po-directories
+ 	cd po && $(MAKE) update-po
+-	cd examples && $(MAKE) maintainer-update-po
+diff --git a/gettext-tools/configure.ac b/gettext-tools/configure.ac
+index b4ca627..61fa15e 100644
+--- a/gettext-tools/configure.ac
++++ b/gettext-tools/configure.ac
+@@ -720,8 +720,6 @@ else
+ fi
+ AC_SUBST([AUGMENT_SHLIBPATH])
+ 
+-AC_CONFIG_SUBDIRS([examples])
+-
+ AC_CONFIG_FILES([Makefile],
+                 [FIX_MAKEFILE_DISTRIB])
+ 
