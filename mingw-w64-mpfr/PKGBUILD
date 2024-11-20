@@ -35,6 +35,11 @@ prepare() {
 build() {
   mkdir -p build-${MSYSTEM} && cd build-${MSYSTEM}
 
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
+
   ../${_realname}-${_pkgver}/configure \
     --build=${MINGW_CHOST} \
     --prefix=${MINGW_PREFIX} \
