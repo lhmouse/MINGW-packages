@@ -17,8 +17,7 @@ mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 license=('spdx:LGPL-3.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-gcc-libs"
          "${MINGW_PACKAGE_PREFIX}-gmp")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc")
 source=(https://ftp.gnu.org/gnu/mpfr/${_realname}-${_pkgver}.tar.xz{,.sig})
         # patches.diff) # wget https://www.mpfr.org/mpfr-4.2.0/allpatches -O patches.diff
 sha256sums=('277807353a6726978996945af13e52829e3abd7a9a5b7fb2793894e18f1fcbb2'
@@ -34,6 +33,11 @@ prepare() {
 
 build() {
   mkdir -p build-${MSYSTEM} && cd build-${MSYSTEM}
+
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
 
   ../${_realname}-${_pkgver}/configure \
     --build=${MINGW_CHOST} \
