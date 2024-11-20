@@ -14,7 +14,7 @@ mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 license=('BSD')
 depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-gettext-tools"
              "git")
 source=("${_realname}"::"git+https://github.com/laurikari/tre.git#tag=v${pkgver}"

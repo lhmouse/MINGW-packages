@@ -20,7 +20,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          #"${MINGW_PACKAGE_PREFIX}-ncurses"
          "${MINGW_PACKAGE_PREFIX}-termcap"
         )
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 source=("https://ftp.gnu.org/gnu/${_realname}/${_realname}-${_basever}.tar.gz"{,.sig}
         # Patch adopted from https://hg.octave.org/mxe-octave/file/41e50d658de0/src/readline-1-sigwinch.patch
         "0001-sigwinch.patch"
