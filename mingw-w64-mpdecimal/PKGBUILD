@@ -26,6 +26,8 @@ build() {
   [[ -d "${srcdir}"/build-${CARCH} ]] && rm -rf "${srcdir}"/build-${CARCH}
   cp -R "$srcdir/${_realname}-${pkgver}" "${srcdir}"/build-${CARCH}
   cd "${srcdir}"/build-${CARCH}
+  export CFLAGS+=' -masm=att'
+  export CXXFLAGS+=' -masm=att'
   ../${_realname}-${pkgver}/configure \
     --prefix=${MINGW_PREFIX} \
     --build=${MINGW_CHOST} \
