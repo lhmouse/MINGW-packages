@@ -16,7 +16,7 @@ msys2_references=(
 license=('spdx:0BSD')
 depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-gettext-tools")
 source=("https://github.com/rhash/RHash/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz"
         rhash-mingw-install.patch
@@ -37,8 +37,13 @@ build() {
   cp -R "${srcdir}"/RHash-${pkgver} "${srcdir}"/build-${MSYSTEM}
   cd "${srcdir}"/build-${MSYSTEM}
 
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    _extra_cflags+=' -masm=att'
+  fi
+
   ./configure \
      --prefix=${MINGW_PREFIX} \
+     --extra-cflags="${_extra_cflags}" \
      --enable-lib-static \
      --enable-lib-shared
 

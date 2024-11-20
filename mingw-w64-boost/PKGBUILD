@@ -18,16 +18,14 @@ msys2_references=(
 license=('spdx:BSL-1.0')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-bzip2"
-         $([[ ${CARCH} == i686 ]] || echo "${MINGW_PACKAGE_PREFIX}-icu")
+         "${MINGW_PACKAGE_PREFIX}-icu"
          "${MINGW_PACKAGE_PREFIX}-xz"
          "${MINGW_PACKAGE_PREFIX}-zstd"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-ninja"
-             $([[ ${CARCH} == i686 ]] || echo \
-               "${MINGW_PACKAGE_PREFIX}-python" \
-               "${MINGW_PACKAGE_PREFIX}-python-numpy"))
+             "${MINGW_PACKAGE_PREFIX}-python")
 source=(https://github.com/boostorg/boost/releases/download/boost-${pkgver}/boost-${pkgver}-cmake.tar.xz
         0001-Fix-building-with-cmake-on-MINGW.patch
         0002-No-Arch-in-library-name-tag.patch
@@ -66,8 +64,13 @@ build() {
     _extra_config+=("-DCMAKE_BUILD_TYPE=Debug")
   fi
 
-  if [[ "${CARCH}" != "i686" ]]; then
+  if true; then
     _extra_config+=('-DBOOST_ENABLE_PYTHON=ON')
+  fi
+
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
   fi
 
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
@@ -104,10 +107,7 @@ build() {
 package_boost() {
   pkgdesc+=" (mingw-w64)"
   depends=("${MINGW_PACKAGE_PREFIX}-boost-libs")
-  if [[ ${CARCH} != i686 ]]; then
-    optdepends=("${MINGW_PACKAGE_PREFIX}-python: For Boost.Python"
-                "${MINGW_PACKAGE_PREFIX}-python-numpy: For Boost.Python (NumPy)")
-  fi
+  optdepends=("${MINGW_PACKAGE_PREFIX}-python: For Boost.Python")
 
   DESTDIR="${pkgdir}" ${MINGW_PREFIX}/bin/cmake.exe --install build-${MSYSTEM}-static
   DESTDIR="${pkgdir}" ${MINGW_PREFIX}/bin/cmake.exe --install build-${MSYSTEM}

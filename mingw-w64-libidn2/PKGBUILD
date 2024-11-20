@@ -21,9 +21,9 @@ depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime"
          "${MINGW_PACKAGE_PREFIX}-libunistring")
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-gettext-tools"
-  "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+  "gtk-doc"
 )
 source=("https://ftp.gnu.org/gnu/libidn/${_realname}-${pkgver}.tar.gz"{,.sig})
 sha256sums=('f557911bf6171621e1f72ff35f5b1825bb35b52ed45325dcdee931e5d3c0787a'

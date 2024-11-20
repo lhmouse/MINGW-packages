@@ -16,7 +16,7 @@ msys2_references=(
   "cpe: cpe:/a:libexpat_project:libexpat"
 )
 license=('spdx:MIT')
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 source=("https://github.com/libexpat/libexpat/releases/download/R_${pkgver//./_}/expat-${pkgver}.tar.xz"{,.asc})
 sha256sums=('9e9cabb457c1e09de91db2706d8365645792638eb3be1f94dbb2149301086ac0'
             'SKIP')

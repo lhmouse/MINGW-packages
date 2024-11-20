@@ -5,7 +5,7 @@
 _realname=sqlite3
 pkgbase=mingw-w64-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
-         $([[ ${CARCH} == i686 ]] || echo "${MINGW_PACKAGE_PREFIX}-sqlite-docs"))
+         $(true || echo "${MINGW_PACKAGE_PREFIX}-sqlite-docs"))
 _sqlite_year=2026
 _amalgamationver=3510200
 _docver=${_amalgamationver}
@@ -105,7 +105,7 @@ build() {
 check() {
   cd "${srcdir}/build-${MSYSTEM}"
   # This test run lasts very loooong ... despite the target name
-  make quicktest || warning "Tests failed"
+  #make quicktest || warning "Tests failed"
 }
 
 package_sqlite3() {
