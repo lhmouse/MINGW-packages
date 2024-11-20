@@ -11,7 +11,7 @@ mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url="https://www.gnu.org/software/gperf/"
 license=('spdx:GPL-3.0')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=("autotools" "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://ftp.gnu.org/pub/gnu/gperf/${_realname}-${pkgver}.tar.gz"{,.sig})
 sha256sums=('fd87e0aba7e43ae054837afd6cd4db03a3f2693deb3619085e6ed9d8d9604ad8'
             'SKIP')

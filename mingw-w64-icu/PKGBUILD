@@ -18,7 +18,7 @@ msys2_references=(
 license=('spdx:ICU')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "autoconf-archive")
 source=(https://github.com/unicode-org/icu/releases/download/release-${pkgver}/icu4c-${pkgver}-sources.tgz
         https://sources.debian.org/data/main/i/icu/78.1-1/debian/patches/reverse_of_ICU-22610.patch

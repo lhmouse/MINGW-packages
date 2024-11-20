@@ -20,9 +20,9 @@ msys2_references=(
 license=('spdx:0BSD AND LGPL-2.1-or-later AND GPL-2.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-gettext-tools"
-             $([[ ${CARCH} == i686 ]] || echo "${MINGW_PACKAGE_PREFIX}-doxygen")
+             $([[ true ]] || echo "${MINGW_PACKAGE_PREFIX}-doxygen")
              "po4a")
 source=("https://github.com/tukaani-project/xz/releases/download/v${pkgver}/xz-${pkgver}.tar.xz"{,.sig})
 sha256sums=('0b54f79df85912504de0b14aec7971e3f964491af1812d83447005807513cd9e'
@@ -40,7 +40,7 @@ build() {
   mkdir -p "${srcdir}/build-${MSYSTEM}" && cd "${srcdir}/build-${MSYSTEM}"
 
   declare -a _extra_config
-  if [[ ${CARCH} == i686 ]]; then
+  if [[ true ]]; then
     _extra_config+=("--disable-doxygen")
   else
     _extra_config+=("--enable-doxygen")
@@ -50,6 +50,11 @@ build() {
   # pass --disable-nls for msvcrt builds
   if [[ ${MSYSTEM} == MINGW32 || ${MSYSTEM} == MINGW64 ]]; then
     _extra_config+=("--disable-nls")
+  fi
+
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
   fi
 
   ../${_realname}-${pkgver}/configure \

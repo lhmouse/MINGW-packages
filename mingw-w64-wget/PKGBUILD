@@ -18,7 +18,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-pcre2"
          "${MINGW_PACKAGE_PREFIX}-libidn2"
          "${MINGW_PACKAGE_PREFIX}-gnutls")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "autoconf-archive")
 source=("https://ftp.gnu.org/gnu/wget/${_realname}-${pkgver}.tar.lz"{,.sig})
 sha256sums=('19225cc756b0a088fc81148dc6a40a0c8f329af7fd8483f1c7b2fe50f4e08a1f'

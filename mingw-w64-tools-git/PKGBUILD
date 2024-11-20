@@ -17,7 +17,7 @@ msys2_repository_url="https://sourceforge.net/p/mingw-w64/mingw-w64/ci/master/tr
 license=('spdx:GPL-3.0-or-later AND LGPL-2.1-or-later')
 groups=("${MINGW_PACKAGE_PREFIX}-toolchain")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-libmangle"
              "git")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")

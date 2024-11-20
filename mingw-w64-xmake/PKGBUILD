@@ -35,6 +35,11 @@ build() {
         export CFLAGS+=" -D_M_ARM64"
     fi
 
+    if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+      export CFLAGS+=' -masm=att'
+      export CXXFLAGS+=' -masm=att'
+    fi
+
     ./configure --prefix="${MINGW_PREFIX}" --toolchain=${CC}
     make
 }
