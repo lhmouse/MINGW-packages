@@ -30,7 +30,6 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          #"${MINGW_PACKAGE_PREFIX}-unbound"
         )
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc"
              "${MINGW_PACKAGE_PREFIX}-gettext-tools"
              "${MINGW_PACKAGE_PREFIX}-autotools")
 options=('!zipman')
@@ -67,7 +66,7 @@ prepare() {
     0004-disable-broken-examples.patch \
     0005-remove-coverage-rules.patch
 
-  WANT_AUTOMAKE=latest autoreconf -fiv -I m4
+  #WANT_AUTOMAKE=latest autoreconf -fiv -I m4
 }
 
 build() {
