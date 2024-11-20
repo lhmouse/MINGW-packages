@@ -26,6 +26,12 @@ build() {
   [[ -d "${srcdir}"/build-${MSYSTEM} ]] && rm -rf "${srcdir}"/build-${MSYSTEM}
   cp -R "$srcdir/${_realname}-${pkgver}" "${srcdir}"/build-${MSYSTEM}
   cd "${srcdir}"/build-${MSYSTEM}
+
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
+
   ../${_realname}-${pkgver}/configure \
     --prefix=${MINGW_PREFIX} \
     --build=${MINGW_CHOST} \
