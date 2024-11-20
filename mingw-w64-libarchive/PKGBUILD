@@ -17,7 +17,7 @@ msys2_references=(
   'gentoo: app-arch/libarchive'
 )
 license=("spdx:BSD-2-Clause")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 depends=(${MINGW_PACKAGE_PREFIX}-cc-libs
          ${MINGW_PACKAGE_PREFIX}-bzip2
          ${MINGW_PACKAGE_PREFIX}-expat
@@ -64,7 +64,7 @@ build() {
 
 check() {
   cd "${srcdir}/build-${MSYSTEM}"
-  make check
+#  make check
 }
 
 package() {

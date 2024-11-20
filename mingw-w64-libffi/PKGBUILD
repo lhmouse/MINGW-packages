@@ -9,7 +9,7 @@ pkgrel=1
 pkgdesc="A portable, high level programming interface to various calling conventions (mingw-w64)"
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 license=('spdx:MIT')
 url="https://sourceware.org/libffi"
 msys2_repository_url="https://github.com/libffi/libffi"
@@ -25,6 +25,12 @@ prepare() {
 
 build() {
   mkdir -p "${srcdir}"/build-${MSYSTEM} && cd "${srcdir}"/build-${MSYSTEM}
+
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
+
   ../${_realname}-${pkgver}/configure \
     --prefix=${MINGW_PREFIX} \
     --build=${MINGW_CHOST} \
