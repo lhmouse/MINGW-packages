@@ -30,7 +30,8 @@ source=(https://ftp.gnu.org/pub/gnu/${_realname}/${_realname}-${pkgver}.tar.lz{,
         0022-libasprintf.patch
         0024-disable-gnu-format.patch
         0030-fix-build-with-mingw-w64-clang.patch
-        0101-fix-build-with-clang-21.patch)
+        0101-fix-build-with-clang-21.patch
+        9001-gettext-tools-exclude-examples.patch)
 sha256sums=('a0151088dad8942374dc038e461b228352581defd7055e79297f156268b8d508'
             'SKIP'
             'cbc2f533012d646521afa20f8b256917fce040741ff42cf53fb6dd7123a6670a'
@@ -39,7 +40,8 @@ sha256sums=('a0151088dad8942374dc038e461b228352581defd7055e79297f156268b8d508'
             'c354f6a7021069c99b90f1c6d6f6a4ccf40a01e9f6742b866df2b5a7286cb868'
             'ce7ccf6dd3a492cab322253cd67310899b546eccc25821c25cbc047a1a984633'
             '9b1b4f0c65b3bc1a3103c921a02c203cecf533d145f0bd90023406e760f81749'
-            '0055847af8154f3b33858f724fdf0b2df92645c86f220ea79dac847c09f4d358')
+            '0055847af8154f3b33858f724fdf0b2df92645c86f220ea79dac847c09f4d358'
+            '834d91b7a629e162610f10c171a78c1d3aca27d8ef64ac783eb75bc6be7756c7')
 validpgpkeys=('462225C3B46F34879FC8496CD605848ED7E69871'  # Daiki Ueno
               '9001B85AF9E1B83DF1BDA942F5BE8B267C6A406D'  # Bruno Haible
               'E0FFBD975397F77A32AB76ECB6301D9E1BBEAC08') # Bruno Haible (FSF) <bruno@clisp.org>
@@ -74,6 +76,9 @@ prepare() {
 
   apply_patch_with_msg \
     0101-fix-build-with-clang-21.patch
+
+  apply_patch_with_msg \
+    9001-gettext-tools-exclude-examples.patch
 
   libtoolize --automake --copy --force
   WANT_AUTOMAKE=latest ./autogen.sh --skip-gnulib

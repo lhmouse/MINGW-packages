@@ -11,7 +11,7 @@ arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs" "${MINGW_PACKAGE_PREFIX}-zlib")
 #conflicts=(${MINGW_PACKAGE_PREFIX}-sqlite-analyzer)
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 options=('!makeflags') # '!strip' 'debug')
 license=("custom")
 url="https://tcl-lang.org/"
@@ -71,6 +71,11 @@ build() {
   [[ "${MINGW_CHOST}" = "aarch64-w64-mingw32" ]] && enable64bit='--enable-64bit=arm64'
 
   mkdir -p "${srcdir}"/build-${MSYSTEM} && cd "${srcdir}/build-${MSYSTEM}"
+
+  if [[ "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
 
   "${srcdir}"/tcl${pkgver}/win/configure \
     --prefix=${MINGW_PREFIX} \

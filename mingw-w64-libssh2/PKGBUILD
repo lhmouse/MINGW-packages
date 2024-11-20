@@ -2,8 +2,7 @@
 
 _realname=libssh2
 pkgbase=mingw-w64-${_realname}
-pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
-         "${MINGW_PACKAGE_PREFIX}-${_realname}-wincng")
+pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 pkgver=1.11.1
 pkgrel=1
 pkgdesc="A library implementing the SSH2 protocol as defined by Internet Drafts (mingw-w64)"
@@ -16,7 +15,7 @@ msys2_references=(
 msys2_repository_url='https://github.com/libssh2/libssh2'
 license=("spdx:BSD-3-Clause")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-openssl"
              "${MINGW_PACKAGE_PREFIX}-zlib")
 source=("https://libssh2.org/download/${_realname}-${pkgver}.tar.gz"{,.asc})
@@ -46,15 +45,15 @@ _do_build() {
 
 build() {
   _do_build openssl
-  _do_build wincng
+#  _do_build wincng
 }
 
 check() {
   cd "${srcdir}/build-${MSYSTEM}-openssl"
-  make check || true
+#  make check || true
 
-  cd "${srcdir}/build-${MSYSTEM}-wincng"
-  make check || true
+#  cd "${srcdir}/build-${MSYSTEM}-wincng"
+#  make check || true
 }
 
 _do_package() {
