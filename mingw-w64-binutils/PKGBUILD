@@ -46,7 +46,7 @@ sha256sums=('SKIP'
             '7ccbd418695733c50966068fa9755a6abb156f53af23701d2bc097c63e9e0030'
             '604628156c08f3e361de60329af250fab6839e23e61e289f8369a7e18a04e277'
             '16d7da0ad9273007356e42198410c067a73de7e3802d25bd196c42333d5ba7f4'
-            'a612e2cea9107029044a310fec2c6ceb7a2591d2071b2f71ee0f7dedb816d59f')
+            'aea978117e026b4e500eff14ea0d0aa1d9d3ed6ec03089d00e765fe9bb335b9a')
 validpgpkeys=('EAF1C276A747E9ED86210CBAC3126D3B4AE55E93'  # Tristan Gingold <gingold@adacore.com>
               '3A24BC1E8FB409FA9F14371813FCEF89DD9E3C4F') # Nick Clifton <nickc@redhat.com>
 
