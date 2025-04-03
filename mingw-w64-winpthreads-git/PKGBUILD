@@ -5,7 +5,7 @@
 _realname=winpthreads
 pkgbase=mingw-w64-${_realname}-git
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}-git" "${MINGW_PACKAGE_PREFIX}-libwinpthread-git")
-pkgver=12.0.0.r598.g95ad23696
+pkgver=12.0.0.r633.gd0c80252d
 pkgrel=1
 pkgdesc="MinGW-w64 winpthreads library (mingw-w64)"
 url="https://www.mingw-w64.org/"
