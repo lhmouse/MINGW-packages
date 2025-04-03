@@ -1,18 +1,19 @@
-From a147fc41d9c7ab6e5d9c4c75a6dd97d217fc7b91 Mon Sep 17 00:00:00 2001
+From 27713e2b4b0e9c22fdebaebaad4f2c7da3e070d9 Mon Sep 17 00:00:00 2001
 From: Jeremy Drake <sourceware-bugzilla@jdrake.com>
-Date: Thu, 13 Mar 2025 10:14:31 -0700
-Subject: [PATCH] bfd: fill in PE load config directory entry.
+Date: Wed, 2 Apr 2025 15:53:45 -0700
+Subject: [PATCH 9202/9203] bfd: fill in PE load config directory entry.
 
 This is filled in with the rva of _load_config_used if defined (much
 like _tls_used), and the size is the first 32-bit value at that symbol.
 
 Signed-off-by: Jeremy Drake <sourceware-bugzilla@jdrake.com>
+Signed-off-by: LIU Hao <lh_mouse@126.com>
 ---
- bfd/peXXigen.c | 48 ++++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 46 insertions(+), 2 deletions(-)
+ bfd/peXXigen.c | 69 +++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 68 insertions(+), 1 deletion(-)
 
 diff --git a/bfd/peXXigen.c b/bfd/peXXigen.c
-index 29012688adf..858498a04f3 100644
+index 29831d4caaa..0dec04fcc3e 100644
 --- a/bfd/peXXigen.c
 +++ b/bfd/peXXigen.c
 @@ -593,7 +593,7 @@ _bfd_XXi_swap_aouthdr_out (bfd * abfd, void * in, void * out)
@@ -40,23 +41,13 @@ index 29012688adf..858498a04f3 100644
  
    if (extra->DataDirectory[PE_IMPORT_TABLE].VirtualAddress == 0)
      /* Until other .idata fixes are made (pending patch), the entry for
-@@ -4558,7 +4560,7 @@ _bfd_XXi_final_link_postscript (bfd * abfd, struct coff_final_link_info *pfinfo)
-       else
- 	{
- 	  _bfd_error_handler
--	    (_("%pB: unable to fill in DataDictionary[9] because __tls_used is missing"),
-+	    (_("%pB: unable to fill in DataDictionary[9] because _tls_used is not defined correctly"),
- 	     abfd);
- 	  result = false;
- 	}
-@@ -4573,6 +4575,48 @@ _bfd_XXi_final_link_postscript (bfd * abfd, struct coff_final_link_info *pfinfo)
+@@ -4573,6 +4575,71 @@ _bfd_XXi_final_link_postscript (bfd * abfd, struct coff_final_link_info *pfinfo)
  #endif
      }
  
-+  h1 = coff_link_hash_lookup (coff_hash_table (info),
-+			      (bfd_get_symbol_leading_char (abfd) != 0
-+			       ? "__load_config_used" : "_load_config_used"),
-+			      false, false, true);
++  name[0] = bfd_get_symbol_leading_char (abfd);
++  strcpy (name + !!name[0], "_load_config_used");
++  h1 = coff_link_hash_lookup (coff_hash_table (info), name, false, false, true);
 +  if (h1 != NULL)
 +    {
 +      char data[4];
@@ -71,26 +62,50 @@ index 29012688adf..858498a04f3 100644
 +	     + h1->root.u.def.section->output_offset
 +	     - pe_data (abfd)->pe_opthdr.ImageBase);
 +
-+	  /* the size is stored as the first 4 bytes at _load_config_used */
++	  if (pe_data (abfd)->pe_opthdr.DataDirectory[PE_LOAD_CONFIG_TABLE].VirtualAddress &
++	      ((bfd_arch_bits_per_address (abfd) >> 3) - 1))
++	    {
++	      _bfd_error_handler
++		(_("%pB: unable to fill in DataDictionary[%d]: %s not properly aligned"),
++		 abfd, PE_LOAD_CONFIG_TABLE, name);
++	      result = false;
++	    }
++
++	  /* The size is stored as the first 4 bytes at _load_config_used.
++	     The Microsoft PE format documentation says for compatibility with
++	     Windows XP and earlier, the size must be 64 for x86 images.  If
++	     anyone cares about those versions, the size should be overridden
++	     for i386.  */
 +	  if (bfd_get_section_contents (abfd,
 +		h1->root.u.def.section->output_section, data,
 +		h1->root.u.def.section->output_offset + h1->root.u.def.value,
 +		4))
-+	    pe_data (abfd)->pe_opthdr.DataDirectory[PE_LOAD_CONFIG_TABLE].Size =
-+	      bfd_get_32 (abfd, data);
++	    {
++	      pe_data (abfd)->pe_opthdr.DataDirectory[PE_LOAD_CONFIG_TABLE].Size =
++		bfd_get_32 (abfd, data);
++
++	      if (pe_data (abfd)->pe_opthdr.DataDirectory[PE_LOAD_CONFIG_TABLE].Size >
++		  h1->root.u.def.section->size - h1->root.u.def.value)
++		{
++		  _bfd_error_handler
++		    (_("%pB: unable to fill in DataDictionary[%d]: size too large for the containing section"),
++		     abfd, PE_LOAD_CONFIG_TABLE);
++		  result = false;
++		}
++	    }
 +	  else
 +	    {
 +	      _bfd_error_handler
-+		(_("%pB: unable to fill in DataDictionary[10] because the size can't be read"),
-+		 abfd);
++		(_("%pB: unable to fill in DataDictionary[%d]: size can't be read"),
++		 abfd, PE_LOAD_CONFIG_TABLE);
 +	      result = false;
 +	    }
 +	}
 +      else
 +	{
 +	  _bfd_error_handler
-+	    (_("%pB: unable to fill in DataDictionary[10] because _load_config_used is not defined correctly"),
-+	     abfd);
++	    (_("%pB: unable to fill in DataDictionary[%d]: %s not defined correctly"),
++	     abfd, PE_LOAD_CONFIG_TABLE, name);
 +	  result = false;
 +	}
 +    }
@@ -99,5 +114,5 @@ index 29012688adf..858498a04f3 100644
       need to sort the entries ascending.  */
  #if !defined(COFF_WITH_pep) && (defined(COFF_WITH_pex64) || defined(COFF_WITH_peAArch64) || defined(COFF_WITH_peLoongArch64) || defined (COFF_WITH_peRiscV64))
 -- 
-2.48.1
+2.49.0
 

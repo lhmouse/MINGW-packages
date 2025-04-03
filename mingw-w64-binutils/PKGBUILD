@@ -33,7 +33,9 @@ source=(${_sourcedir}::"git+https://sourceware.org/git/binutils-gdb.git#branch=$
         reproducible-import-libraries.patch
         libiberty-unlink-handle-windows-nul.patch
         3001-hack-libiberty-link-order.patch
-        9001-bfd-fill-in-PE-load-config-directory-entry.patch
+        9001-bfd-properly-use-bfd_get_symbol_leading_char-in-peXX.patch
+        9002-bfd-fill-in-PE-load-config-directory-entry.patch
+        9003-bfd-add-load-config-size-workaround-for-i386-XP-and-.patch
         9200-bfd-pe-pei-x86_64-Decrease-preferred-section-alignme.patch)
 sha256sums=('SKIP'
             '2c99345fc575c3a060d6677537f636c6c4154fac0fde508070f3b6296c1060d4'
@@ -45,7 +47,9 @@ sha256sums=('SKIP'
             'a094660ec95996c00b598429843b7869037732146442af567ada9f539bd40480'
             '7ccbd418695733c50966068fa9755a6abb156f53af23701d2bc097c63e9e0030'
             '604628156c08f3e361de60329af250fab6839e23e61e289f8369a7e18a04e277'
-            '16d7da0ad9273007356e42198410c067a73de7e3802d25bd196c42333d5ba7f4'
+            '916406e2123f92a5e6ff8cc64ef473414f3c4a39501377163c17d3274844a529'
+            'd74db132ae203bac366b49b194536e164c739c48bd7b317b66623b608d829bee'
+            'b2f32c61feec3b80131351cd0c60bbd10c3a8b69457f8dd27e417a3502d6f831'
             'aea978117e026b4e500eff14ea0d0aa1d9d3ed6ec03089d00e765fe9bb335b9a')
 validpgpkeys=('EAF1C276A747E9ED86210CBAC3126D3B4AE55E93'  # Tristan Gingold <gingold@adacore.com>
               '3A24BC1E8FB409FA9F14371813FCEF89DD9E3C4F') # Nick Clifton <nickc@redhat.com>
@@ -77,7 +81,9 @@ prepare() {
   # ZZZ
   apply_patch_with_msg \
     0401-opcodes-i386-dis-Use-Intel-syntax-by-default.patch \
-    9001-bfd-fill-in-PE-load-config-directory-entry.patch \
+    9001-bfd-properly-use-bfd_get_symbol_leading_char-in-peXX.patch \
+    9002-bfd-fill-in-PE-load-config-directory-entry.patch \
+    9003-bfd-add-load-config-size-workaround-for-i386-XP-and-.patch \
     9200-bfd-pe-pei-x86_64-Decrease-preferred-section-alignme.patch
 
   # Add an option to change default bases back below 4GB to ease transition
