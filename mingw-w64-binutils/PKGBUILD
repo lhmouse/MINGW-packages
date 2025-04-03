@@ -5,7 +5,7 @@
 _realname=binutils
 pkgbase=mingw-w64-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}")
-pkgver=2.44.0+20250331
+pkgver=2.44.0+20250403
 _branch=binutils-2_44-branch
 _sourcedir=binutils-gdb
 pkgrel=1
