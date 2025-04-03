@@ -72,8 +72,7 @@ source=(${_sourcedir}::"git+https://gcc.gnu.org/git/gcc.git#branch=${_branch}"
         9000-gcc-Make-stupid-AT-T-syntax-not-default.patch
         9001-Always-quote-labels-in-Intel-syntax.patch
         9002-native-tls.patch
-        9003-libstdc-Avoid-thread-local-states-for-MCF-thread-mod.patch
-        9004-gcc-mingw-Align-.refptr.-to-8-byte-boundaries-for-64.patch)
+        9003-libstdc-Avoid-thread-local-states-for-MCF-thread-mod.patch)
 sha256sums=('SKIP'
             '073a62609f2b62ce14d8a2c06f5f386d5ae600f98ea490e69cff80bd6dc4b84d'
             '3fc35067823f87e48dd3bfd265e7593000dc110fa9ad5f16c81b896765fc897a'
@@ -90,8 +89,7 @@ sha256sums=('SKIP'
             'f3b3838a64e5d3c2ddab91015bebc0bbc626087f4d58198c966c5863f88dc099'
             '7609644ca0352b87696fdff3a63864ce797e074b085f16ec5096d0f831fa10bf'
             'fff2d92c924863af00812e15e86ae78632972ce81e155351d57f3a5f1c45f4a7'
-            '77659729168b077ba65be0e78a79932b02b8908f64f8a0d639bc8119dc9ed368'
-            '318ddd7e7dc3adfc51fa28d260becc9b26c07db9a73b98af52b1b60b986bd079')
+            '77659729168b077ba65be0e78a79932b02b8908f64f8a0d639bc8119dc9ed368')
 validpgpkeys=(F3691687D867B81B51CE07D9BBE43771487328A9  # bpiotrowski@archlinux.org
               86CFFCA918CF3AF47147588051E8B148A9999C34  # evangelos@foutrelis.com
               13975A70E63C361C73AE69EF6EEB81F8981C74C7  # richard.guenther@gmail.com
@@ -158,8 +156,7 @@ prepare() {
     9000-gcc-Make-stupid-AT-T-syntax-not-default.patch \
     9001-Always-quote-labels-in-Intel-syntax.patch \
     9002-native-tls.patch \
-    9003-libstdc-Avoid-thread-local-states-for-MCF-thread-mod.patch \
-    9004-gcc-mingw-Align-.refptr.-to-8-byte-boundaries-for-64.patch
+    9003-libstdc-Avoid-thread-local-states-for-MCF-thread-mod.patch
 
   # do not expect ${prefix}/mingw symlink - this should be superceded by
   # 0005-Windows-Don-t-ignore-native-system-header-dir.patch .. but isn't!
