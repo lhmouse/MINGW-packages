@@ -1,0 +1,26 @@
+From 0d1d58ff674c6ceb5de1c0bddfd029e96339fe08 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Fri, 19 May 2023 09:22:44 +0800
+Subject: [PATCH] gdb/i386-tdep: Use Intel syntax by default
+
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ gdb/i386-tdep.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/gdb/i386-tdep.c b/gdb/i386-tdep.c
+index 580664d2ce5..39e247c90fe 100644
+--- a/gdb/i386-tdep.c
++++ b/gdb/i386-tdep.c
+@@ -596,7 +596,7 @@ static const char *const valid_flavors[] =
+   intel_flavor,
+   NULL
+ };
+-static const char *disassembly_flavor = att_flavor;
++static const char *disassembly_flavor = intel_flavor;
+ 
+ 
+ /* Use the program counter to determine the contents and size of a
+-- 
+2.34.1
+
