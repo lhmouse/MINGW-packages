@@ -1,0 +1,25 @@
+From c43abbaec50546847f6bcba3f74451245a245b7d Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Fri, 1 Nov 2024 14:29:35 +0800
+Subject: [PATCH] Prefer GCC <cpuid.h>
+
+---
+ gdb/nat/x86-cpuid.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/gdb/nat/x86-cpuid.h b/gdb/nat/x86-cpuid.h
+index 5e9ce604f4e..fd320d5e3d6 100644
+--- a/gdb/nat/x86-cpuid.h
++++ b/gdb/nat/x86-cpuid.h
+@@ -20,7 +20,7 @@
+ #define NAT_X86_CPUID_H
+ 
+ /* Always include the header for the cpu bit defines.  */
+-#include "x86-gcc-cpuid.h"
++#include <cpuid.h>
+ 
+ #ifndef __cplusplus
+ /* This header file is also used in C code for some test-cases, so define
+-- 
+2.47.0
+
