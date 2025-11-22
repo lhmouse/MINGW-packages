@@ -3,8 +3,8 @@
 _realname=muon
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=0.5.0
-pkgrel=3
+pkgver=0.6.0
+pkgrel=1
 pkgdesc="Meson implementation in C (mingw-w64)"
 arch=('any')
 mingw_arch=('ucrt64' 'clang64' 'clangarm64')
@@ -22,7 +22,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-meson"
              "${MINGW_PACKAGE_PREFIX}-scdoc")
 source=("${url}/releases/v${pkgver}/${_realname}-v${pkgver}.tar.gz")
-sha256sums=('24aa4d29ed272893f6e6d355b1ec4ef20647438454e88161bdb9defd7c6faf77')
+sha256sums=('7d208df6e2d7c04ee37460141ab357cb25696737ee4dbcf6a780d6297b90a4af')
 
 build() {
   MSYS2_ARG_CONV_EXCL="--prefix=" \
