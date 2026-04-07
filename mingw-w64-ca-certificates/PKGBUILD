@@ -108,6 +108,7 @@ EOF
 }
 
 package() {
+  sed -e "s|@PREFIX@|${MSYSTEM,,}|" "$startdir/ca-certificates.install.in" > "$startdir/ca-certificates-${MSYSTEM}.install"
   cd "${srcdir}"/${_realname}-${pkgver}
 
   mkdir -p "${pkgdir}"${MINGW_PREFIX}/{bin,lib,share}
