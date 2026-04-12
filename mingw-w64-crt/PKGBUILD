@@ -68,7 +68,7 @@ build() {
     _extra_config+=("--enable-cfguard")
   fi
 
-  if [[ $MINGW_PACKAGE_PREFIX == *-clang-* ]] || [[ $MINGW_PACKAGE_PREFIX == *-ucrt-* ]]; then
+  if [[ $MINGW_PACKAGE_PREFIX == *-clang-* ]] || [[ $MINGW_PACKAGE_PREFIX == *-ucrt* ]]; then
     _extra_config+=("--with-default-msvcrt=ucrt")
   else
     _extra_config+=("--with-default-msvcrt=msvcrt")
