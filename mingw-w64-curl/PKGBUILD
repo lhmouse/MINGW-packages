@@ -4,10 +4,7 @@ _bootstrap=0
 
 _realname=curl
 pkgbase=mingw-w64-${_realname}
-pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
-         $([[ ${CARCH} == i686 ]] || echo \
-           "${MINGW_PACKAGE_PREFIX}-${_realname}-gnutls" \
-           "${MINGW_PACKAGE_PREFIX}-${_realname}-winssl"))
+pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 pkgver=8.23.0
 pkgrel=1
 pkgdesc="Command line tool and library for transferring data with URLs (mingw-w64)"
@@ -48,7 +45,6 @@ makedepends=(
   "${MINGW_PACKAGE_PREFIX}-ninja"
   "${_cert_depends[@]}"
   "${_openssl_depends[@]}"
-  $([[ ${CARCH} == i686 ]] || echo "${_gnutls_depends[@]}")
 )
 depends=(
   "${MINGW_PACKAGE_PREFIX}-cc-libs"
@@ -177,10 +173,6 @@ do_build() {
 
 build() {
   do_build openssl
-  if [[ ${CARCH} != i686 ]]; then
-    do_build winssl
-    do_build gnutls
-  fi
 }
 
 do_package() {
