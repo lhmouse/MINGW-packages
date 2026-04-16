@@ -20,7 +20,7 @@ license=('spdx:LGPL-3.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-gmp")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=(https://ftp.gnu.org/gnu/mpfr/${_realname}-${_pkgver}.tar.xz{,.sig})
         # patches.diff) # wget https://www.mpfr.org/mpfr-4.2.0/allpatches -O patches.diff
 sha256sums=('b67ba0383ef7e8a8563734e2e889ef5ec3c3b898a01d00fa0a6869ad81c6ce01'
@@ -36,6 +36,11 @@ prepare() {
 
 build() {
   mkdir -p build-${MSYSTEM} && cd build-${MSYSTEM}
+
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
 
   ../${_realname}-${_pkgver}/configure \
     --prefix=${MINGW_PREFIX} \
