@@ -20,7 +20,7 @@ depends=(
   "${MINGW_PACKAGE_PREFIX}-gmp"
 )
 makedepends=(
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
 )
 source=("https://ftp.gnu.org/gnu/nettle/nettle-${pkgver}.tar.gz"{,.sig})
@@ -38,6 +38,11 @@ build() {
   esac
 
   mkdir -p "${srcdir}/build-${MSYSTEM}" && cd "${srcdir}/build-${MSYSTEM}"
+
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
 
   ../${_realname}-${pkgver}/configure \
     --prefix=${MINGW_PREFIX} \

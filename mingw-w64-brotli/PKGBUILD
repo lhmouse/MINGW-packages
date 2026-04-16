@@ -4,7 +4,7 @@
 _realname=brotli
 pkgbase=mingw-w64-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}"
-         $([[ ${CARCH} == i686 ]] || echo \
+         $([[ true ]] || echo \
            "${MINGW_PACKAGE_PREFIX}-brotli-testdata"))
 pkgver=1.2.0
 pkgrel=1
