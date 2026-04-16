@@ -17,7 +17,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-openssl"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=(https://prdownloads.sourceforge.net/gsoap2/${_realname}_${pkgver}.zip)
 sha256sums=('6d7196bd6591ec2977474c681e351b4a33eb5c2d64c9e2e6727b004f330b3752')
 

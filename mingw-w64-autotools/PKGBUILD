@@ -17,8 +17,8 @@ depends=(
   'autoconf-wrapper'
   'automake-wrapper'
   'make'
-  "${MINGW_PACKAGE_PREFIX}-libtool"
-  "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+  "libtool"
+  "gettext"
   "${MINGW_PACKAGE_PREFIX}-pkgconf"
 )
 source=(README.md)

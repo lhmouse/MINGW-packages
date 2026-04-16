@@ -18,7 +18,7 @@ msys2_references=(
 msys2_ignore_vulnerabilities=(
   "CVE-2026-23988" # fixed in 4.12
 )
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=("autotools"
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("${msys2_repository_url}/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('eea3122be1d12e4f5c029cd72fc675d3ddf7dfdde98db9f1c242e585e583bd6e')

@@ -10,7 +10,7 @@ arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url='https://www.bluez.org/'
 license=('spdx:GPL-2.0-or-later OR LGPL-2.1-or-later')
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=("autotools"
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://mirrors.edge.kernel.org/pub/linux/bluetooth/${_realname}-${pkgver}.tar.gz"
         "0001-include-stdint-h.patch"

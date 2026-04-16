@@ -72,7 +72,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-appstream"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-meson"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             "gettext"
              "${MINGW_PACKAGE_PREFIX}-gi-docgen"
              "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
              "${MINGW_PACKAGE_PREFIX}-libxslt"

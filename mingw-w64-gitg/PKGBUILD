@@ -33,7 +33,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
              "${MINGW_PACKAGE_PREFIX}-vala"
              "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             "gettext"
              "${MINGW_PACKAGE_PREFIX}-itstool")
 source=("https://download.gnome.org/sources/${_realname}/${pkgver}/${_realname}-$pkgver.tar.xz"
         "https://gitlab.gnome.org/GNOME/gitg/-/merge_requests/305.patch")

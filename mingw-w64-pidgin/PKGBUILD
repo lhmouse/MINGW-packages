@@ -46,12 +46,12 @@ depends=("${MINGW_PACKAGE_PREFIX}-adwaita-icon-theme"
          "${MINGW_PACKAGE_PREFIX}-silc-toolkit"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-python"
              "${MINGW_PACKAGE_PREFIX}-doxygen"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             "gettext"
              #"${MINGW_PACKAGE_PREFIX}-dbus-glib"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+             "gtk-doc"
              'intltool')
 source=("https://downloads.sourceforge.net/${_realname}/${_realname}-${pkgver}.tar.bz2"{,.asc}
         001-autotools-and-fhs.patch

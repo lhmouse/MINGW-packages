@@ -31,7 +31,7 @@ depends=(
 )
 makedepends=(
     "${MINGW_PACKAGE_PREFIX}-cc"
-    "${MINGW_PACKAGE_PREFIX}-autotools"
+    "autotools"
 )
 options=('!emptydirs' '!strip')
 source=("https://ftp.gnu.org/gnu/gcc/gcc-${pkgver}/gcc-${pkgver}.tar.xz")

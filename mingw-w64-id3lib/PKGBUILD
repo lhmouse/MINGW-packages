@@ -16,7 +16,7 @@ msys2_references=(
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-zlib"
          "${MINGW_PACKAGE_PREFIX}-libiconv")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=("autotools" "${MINGW_PACKAGE_PREFIX}-cc")
 source=(https://downloads.sourceforge.net/sourceforge/${_realname}/${_realname}-${pkgver}.tar.gz
         00-add-libz-to-compilation.patch
         05-create-m4-directory.patch

@@ -3,7 +3,7 @@
 
 _realname=libtool
 pkgbase=mingw-w64-${_realname}
-pkgname=("${MINGW_PACKAGE_PREFIX}-libtool" "${MINGW_PACKAGE_PREFIX}-libltdl")
+pkgname=("libtool" "${MINGW_PACKAGE_PREFIX}-libltdl")
 pkgver=2.5.4
 pkgrel=4
 pkgdesc="A generic library support script (mingw-w64)"

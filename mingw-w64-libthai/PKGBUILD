@@ -17,7 +17,7 @@ msys2_references=(
 license=('spdx:LGPL-2.1-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-libdatrie")
 makedepends=("autoconf-archive"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-doxygen")
 source=("https://linux.thai.net/pub/thailinux/software/libthai/${_realname}-${pkgver}.tar.xz"

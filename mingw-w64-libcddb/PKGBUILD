@@ -12,7 +12,7 @@ mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 license=('LGPL')
 url="https://sourceforge.net/projects/libcddb/"
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 depends=("${MINGW_PACKAGE_PREFIX}-libsystre")
 source=(https://downloads.sourceforge.net/sourceforge/${_realname}/${_realname}-${pkgver}.tar.bz2
         0001-include-winsock2-before-windows.mingw.patch

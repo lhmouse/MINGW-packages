@@ -15,7 +15,7 @@ msys2_references=(
 )
 license=('spdx:MPL-2.0')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=("autotools"
              "${MINGW_PACKAGE_PREFIX}-cc"
              "nsinstall>=${pkgver}"
              "zip")

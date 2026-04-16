@@ -16,7 +16,7 @@ msys2_references=(
   'gentoo: sci-libs/shapelib'
 )
 license=("LGPL" "MIT")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 source=("https://download.osgeo.org/shapelib/${_realname}-${pkgver}.tar.gz"
         "https://github.com/OSGeo/shapelib/commit/bf455986557e88cce6a2a85448798e1dc05541f2.patch")

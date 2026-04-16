@@ -13,7 +13,7 @@ msys2_repository_url='https://github.com/svanderburg/libilbm'
 license=('spdx:MIT')
 depends=("${MINGW_PACKAGE_PREFIX}-libiff")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              'help2man'
              'git')
 _appcommit='170c269bce23423f1163545ed9344482b2cf4487'

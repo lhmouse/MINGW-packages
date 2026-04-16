@@ -11,7 +11,7 @@ mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url="https://www.opus-codec.org/"
 msys2_repository_url='https://gitlab.xiph.org/xiph/libopusenc'
 license=("BSD")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-opus")
 source=(https://downloads.xiph.org/releases/opus/${_realname}-${pkgver}.tar.gz)

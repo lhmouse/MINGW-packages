@@ -12,7 +12,7 @@ url="https://github.com/sahlberg/libnfs/"
 msys2_repository_url='https://github.com/sahlberg/libnfs'
 license=('spdx:BSD-2-Clause AND LGPL-2.1-or-later AND GPL-3.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 source=("${msys2_repository_url}/archive/${_realname}-${pkgver}.tar.gz"
         0001-fix-header.patch
         2.0.0-win32.patch)

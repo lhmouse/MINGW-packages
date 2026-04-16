@@ -18,7 +18,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-libxml2"
          "${MINGW_PACKAGE_PREFIX}-libxslt")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-libiconv"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://downloads.sourceforge.net/xmlstar/${_realname}-${pkgver}.tar.gz"
         "xmlstarlet-1.6.1-clang16.patch"
         "xmlstarlet-1.6.1-clang17.patch"

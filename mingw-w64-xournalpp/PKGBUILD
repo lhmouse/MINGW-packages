@@ -40,7 +40,7 @@ depends=(
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
   "${MINGW_PACKAGE_PREFIX}-cmake"
-  "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+  "gettext"
   "${MINGW_PACKAGE_PREFIX}-imagemagick"
   "${MINGW_PACKAGE_PREFIX}-libbacktrace"
   "${MINGW_PACKAGE_PREFIX}-librsvg"

@@ -11,7 +11,7 @@ msys2_repository_url='https://github.com/lsalzman/enet'
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 license=('custom')
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 source=("http://enet.bespin.org/download/${_realname}-${pkgver}.tar.gz"
         001-no-undefined.patch
         002-win-libs.patch)

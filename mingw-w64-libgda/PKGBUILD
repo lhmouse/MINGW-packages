@@ -39,7 +39,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-postgresql"
              #"${MINGW_PACKAGE_PREFIX}-libmariadbclient"
              "${MINGW_PACKAGE_PREFIX}-openldap"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+             "gtk-doc"
              "${MINGW_PACKAGE_PREFIX}-vala"
              "intltool")
 optdepends=("${MINGW_PACKAGE_PREFIX}-postgresql"

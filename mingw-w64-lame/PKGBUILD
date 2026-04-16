@@ -16,7 +16,7 @@ license=("LGPL")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-mpg123"
              "${MINGW_PACKAGE_PREFIX}-ncurses"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
               $( [[ "${CARCH}" != "i686" \
                 && "${CARCH}" != "x86_64" ]] \
                 || echo "${MINGW_PACKAGE_PREFIX}-nasm" ))

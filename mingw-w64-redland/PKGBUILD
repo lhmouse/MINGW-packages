@@ -18,8 +18,8 @@ depends=("${MINGW_PACKAGE_PREFIX}-libltdl"
          "${MINGW_PACKAGE_PREFIX}-raptor"
          "${MINGW_PACKAGE_PREFIX}-rasqal")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+             "autotools"
+             "gtk-doc"
              "${MINGW_PACKAGE_PREFIX}-libmariadbclient"
              "${MINGW_PACKAGE_PREFIX}-postgresql"
              "${MINGW_PACKAGE_PREFIX}-sqlite3")

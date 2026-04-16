@@ -14,7 +14,7 @@ msys2_references=(
 )
 license=('GPL2')
 depends=("${MINGW_PACKAGE_PREFIX}-zlib")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=("autotools" "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://potrace.sourceforge.io/download/${pkgver}/${_realname}-${pkgver}.tar.gz"
         001-reaarange-compiler-detect.patch)
 sha256sums=('be8248a17dedd6ccbaab2fcc45835bb0502d062e40fbded3bc56028ce5eb7acc'

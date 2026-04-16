@@ -21,7 +21,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-SDL2"
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cmake"
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools")
+  "autotools")
 source=("https://github.com/libsdl-org/SDL_ttf/releases/download/release-${pkgver}/SDL2_ttf-${pkgver}.zip"{,.sig})
 sha256sums=('bef50614acb63347fe1612facabb31b0f1a05ca2b5c271a619c26fdae561a1c9'
             'SKIP')

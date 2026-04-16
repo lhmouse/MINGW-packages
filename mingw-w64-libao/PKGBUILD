@@ -15,7 +15,7 @@ msys2_references=(
 )
 license=('spdx:GPL-2.0-or-later')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://gitlab.xiph.org/xiph/libao/-/archive/${pkgver}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('df8a6d0e238feeccb26a783e778716fb41a801536fe7b6fce068e313c0e2bf4d')
 

@@ -19,7 +19,7 @@ msys2_references=(
 license=('spdx:GPL-2.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-libpng")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=("autotools"
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://github.com/malb/m4ri/releases/download/${pkgver}/m4ri-${pkgver}.tar.gz")
 sha256sums=('7e033ca1fd36be8861e2f67d9d124c398fc0d830209bb0226462485876346404')

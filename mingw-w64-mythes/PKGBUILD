@@ -16,7 +16,7 @@ msys2_references=(
 license=('BSD')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-hunspell")
 optdepends=("perl: for th_gen_idx.pl script")
 source=("https://github.com/hunspell/mythes/releases/download/v${pkgver}/${_realname}-${pkgver}.tar.xz")

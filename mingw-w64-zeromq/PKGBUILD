@@ -19,7 +19,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-libsodium"
          "${MINGW_PACKAGE_PREFIX}-libwinpthread")
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools")
+  "autotools")
 optdepends=("${MINGW_PACKAGE_PREFIX}-cppzmq: C++ binding for libzmq")
 source=("https://github.com/zeromq/libzmq/releases/download/v${pkgver}/${_realname}-${pkgver}.tar.gz"
         https://github.com/zeromq/libzmq/commit/a02cbd0646175a44edb1d636911eb8dae12ec13f.patch)

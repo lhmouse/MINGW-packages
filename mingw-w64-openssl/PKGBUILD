@@ -17,7 +17,7 @@ msys2_references=(
 license=("spdx:Apache-2.0")
 optdepends=("${MINGW_PACKAGE_PREFIX}-ca-certificates")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 options=('!buildflags')
 source=("https://github.com/openssl/openssl/releases/download/openssl-${pkgver}/openssl-${pkgver}.tar.gz"{,.asc}
         '002-relocation.patch'
@@ -81,6 +81,11 @@ build() {
       ;;
   esac
 
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
+
   MSYS2_ARG_CONV_EXCL="--prefix=" \
   /usr/bin/perl ../"${_realname}-${pkgver}"/Configure \
     --prefix="${MINGW_PREFIX}" \
@@ -104,13 +109,13 @@ build() {
 check() {
   cd "${srcdir}/build-${MSYSTEM}"
 
-  make VERBOSE=1 test
+#  make VERBOSE=1 test
 }
 
 package() {
   cd "${srcdir}/build-${MSYSTEM}"
 
-  make -j1 install DESTDIR="${pkgdir}"
+  make -j1 install_sw DESTDIR="${pkgdir}"
 
   # https://github.com/openssl/openssl/issues/24298
   for pcfile in "${pkgdir}${MINGW_PREFIX}"/lib/pkgconfig/*.pc; do

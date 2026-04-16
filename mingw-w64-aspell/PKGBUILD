@@ -18,9 +18,9 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-libwinpthread"
          "${MINGW_PACKAGE_PREFIX}-gettext-runtime")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools")
+             "gettext")
 source=("https://ftp.gnu.org/gnu/${_realname}/${_realname}-${pkgver}.tar.gz"{,.sig}
         0001-use-namespace.mingw.patch
         0002-printf.mingw.patch

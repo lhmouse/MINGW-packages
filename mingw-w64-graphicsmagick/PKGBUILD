@@ -20,7 +20,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-ghostscript"
              "${MINGW_PACKAGE_PREFIX}-libheif"
              "${MINGW_PACKAGE_PREFIX}-libjxl"
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-cc"
              "txt2html")
 depends=("${MINGW_PACKAGE_PREFIX}-bzip2"

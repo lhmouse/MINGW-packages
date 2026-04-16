@@ -9,7 +9,7 @@ pkgdesc="New portable threads library (mingw-w64)"
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 license=('LGPL')
 url="https://gnupg.org/"
 msys2_repository_url="https://git.gnupg.org/cgi-bin/gitweb.cgi?p=npth.git"

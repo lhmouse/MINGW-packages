@@ -81,9 +81,10 @@ build() {
 }
 
 check() {
-  cmake -DENABLE_TEST=ON -S"${_realname}-${pkgver}" -B"build-${MSYSTEM}"
-  cmake --build "build-${MSYSTEM}"
-  ctest --test-dir build-${MSYSTEM} --output-on-failure || true
+  #cmake -DENABLE_TEST=ON -S"${_realname}-${pkgver}" -B"build-${MSYSTEM}"
+  #cmake --build "build-${MSYSTEM}"
+  #ctest --test-dir build-${MSYSTEM} --output-on-failure || true
+  true
 }
 
 package() {

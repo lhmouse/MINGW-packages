@@ -18,7 +18,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-hidapi"
          "${MINGW_PACKAGE_PREFIX}-libjaylink"
          "${MINGW_PACKAGE_PREFIX}-capstone")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-libtool"
+             "libtool"
              "${MINGW_PACKAGE_PREFIX}-pkgconf")
 source=("https://downloads.sourceforge.net/sourceforge/${_realname}/${_realname}-${pkgver}.tar.bz2"
         "001-aarch64-no-parport.patch")

@@ -15,7 +15,7 @@ msys2_references=(
 )
 license=('spdx:LGPL-3.0-or-later OR GPL-3.0-or-later')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 depends=("${MINGW_PACKAGE_PREFIX}-libiconv")
 source=("https://ftp.gnu.org/gnu/libunistring/${_realname}-${pkgver}.tar.gz"{,.sig})
 sha256sums=('e82664b170064e62331962126b259d452d53b227bb4a93ab20040d846fec01d8'

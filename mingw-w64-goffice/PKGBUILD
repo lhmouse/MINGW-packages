@@ -27,9 +27,9 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-libxslt"
          "${MINGW_PACKAGE_PREFIX}-pango")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              #"${MINGW_PACKAGE_PREFIX}-gobject-introspection"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+             "gtk-doc"
              "intltool")
 source=("https://gitlab.gnome.org/GNOME/goffice/-/archive/${_pkgver}/${_realname}-${_pkgver}.tar.bz2"
         "001-no-more-warnings.patch")

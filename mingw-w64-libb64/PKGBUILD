@@ -10,7 +10,7 @@ arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url='https://libb64.sourceforge.net/'
 license=('custom:Public Domain')
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=("autotools"
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://downloads.sourceforge.net/${_realname}/${_realname}-${pkgver}.zip"
         "https://sources.debian.net/data/main/libb/libb64/1.2-3/debian/patches/bufsiz-as-buffer-size.diff")

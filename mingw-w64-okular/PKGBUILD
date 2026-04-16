@@ -56,7 +56,7 @@ makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cmake"
   "${MINGW_PACKAGE_PREFIX}-ebook-tools"
   "${MINGW_PACKAGE_PREFIX}-extra-cmake-modules"
-  "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+  "gettext"
   "${MINGW_PACKAGE_PREFIX}-icoutils"
   "${MINGW_PACKAGE_PREFIX}-kdegraphics-mobipocket"
   "${MINGW_PACKAGE_PREFIX}-kdoctools"

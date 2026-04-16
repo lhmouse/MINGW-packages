@@ -18,8 +18,8 @@ depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime"
          "${MINGW_PACKAGE_PREFIX}-gtk2"
          "${MINGW_PACKAGE_PREFIX}-enchant")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+             "autotools"
+             "gtk-doc"
              "intltool")
 source=(https://gtkspell.sourceforge.io/download/${_realname}-${pkgver}.tar.gz
         gtkspell-no-undefined.patch

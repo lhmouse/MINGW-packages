@@ -20,7 +20,7 @@ license=('spdx:GPL-2.0-or-later')
 options=('libtool')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-zlib")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=("autotools"
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://oligarchy.co.uk/xapian/${pkgver}/${_realname}-${pkgver}.tar.xz"{,.asc})
 sha256sums=('c55c9bc8613ad3ec2c218eafca088c218ab7cddcba7ef08f3af0e542f4e521bc'

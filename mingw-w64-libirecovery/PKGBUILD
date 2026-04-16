@@ -17,7 +17,7 @@ license=('spdx:LGPL-2.1-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-libimobiledevice-glue"
          "${MINGW_PACKAGE_PREFIX}-readline")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=(https://github.com/libimobiledevice/${_realname}/releases/download/${pkgver}/${_realname}-${pkgver}.tar.bz2
         020-Iphlpapi.patch)
 sha256sums=('d25f4b85c24df206efbbbd2d6d45d1637229e756c52d535eef047a163799f67c'

@@ -19,7 +19,7 @@ license=('spdx:BSD-2-Clause')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-zlib"
          "${MINGW_PACKAGE_PREFIX}-hdf5")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 source=(https://github.com/tbeu/matio/releases/download/v${pkgver}/matio-${pkgver}.tar.gz)
 sha256sums=('d9e5f7a2f2c594eff15f550e34729b01991cdd5a028a558be8ce595b32233afb')
 

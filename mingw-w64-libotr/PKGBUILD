@@ -14,7 +14,7 @@ msys2_references=(
 )
 license=('GPL')
 depends=("${MINGW_PACKAGE_PREFIX}-libgcrypt")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 source=(https://otr.cypherpunks.ca/${_realname}-${pkgver}.tar.gz{,.asc}
         '002-libotr-no-undefined.patch'
         '003-fix-symlinks.patch')

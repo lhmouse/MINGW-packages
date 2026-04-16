@@ -18,7 +18,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-abseil-cpp"
          "${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-protobuf")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("$url/releases/download/v${pkgver}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('e2c86271873a79c92b58fef7ebf8de1aa0df4738347a8bd5d4e65a80a16d0d24')
 

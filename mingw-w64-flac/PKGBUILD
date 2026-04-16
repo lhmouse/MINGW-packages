@@ -20,7 +20,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-libogg"
          "${MINGW_PACKAGE_PREFIX}-cc-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-cmake"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             "gettext"
              "${MINGW_PACKAGE_PREFIX}-ninja")
 source=("https://github.com/xiph/flac/releases/download/${pkgver}/flac-${pkgver}.tar.xz")
 sha256sums=('f2c1c76592a82ffff8413ba3c4a1299b6c7ab06c734dee03fd88630485c2b920')

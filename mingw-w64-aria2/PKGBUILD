@@ -25,8 +25,8 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-sqlite3"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             "autotools"
+             "gettext"
              "${MINGW_PACKAGE_PREFIX}-pkgconf")
 checkdepends=("${MINGW_PACKAGE_PREFIX}-cppunit")
 optdepends=("${MINGW_PACKAGE_PREFIX}-ruby: aria2rpc and aria2mon")

@@ -19,9 +19,9 @@ depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime"
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-meson"
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             "gettext"
              "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc")
+             "gtk-doc")
 source=(https://download.gnome.org/sources/${_realname}/${pkgver:0:4}/${_realname}-${pkgver}.tar.xz)
 sha256sums=('2d9a6826d158470449a173871221596da0f83ebdcff98b90c7049089056a37aa')
 

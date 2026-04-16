@@ -30,7 +30,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-ninja"
              "${MINGW_PACKAGE_PREFIX}-libiconv"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools")
+             "gettext")
 source=("https://github.com/TigerVNC/tigervnc/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('b107c0c8b8a962594281690366c24186e95c2ea4a169acbc0076aa62ed01f467')
 

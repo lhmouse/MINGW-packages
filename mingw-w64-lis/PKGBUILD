@@ -13,7 +13,7 @@ msys2_repository_url="https://github.com/anishida/lis"
 license=('spdx:BSD-3-Clause')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              $([[ ${CARCH} == aarch64 ]] || echo "${MINGW_PACKAGE_PREFIX}-msmpi")
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 options=('!docs')
 source=(https://www.ssisc.org/lis/dl/${_realname}-${pkgver}.zip)
 sha256sums=('14f72c1c277593447255c7c1e62873739850c540bb00774fe67bbe816c85d775')

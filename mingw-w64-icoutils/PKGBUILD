@@ -10,7 +10,7 @@ mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 pkgdesc="Create and extract MS Windows icons and cursors (mingw-w64)"
 depends=("${MINGW_PACKAGE_PREFIX}-libpng"
          "${MINGW_PACKAGE_PREFIX}-gettext-runtime")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-gettext-tools")
+makedepends=("autotools" "${MINGW_PACKAGE_PREFIX}-cc" "gettext")
 license=("GPL 2")
 url="https://www.nongnu.org/icoutils/"
 source=(https://savannah.nongnu.org/download/${_realname}/${_realname}-${pkgver}.tar.bz2)

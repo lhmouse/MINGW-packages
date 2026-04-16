@@ -12,7 +12,7 @@ url="https://github.com/FFMS/ffms2/"
 msys2_repository_url='https://github.com/FFMS/ffms2'
 license=('spdx:MIT')
 depends=("${MINGW_PACKAGE_PREFIX}-ffmpeg")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 source=("https://github.com/FFMS/ffms2/archive/${pkgver}/${_realname}-${pkgver}.tar.gz"
         "0001-ffmsindex-add-municode-ldflag.patch")
 sha256sums=('7770af0bbc0063f9580a6a5c8e7c51f1788f171d7da0b352e48a1e60943a8c3c'

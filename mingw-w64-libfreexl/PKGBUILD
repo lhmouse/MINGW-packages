@@ -20,7 +20,7 @@ license=('MPL' 'GPL' 'LGPL')
 depends=("${MINGW_PACKAGE_PREFIX}-expat"
          "${MINGW_PACKAGE_PREFIX}-libiconv"
          "${MINGW_PACKAGE_PREFIX}-minizip")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=("autotools"
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://www.gaia-gis.it/gaia-sins/freexl-${pkgver}.tar.gz"
         "01-fix-pkgconfig.patch")

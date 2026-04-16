@@ -1,6 +1,6 @@
 # Maintainer: Christoph Reiter <reiter.christoph@gmail.com>
 
-_bootstrap=1
+_bootstrap=0
 
 _realname=ngtcp2
 pkgbase=mingw-w64-${_realname}

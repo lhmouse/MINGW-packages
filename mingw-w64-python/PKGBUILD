@@ -50,7 +50,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-tzdata")
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "autoconf-archive"
 )
 #options=('debug' '!strip')
@@ -290,7 +290,7 @@ build() {
   if check_option "debug" "n"; then
     _extra_config+=("--enable-optimizations")
     # Upstream defaults to -O3, so we can do too
-    CFLAGS+=" -O3"
+    CFLAGS+=" -O3 -march=x86-64-v2 -mtune=rocketlake"
     # FIXME: https://github.com/msys2-contrib/cpython-mingw/issues/10
     if [[ $MINGW_PACKAGE_PREFIX == *-clang-* ]]; then
       _extra_config+=("--with-lto=full")

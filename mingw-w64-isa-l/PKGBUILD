@@ -15,7 +15,7 @@ msys2_references=(
 )
 license=('spdx:BSD-3-Clear')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-nasm")
 source=("https://github.com/intel/${_realname}/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz"
         001-fix-building-shared-library.patch

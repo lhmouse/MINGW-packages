@@ -11,7 +11,7 @@ mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url="https://www.ferzkopp.net/joomla/software-mainmenu-14/4-ferzkopps-linux-software/19-sdlgfx"
 license=('LGPL')
 depends=("${MINGW_PACKAGE_PREFIX}-SDL")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 source=("https://www.ferzkopp.net/Software/SDL_gfx-2.0/${_realname}-${pkgver}.tar.gz")
 sha256sums=('dfb15ac5f8ce7a4952dc12d2aed9747518c5e6b335c0e31636d23f93c630f419')
 

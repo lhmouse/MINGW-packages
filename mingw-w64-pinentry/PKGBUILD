@@ -17,7 +17,7 @@ license=('spdx:GPL-2.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-libsecret"
          "${MINGW_PACKAGE_PREFIX}-libassuan"
          $([[ ${CARCH} == i686 ]] || echo "${MINGW_PACKAGE_PREFIX}-qt6-base"))
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=("autotools" "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://www.gnupg.org/ftp/gcrypt/pinentry/pinentry-${pkgver}.tar.bz2"{,.sig}
         "0003-m4-qt6libexecdir-unix-path.patch")
 sha256sums=('8e986ed88561b4da6e9efe0c54fa4ca8923035c99264df0b0464497c5fb94e9e'
