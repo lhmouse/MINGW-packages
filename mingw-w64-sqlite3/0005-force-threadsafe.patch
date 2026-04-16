@@ -1,0 +1,11 @@
+diff -ru sqlite-src-3530300.orig/autosetup/sqlite-config.tcl sqlite-src-3530300/autosetup/sqlite-config.tcl
+--- sqlite-src-3530300.orig/autosetup/sqlite-config.tcl	2026-06-27 04:21:03.000000000 +0800
++++ sqlite-src-3530300/autosetup/sqlite-config.tcl	2026-07-02 12:25:44.751143000 +0800
+@@ -933,6 +933,7 @@
+ proc sqlite-handle-threadsafe {} {
+   msg-checking "Support threadsafe operation? "
+   define LDFLAGS_PTHREAD ""
++  return 1
+   set enable 0
+   proj-if-opt-truthy threadsafe {
+     msg-result "Checking for libs..."
