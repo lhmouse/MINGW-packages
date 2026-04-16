@@ -22,7 +22,7 @@ depends=(
 )
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "autoconf-archive"
 )
 source=("https://ftp.gnu.org/gnu/wget/${_realname}-${pkgver}.tar.lz"{,.sig}
