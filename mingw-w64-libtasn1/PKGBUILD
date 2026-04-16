@@ -18,9 +18,9 @@ msys2_references=(
 license=('spdx:GPL-3.0-or-later AND LGPL-2.1-or-later')
 makedepends=(
   "bison"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
-  $([[ ${MSYSTEM} == MINGW32 ]] || echo \
+  $(true || echo \
     "${MINGW_PACKAGE_PREFIX}-gtk-doc" \
     "${MINGW_PACKAGE_PREFIX}-texinfo"
   )
@@ -45,7 +45,7 @@ build() {
   mkdir -p "build-${MSYSTEM}" && cd "build-${MSYSTEM}"
 
   declare -a _extra_config
-  if [[ ${MSYSTEM} == MINGW32 ]]; then
+  if true; then
     _extra_config+=("--disable-doc" "--disable-gtk-doc-html")
   fi
 

@@ -23,8 +23,8 @@ depends=(
 )
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  $([[ ${MSYSTEM} == MINGW32 ]] || echo "${MINGW_PACKAGE_PREFIX}-gtk-doc")
-  "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+  $(true || echo "${MINGW_PACKAGE_PREFIX}-gtk-doc")
+  "gettext"
   "${MINGW_PACKAGE_PREFIX}-meson"
   "${MINGW_PACKAGE_PREFIX}-ninja"
 )
@@ -79,7 +79,7 @@ build() {
   CFLAGS+=" -Wno-error=incompatible-pointer-types"
 
   declare -a _extra_config
-  if [[ ${MSYSTEM} == MINGW32 ]]; then
+  if true; then
     _extra_config+=("-Dgtk_doc=false" "-Dman=false")
   else
     _extra_config+=("-Dgtk_doc=true" "-Dman=true")

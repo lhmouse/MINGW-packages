@@ -25,9 +25,9 @@ license=('spdx:GPL-3.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime")
 makedepends=(
   'dos2unix'
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+  "gettext"
 )
 source=("https://ftp.gnu.org/gnu/${_realname}/${_realname}-${pkgver}.tar.gz"
         'make-linebuf-mingw.patch'

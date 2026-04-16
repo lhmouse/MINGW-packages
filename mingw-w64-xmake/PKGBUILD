@@ -35,6 +35,11 @@ prepare() {
 build() {
   cd "${_realname}-${pkgver}"
 
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
+
   if [[ ${CARCH} == aarch64 ]]; then
     export CFLAGS+=" -D_M_ARM64"
   fi

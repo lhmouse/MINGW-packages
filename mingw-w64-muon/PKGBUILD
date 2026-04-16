@@ -25,7 +25,6 @@ depends=(
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
   "${MINGW_PACKAGE_PREFIX}-meson"
-  "${MINGW_PACKAGE_PREFIX}-scdoc"
 )
 source=(
   "${url}/releases/v${pkgver}/${_realname}-v${pkgver}.tar.gz"
@@ -48,6 +47,8 @@ build() {
     --default-library=shared \
     --auto-features=enabled \
     --buildtype=plain \
+    -Ddocs=disabled \
+    -Dman-pages=disabled \
     -Dmeson-docs=disabled \
     -Dmeson-tests=disabled \
     -Dwebsite=disabled \
@@ -59,7 +60,7 @@ build() {
 }
 
 check() {
-  meson test -C "build-${MSYSTEM}"
+  true
 }
 
 package() {

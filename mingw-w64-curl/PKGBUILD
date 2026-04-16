@@ -6,7 +6,7 @@ _realname=curl
 pkgbase=mingw-w64-${_realname}
 pkgname=(
   "${MINGW_PACKAGE_PREFIX}-${_realname}"
-  $([[ ${CARCH} == i686 ]] || echo \
+  $(true || echo \
     "${MINGW_PACKAGE_PREFIX}-${_realname}-gnutls" \
     "${MINGW_PACKAGE_PREFIX}-${_realname}-winssl")
 )
@@ -54,7 +54,7 @@ makedepends=(
   "${MINGW_PACKAGE_PREFIX}-ninja"
   "${_cert_depends[@]}"
   "${_openssl_depends[@]}"
-  $([[ ${CARCH} == i686 ]] || echo "${_gnutls_depends[@]}")
+  $(true || echo "${_gnutls_depends[@]}")
 )
 depends=(
   "${MINGW_PACKAGE_PREFIX}-brotli"
@@ -171,7 +171,7 @@ _do_build() {
 
 build() {
   _do_build openssl
-  if [[ ${CARCH} != i686 ]]; then
+  if false; then
     _do_build winssl
     _do_build gnutls
   fi

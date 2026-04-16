@@ -19,7 +19,7 @@ replaces=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 makedepends=(
   'bison'
   'flex'
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
   "${MINGW_PACKAGE_PREFIX}-libmangle"
   'git'

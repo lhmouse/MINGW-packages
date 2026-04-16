@@ -20,7 +20,7 @@ depends=(
   "${MINGW_PACKAGE_PREFIX}-libiconv"
 )
 makedepends=(
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
 )
 source=("https://ftp.gnu.org/gnu/libunistring/${_realname}-${pkgver}.tar.gz"{,.sig})

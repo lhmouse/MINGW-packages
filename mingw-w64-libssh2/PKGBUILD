@@ -4,7 +4,7 @@ _realname=libssh2
 pkgbase=mingw-w64-${_realname}
 pkgname=(
   "${MINGW_PACKAGE_PREFIX}-${_realname}"
-  $([[ ${MSYSTEM} == MINGW32 ]] || echo "${MINGW_PACKAGE_PREFIX}-${_realname}-wincng")
+  $(true || echo "${MINGW_PACKAGE_PREFIX}-${_realname}-wincng")
 )
 pkgver=1.11.1
 pkgrel=4
@@ -59,7 +59,7 @@ _do_build() {
 
 build() {
   _do_build OpenSSL
-  [[ ${MSYSTEM} == MINGW32 ]] || _do_build WinCNG
+  true || _do_build WinCNG
 }
 
 _do_package() {

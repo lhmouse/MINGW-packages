@@ -23,9 +23,9 @@ depends=(
 )
 makedepends=(
   'git'
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+  "gettext-tools"
 )
 source=(
   "${_realname}"::"git+https://github.com/laurikari/tre.git#tag=v${pkgver}"
