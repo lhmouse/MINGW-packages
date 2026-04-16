@@ -32,7 +32,6 @@ makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cmake"
   "${MINGW_PACKAGE_PREFIX}-ninja"
   "${MINGW_PACKAGE_PREFIX}-python"
-  "${MINGW_PACKAGE_PREFIX}-python-numpy"
 )
 source=(${msys2_repository_url}/releases/download/boost-${_pkgver}/boost-${_pkgver}-cmake.tar.xz
         0001-Fix-building-with-cmake-on-MINGW.patch
@@ -67,6 +66,11 @@ build() {
     _extra_config+=("-DCMAKE_BUILD_TYPE=Release")
   else
     _extra_config+=("-DCMAKE_BUILD_TYPE=Debug")
+  fi
+
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
   fi
 
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
@@ -105,7 +109,6 @@ package_boost() {
   depends=("${MINGW_PACKAGE_PREFIX}-boost-libs")
   optdepends=(
     "${MINGW_PACKAGE_PREFIX}-python: For Boost.Python"
-    "${MINGW_PACKAGE_PREFIX}-python-numpy: For Boost.Python (NumPy)"
   )
 
   DESTDIR="${pkgdir}" cmake --install build-${MSYSTEM}-static

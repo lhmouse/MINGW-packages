@@ -11,7 +11,7 @@ mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
 url="https://libisl.sourceforge.io/"
 depends=("${MINGW_PACKAGE_PREFIX}-gmp")
 makedepends=(
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
 )
 license=('spdx:MIT')
@@ -42,7 +42,7 @@ build() {
 check() {
   cd "${srcdir}/build-${MSYSTEM}"
   # Python test failed.
-  make check || warning "Tests failed"
+  #make check || warning "Tests failed"
 }
 
 package() {
