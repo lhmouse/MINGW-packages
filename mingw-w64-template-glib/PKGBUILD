@@ -16,7 +16,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-meson"
              "${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-vala"
              "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc")
+             "gtk-doc")
 license=('spdx:LGPL-2.1-or-later')
 url="https://gitlab.gnome.org/GNOME/template-glib"
 msys2_repository_url='https://gitlab.gnome.org/GNOME/template-glib'

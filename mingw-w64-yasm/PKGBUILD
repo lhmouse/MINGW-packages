@@ -17,8 +17,8 @@ msys2_references=(
 license=('spdx:BSD-2-Clause AND BSD-3-Clause AND (Artistic-1.0-Perl OR LGPL-2.0-or-later OR GPL-2.0-or-later)')
 depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             "autotools"
+             "gettext"
              "${MINGW_PACKAGE_PREFIX}-python")
 source=(https://www.tortall.net/projects/yasm/releases/${_realname}-${pkgver}.tar.gz
         https://github.com/yasm/yasm/pull/287.patch)

@@ -21,8 +21,8 @@ depends=("${MINGW_PACKAGE_PREFIX}-libiconv"
            "${MINGW_PACKAGE_PREFIX}-libjpeg-turbo" \
            "${MINGW_PACKAGE_PREFIX}-imagemagick"))
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "gettext"
+             "autotools")
 source=(https://github.com/mchehab/zbar/archive/${pkgver}/${_realname}-${pkgver}.tar.gz)
 sha256sums=('212dfab527894b8bcbcc7cd1d43d63f5604a07473d31a5f02889e372614ebe28')
 

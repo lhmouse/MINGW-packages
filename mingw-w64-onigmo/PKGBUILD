@@ -15,7 +15,7 @@ msys2_repository_url='https://github.com/k-takata/Onigmo'
 msys2_references=(
   "cpe: cpe:/a:k-takata:onigmo"
 )
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=("autotools" "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://github.com/k-takata/${_realname}/releases/download/${_realname}-${pkgver}/${_fullname}-${pkgver}.tar.gz")
 sha256sums=('c648496b5339953b925ebf44b8de356feda8d3428fa07dc1db95bfe2570feb76')
 prepare() {

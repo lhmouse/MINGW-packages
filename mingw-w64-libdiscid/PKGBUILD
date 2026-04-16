@@ -12,7 +12,7 @@ url="https://musicbrainz.org/doc/libdiscid"
 msys2_repository_url='https://github.com/metabrainz/libdiscid'
 license=('spdx:LGPL-2.1-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=("autotools" "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://data.metabrainz.org/pub/musicbrainz/libdiscid/libdiscid-${pkgver}.tar.gz"
         "libdiscid-0.6.2-include-location.patch")
 sha256sums=('72dbb493e07336418fe2056f0ebc7ce544eedb500bb896cc1cc04bd078c2d530'

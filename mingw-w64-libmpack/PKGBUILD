@@ -13,7 +13,7 @@ msys2_repository_url='https://github.com/libmpack/libmpack'
 license=('spdx:MIT')
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-libtool"
+  "libtool"
 )
 source=("https://github.com/libmpack/libmpack/archive/${pkgver}/${_realname}-${pkgver}.tar.gz"
         "01-make.patch")

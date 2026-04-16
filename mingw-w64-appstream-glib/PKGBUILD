@@ -24,7 +24,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
              "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
              "${MINGW_PACKAGE_PREFIX}-vala"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+             "gtk-doc"
              "${MINGW_PACKAGE_PREFIX}-gperf")
 source=("https://github.com/hughsie/appstream-glib/archive/appstream_glib_${pkgver//./_}.tar.gz")
 sha256sums=('15ad7690b0132d883bd066699a7b55f6cef4c0f266d18d781ce5d8112fb4ee63')

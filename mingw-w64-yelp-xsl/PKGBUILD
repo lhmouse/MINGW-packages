@@ -15,7 +15,7 @@ makedepends=("intltool"
              "${MINGW_PACKAGE_PREFIX}-itstool"
              "${MINGW_PACKAGE_PREFIX}-libxml2"
              "${MINGW_PACKAGE_PREFIX}-libxslt"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-python-mallard-ducktype")
 source=(https://download.gnome.org/sources/${_realname}/${pkgver%.*}/${_realname}-${pkgver}.tar.xz)
 sha256sums=('238be150b1653080ce139971330fd36d3a26595e0d6a040a2c030bf3d2005bcd')

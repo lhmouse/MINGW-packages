@@ -13,7 +13,7 @@ msys2_repository_url="https://github.com/flightaware/tclx"
 license=('BSD')
 depends=("${MINGW_PACKAGE_PREFIX}-tcl")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://github.com/flightaware/tclx/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz"
         '001-fix-detect-mingw.patch')
 sha256sums=('4707d895fb213f9db02944fdd676acea3e8cb946f1c04b0cead5ea71a4893b10'

@@ -17,7 +17,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-librevenge"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://sourceforge.net/projects/${_realname}/files/${_realname}/${_realname}-${pkgver}/${_realname}-${pkgver}.tar.xz"
         "001-fix-build-on-mingw.patch")
 sha256sums=('a1a39ffcea3ff2a7a7aae0c23877ddf4918b554bf82b0de5d7ce8e7f61ea8e32'

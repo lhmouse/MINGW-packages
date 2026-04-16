@@ -17,7 +17,7 @@ license=('spdx:LGPL-2.1-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-libimobiledevice-glue"
          "${MINGW_PACKAGE_PREFIX}-libplist")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://github.com/libimobiledevice/libusbmuxd/releases/download/${pkgver}/${_realname}-${pkgver}.tar.bz2"
         001-no-static-linking.patch
         002-export-symbols.patch)

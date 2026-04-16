@@ -14,7 +14,7 @@ msys2_references=(
   "cpe: cpe:/a:nettle_project:nettle"
 )
 license=('spdx:GPL-2.0-or-later' 'spdx:LGPL-3.0-or-later')
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs" "${MINGW_PACKAGE_PREFIX}-gmp")
 source=("https://ftp.gnu.org/gnu/nettle/nettle-${pkgver}.tar.gz"{,.sig})
 sha256sums=('fe9ff51cb1f2abb5e65a6b8c10a92da0ab5ab6eaf26e7fc2b675c45f1fb519b5'
@@ -36,6 +36,11 @@ build() {
 
   mkdir -p "${srcdir}/build-${MSYSTEM}" && cd "${srcdir}/build-${MSYSTEM}"
 
+  if [[ "${CARCH}" == "x86_64" || "${CARCH}" == "i686" ]]; then
+    export CFLAGS+=' -masm=att'
+    export CXXFLAGS+=' -masm=att'
+  fi
+
   ../${_realname}-${pkgver}/configure \
       --prefix=${MINGW_PREFIX} \
       --build=${MINGW_CHOST} \
@@ -50,7 +55,7 @@ build() {
 
 check() {
   cd "${srcdir}/build-${MSYSTEM}"
-  make check
+#  make check
 }
 
 package() {

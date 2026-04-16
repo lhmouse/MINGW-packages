@@ -15,7 +15,7 @@ msys2_references=(
 )
 license=('custom')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-libtool")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "libtool")
 source=("https://github.com/libtom/libtommath/releases/download/v${pkgver}/ltm-${pkgver}.tar.xz"
         "0001-makefile-enable-no-undefined.patch")
 sha256sums=('296272d93435991308eb73607600c034b558807a07e829e751142e65ccfa9d08'

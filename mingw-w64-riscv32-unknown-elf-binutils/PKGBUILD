@@ -19,7 +19,7 @@ msys2_references=(
 )
 groups=("${MINGW_PACKAGE_PREFIX}-${_target}-toolchain")
 depends=("${MINGW_PACKAGE_PREFIX}-zstd")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=("autotools"
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://ftp.gnu.org/gnu/binutils/binutils-${pkgver}.tar.xz")
 sha256sums=('e127a709cba24c76de8936cb7083dd768f28cd37eb010492e2f19b71eb1294e4')

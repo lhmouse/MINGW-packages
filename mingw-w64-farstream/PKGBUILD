@@ -17,8 +17,8 @@ depends=("${MINGW_PACKAGE_PREFIX}-glib2"
          "${MINGW_PACKAGE_PREFIX}-libnice")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc")
+             "autotools"
+             "gtk-doc")
 source=(https://freedesktop.org/software/${_realname}/releases/${_realname}/${_realname}-${pkgver}.tar.gz{,.asc}
         farstream-make-4.3.patch::"https://gitlab.freedesktop.org/farstream/farstream/-/merge_requests/4.patch"
         0001-farstream-0.2.4.patch

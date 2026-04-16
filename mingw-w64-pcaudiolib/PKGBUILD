@@ -13,7 +13,7 @@ msys2_repository_url='https://github.com/espeak-ng/pcaudiolib'
 license=("spdx:GPL-3.0-or-later")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://github.com/espeak-ng/pcaudiolib/releases/download/${pkgver}/pcaudiolib-${pkgver}.tar.gz"
         "001-fix-build-on-mingw.patch")
 sha256sums=('e8bd15f460ea171ccd0769ea432e188532a7fb27fa73ec2d526088a082abaaad'

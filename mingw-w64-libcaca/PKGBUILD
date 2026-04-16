@@ -16,7 +16,7 @@ msys2_references=(
 license=("LGPL")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cppunit"
              "${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              #"${MINGW_PACKAGE_PREFIX}-ncurses"
              "${MINGW_PACKAGE_PREFIX}-python")
 depends=("${MINGW_PACKAGE_PREFIX}-fontconfig"

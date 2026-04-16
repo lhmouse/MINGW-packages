@@ -13,7 +13,7 @@ msys2_references=(
   "cpe: cpe:/a:leonerd:libvterm"
 )
 license=('spdx:MIT')
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-libtool")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "libtool")
 source=("https://launchpad.net/libvterm/trunk/v0.3/+download/libvterm-${pkgver}.tar.gz"
         0001-make-remove-bin-sources.patch
         0002-no-undefined.patch)

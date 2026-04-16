@@ -34,7 +34,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
              "${MINGW_PACKAGE_PREFIX}-desktop-file-utils"
              "${MINGW_PACKAGE_PREFIX}-gtk-update-icon-cache"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             "gettext"
              "git")
 _commit="9fcced5edb5a10faae5e5965658aec9732cd7f5a"
 source=("${_realname}"::"git+https://gitlab.gnome.org/GNOME/dia.git#commit=${_commit}"

@@ -20,7 +20,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-ninja"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools")
+             "gettext")
 source=("https://github.com/emcrisostomo/fswatch/archive/${pkgver}/${_realname}-${pkgver}.tar.gz"
         '001-Fix-for-MinGW-w64.patch'
         '002-fix-quick_exit.patch')

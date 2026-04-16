@@ -16,7 +16,7 @@ msys2_references=(
 license=('spdx:BSD-3-Clause')
 conflicts=("${MINGW_PACKAGE_PREFIX}-markdown")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://github.com/Orc/discount/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz"
         "discount-mingw-building.patch")
 sha256sums=('4ea6cc8782c6508b3051c469ed7a1b6ca20b023c2a0c26ccd9c83bc7e61dfc16'

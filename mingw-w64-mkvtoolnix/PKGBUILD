@@ -21,7 +21,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-boost"
          "${MINGW_PACKAGE_PREFIX}-pugixml"
          "${MINGW_PACKAGE_PREFIX}-qt6-base")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-ruby"
              "${MINGW_PACKAGE_PREFIX}-docbook-xsl"
              "${MINGW_PACKAGE_PREFIX}-imagemagick"

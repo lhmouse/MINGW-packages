@@ -13,7 +13,7 @@ url="https://voikko.puimula.org/"
 license=('spdx:MPL-1.1 OR GPL-2.0-or-later OR LGPL-2.1-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-libwinpthread")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=("autotools"
              "${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-python")
 source=("https://www.puimula.org/voikko-sources/${_realname}/${_realname}-${pkgver}.tar.gz"{,.asc})
