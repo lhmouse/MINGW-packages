@@ -12,7 +12,7 @@ url="https://cpptest.sourceforge.io/"
 license=('LGPL')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://github.com/${_realname}/${_realname}/releases/download/${pkgver}/${_realname}-${pkgver}.tar.bz2"
         "${_realname}-${pkgver}.patch")
 sha256sums=('7c258936a407bcd1635a9b7719fbdcd6c6e044b5d32f53bbf6fbf6f205e5e429'

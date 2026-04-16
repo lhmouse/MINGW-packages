@@ -16,7 +16,7 @@ depends=(
 )
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
 )
 source=("https://sourceforge.net/projects/stoken/files/${_realname}-${pkgver}.tar.gz"{,.asc}
         'nettle-4.patch')

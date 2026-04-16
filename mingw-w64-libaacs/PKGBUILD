@@ -12,7 +12,7 @@ license=('LGPL')
 url="https://www.videolan.org/developers/libaacs.html"
 msys2_repository_url='https://code.videolan.org/videolan/libaacs'
 depends=("${MINGW_PACKAGE_PREFIX}-libgcrypt")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=("autotools" "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://download.videolan.org/pub/videolan/${_realname}/${pkgver}/${_realname}-${pkgver}.tar.bz2")
 sha256sums=('a88aa0ebe4c98a77f7aeffd92ab3ef64ac548c6b822e8248a8b926725bea0a39')
 

@@ -23,7 +23,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-aspell"
          "${MINGW_PACKAGE_PREFIX}-libvoikko"
          "${MINGW_PACKAGE_PREFIX}-nuspell")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "groff")
 checkdepends=("${MINGW_PACKAGE_PREFIX}-unittest-cpp")
 source=("https://github.com/rrthomas/enchant/releases/download/v${pkgver}/enchant-${pkgver}.tar.gz")

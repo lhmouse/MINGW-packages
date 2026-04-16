@@ -18,7 +18,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-libusbmuxd"
          "${MINGW_PACKAGE_PREFIX}-libplist"
          "${MINGW_PACKAGE_PREFIX}-openssl")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-python"
              "${MINGW_PACKAGE_PREFIX}-python-setuptools"
              "${MINGW_PACKAGE_PREFIX}-cython")

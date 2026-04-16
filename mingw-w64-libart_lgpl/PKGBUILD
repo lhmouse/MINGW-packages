@@ -15,7 +15,7 @@ msys2_references=(
   'cygwin-mingw64: libart_lgpl2'
 )
 license=('custom')
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=("autotools" "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://download.gnome.org/sources/${_realname}/${pkgver%.*}/${_realname}-${pkgver}.tar.bz2"
         "0001-Fix-an-installation-path-bug.patch"
         "0002-aarch64.patch")

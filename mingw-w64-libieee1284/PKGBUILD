@@ -16,7 +16,7 @@ msys2_references=(
 )
 license=('spdx:GPL-2.0-or-later')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://github.com/twaugh/libieee1284/archive/V${_tag}/${_realname}-${pkgver}.tar.gz"
         "001-fix-build-on-mingw.patch")
 sha256sums=('eb6a4305f5d44f74b548c8dd41ec1103175cabb57f9661bec4af49e11f8a0238'

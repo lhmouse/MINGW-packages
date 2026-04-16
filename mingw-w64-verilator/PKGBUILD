@@ -15,7 +15,7 @@ groups=("${MINGW_PACKAGE_PREFIX}-eda")
 # Will not build correctly if perl-w64 is installed on the machine!
 depends=("perl")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-python"
              "help2man")
 source=("https://github.com/${_realname}/${_realname}/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz"

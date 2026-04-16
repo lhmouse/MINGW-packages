@@ -20,7 +20,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cyrus-sasl"
          #"${MINGW_PACKAGE_PREFIX}-db<6.0.20"
          )
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-libsystre"
              "groff")
 options=('!makeflags')

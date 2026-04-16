@@ -28,7 +28,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cairo"
          "${MINGW_PACKAGE_PREFIX}-xz"
          "${MINGW_PACKAGE_PREFIX}-zlib"
          "${MINGW_PACKAGE_PREFIX}-zstd")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 source=("https://www.gaia-gis.it/gaia-sins/${_realname}-sources/${_realname}-${_pkgver}.tar.gz"
         "001-fix-mingw-detection.patch"
         "002-fix-linking-on-clang.patch")

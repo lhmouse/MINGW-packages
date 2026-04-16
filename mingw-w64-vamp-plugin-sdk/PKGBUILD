@@ -14,7 +14,7 @@ license=("spdx:BSD-3-Clause AND MIT")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-libsndfile")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://github.com/vamp-plugins/vamp-plugin-sdk/releases/download/vamp-plugin-sdk-v${pkgver%.*}/${_realname}-${pkgver}.tar.gz"
         "01-mingw-shared.patch"
         "02-clang.patch")

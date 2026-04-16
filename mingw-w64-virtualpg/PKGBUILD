@@ -13,7 +13,7 @@ license=('spdx:MPL-1.1 OR GPL-2.0-or-later OR LGPL-2.1-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-sqlite3"
          "${MINGW_PACKAGE_PREFIX}-postgresql")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://www.gaia-gis.it/gaia-sins/${_realname}-$pkgver.tar.gz")
 sha256sums=('be2aebeb8c9ff274382085f51d422e823858bca4f6bc2fa909816464c6a1e08b')
 

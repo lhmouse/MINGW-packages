@@ -27,7 +27,7 @@ makedepends=(
   "${MINGW_PACKAGE_PREFIX}-shaderc"
   "${MINGW_PACKAGE_PREFIX}-vulkan-loader"
   "${MINGW_PACKAGE_PREFIX}-vulkan-headers"
-  "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+  "gtk-doc"
   "${MINGW_PACKAGE_PREFIX}-aom"
   "${MINGW_PACKAGE_PREFIX}-bzip2"
   "${MINGW_PACKAGE_PREFIX}-cairo"

@@ -16,7 +16,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-libimobiledevice"
          "${MINGW_PACKAGE_PREFIX}-libzip"
          "${MINGW_PACKAGE_PREFIX}-openssl"
          "${MINGW_PACKAGE_PREFIX}-curl")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=("autotools" "${MINGW_PACKAGE_PREFIX}-cc")
 source=(https://github.com/libimobiledevice/${_realname}/releases/download/${pkgver}/${_realname}-${pkgver}.tar.bz2
         010-o2.patch)
 sha256sums=('32712e86315397fd2e8999e77a2d2f790c67f6b4aa50d4d1c64cb2c4609836f7'

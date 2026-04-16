@@ -20,7 +20,7 @@ license=('spdx:GPL-3.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-glpk"
          "${MINGW_PACKAGE_PREFIX}-gmp")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=("autotools"
              "${MINGW_PACKAGE_PREFIX}-cc")
 # Documentation, including HTML and PDF variants, is ca. 1520 files, while the whole package with
 # documentation is ca. 1560 files. Therefore, documentation is disabled. Maybe it should be split

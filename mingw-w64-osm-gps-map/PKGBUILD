@@ -21,9 +21,9 @@ depends=(
 )
 makedepends=(
     "${MINGW_PACKAGE_PREFIX}-cc"
-    "${MINGW_PACKAGE_PREFIX}-autotools"
+    "autotools"
     "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
-    "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+    "gtk-doc"
 )
 source=(https://github.com/nzjrs/osm-gps-map/releases/download/${pkgver}/${_realname}-${pkgver}.tar.gz
         https://raw.githubusercontent.com/void-linux/void-packages/f6b0cf8ca04678301773327b9a2d5efb043dae3d/srcpkgs/libosmgpsmap/patches/libsoup-3.patch

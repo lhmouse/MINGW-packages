@@ -14,7 +14,7 @@ msys2_references=(
   'archlinux: '
 )
 license=('spdx:GPL-3.0-or-later')
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("autotools")
 source=("${url}/archive/${_realname}-${pkgver}.tar.gz")
 sha256sums=('92a81e7f04d2f2ece8560d479b7df8eb26e779eeef9b50ee683e732e6ee3abac')
 

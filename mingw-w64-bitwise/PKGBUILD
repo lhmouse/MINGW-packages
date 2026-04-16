@@ -17,7 +17,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-ncurses"
 
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
 	"${MINGW_PACKAGE_PREFIX}-binutils"
-	"${MINGW_PACKAGE_PREFIX}-autotools")
+	"autotools")
 
 options=('strip')
 

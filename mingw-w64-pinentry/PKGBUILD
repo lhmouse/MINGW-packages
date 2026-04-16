@@ -20,7 +20,7 @@ depends=(
   $([[ ${CARCH} == i686 ]] || echo "${MINGW_PACKAGE_PREFIX}-qt6-base")
 )
 makedepends=(
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
 )
 source=("https://www.gnupg.org/ftp/gcrypt/pinentry/pinentry-${pkgver}.tar.bz2"{,.sig}

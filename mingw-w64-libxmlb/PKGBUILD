@@ -17,7 +17,7 @@ makedepends=(
   "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
   "${MINGW_PACKAGE_PREFIX}-meson"
   "${MINGW_PACKAGE_PREFIX}-pkgconf"
-  "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+  "gtk-doc"
   "${MINGW_PACKAGE_PREFIX}-cc"
 )
 license=("spdx:LGPL-2.1-or-later")

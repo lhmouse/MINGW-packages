@@ -16,7 +16,7 @@ license=("spdx:BSD-3-Clause")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-libopenmpt")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 conflicts=("${MINGW_PACKAGE_PREFIX}-libmodplug")
 provides=("${MINGW_PACKAGE_PREFIX}-libmodplug")
 source=("https://lib.openmpt.org/files/${_realname}/${_realname}-${pkgver}-openmpt1.tar.gz")

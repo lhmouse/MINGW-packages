@@ -16,7 +16,7 @@ depends=(
   "${MINGW_PACKAGE_PREFIX}-cc-libs"
 )
 makedepends=(
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
 )
 source=("https://downloads.sourceforge.net/${_realname}/etr-${pkgver}.tar.xz"

@@ -19,7 +19,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-htslib"
          "${MINGW_PACKAGE_PREFIX}-libdeflate")
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
 )
 source=(https://github.com/samtools/samtools/releases/download/$pkgver/$_realname-$pkgver.tar.bz2)
 sha256sums=('89b2a440123eeaa400392ce1736e7d60ce9041843027d76819753c5a8246bfdd')

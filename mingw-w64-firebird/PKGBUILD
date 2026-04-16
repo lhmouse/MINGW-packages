@@ -25,7 +25,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-libiconv"
          "${MINGW_PACKAGE_PREFIX}-re2")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-cmake"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-icu"
              "unzip")
 source=("https://github.com/FirebirdSQL/firebird/archive/v${pkgver%.*}.tar.gz"

@@ -33,7 +33,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-gperf"
              "${MINGW_PACKAGE_PREFIX}-imagemagick"
              "${MINGW_PACKAGE_PREFIX}-libpaper"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools")
+             "gettext")
 options=('!emptydirs')
 optdepends=(#"${MINGW_PACKAGE_PREFIX}-tuxpaint-stamps: more stamps"
             #"${MINGW_PACKAGE_PREFIX}-tuxpaint-config: configuration manager"

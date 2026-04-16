@@ -47,7 +47,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-ada_language_server"
          "${MINGW_PACKAGE_PREFIX}-vss-extra"
          "${MINGW_PACKAGE_PREFIX}-vss-text"
          "${MINGW_PACKAGE_PREFIX}-xmlada")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=("autotools"
              "${MINGW_PACKAGE_PREFIX}-gprbuild"
              "${MINGW_PACKAGE_PREFIX}-python-setuptools")
 source=("https://github.com/AdaCore/gnatstudio/archive/gnatstudio-cr-${pkgver}/${_realname}-${pkgver}.tar.gz"

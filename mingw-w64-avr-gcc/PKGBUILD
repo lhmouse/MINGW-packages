@@ -24,7 +24,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-${_target}-binutils"
          "${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-libwinpthread"
          "${MINGW_PACKAGE_PREFIX}-zstd")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=("autotools" "${MINGW_PACKAGE_PREFIX}-cc")
 options=(!strip)
 source=(https://ftp.gnu.org/gnu/${_realname}/${_realname}-${pkgver}/${_realname}-${pkgver}.tar.xz{,.sig})
 sha256sums=('438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e'

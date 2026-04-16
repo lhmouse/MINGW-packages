@@ -13,7 +13,7 @@ url="https://github.com/Alexpux/portablexdr"
 msys2_repository_url='https://github.com/Alexpux/portablexdr'
 license=('spdx:LGPL-2.0-or-later')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "git")
 _commit=94fb83c2bd67e5f9ff08e9c492d391b297f7c2f8
 source=(${_realname}::git+https://github.com/Alexpux/portablexdr.git#commit=${_commit})
