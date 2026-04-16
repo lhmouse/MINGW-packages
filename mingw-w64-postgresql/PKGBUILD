@@ -34,7 +34,7 @@ makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
   "${MINGW_PACKAGE_PREFIX}-meson"
   "${MINGW_PACKAGE_PREFIX}-pkgconf"
-  "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+  "gettext"
   "${MINGW_PACKAGE_PREFIX}-libxslt"
   "${MINGW_PACKAGE_PREFIX}-perl"
   "${MINGW_PACKAGE_PREFIX}-python"

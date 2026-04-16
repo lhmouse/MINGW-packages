@@ -22,7 +22,7 @@ depends=('perl-Benchmark-Timer'
          "${MINGW_PACKAGE_PREFIX}-indent"
          "${MINGW_PACKAGE_PREFIX}-clang-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-clang"
              "${MINGW_PACKAGE_PREFIX}-llvm"
              "git")

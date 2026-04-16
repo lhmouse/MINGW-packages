@@ -42,7 +42,7 @@ depends=(
   "${MINGW_PACKAGE_PREFIX}-openssl"
 )
 makedepends=(
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
 )
 source=(https://github.com/cyrusimap/${_realname}/releases/download/${_realname}-${pkgver}/${_realname}-${pkgver}.tar.gz{,.sig}

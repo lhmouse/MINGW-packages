@@ -16,7 +16,7 @@ msys2_references=(
 license=('custom')
 depends=("${MINGW_PACKAGE_PREFIX}-libogg")
 makedepends=(
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
 )
 source=(https://downloads.xiph.org/releases/vorbis/${_realname}-${pkgver}.tar.gz)

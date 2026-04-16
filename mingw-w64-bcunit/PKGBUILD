@@ -12,7 +12,7 @@ url="https://github.com/BelledonneCommunications/bcunit"
 msys2_repository_url='https://github.com/BelledonneCommunications/bcunit'
 license=('spdx:LGPL-2.0-or-later')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              'autogen')
 source=("https://github.com/BelledonneCommunications/bcunit/archive/${pkgver}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('e02f1a5e93130d3a730f35cc22a57560ea39f02d6b108fcbb2d2f811e07889d1')

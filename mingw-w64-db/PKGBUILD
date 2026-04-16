@@ -18,7 +18,7 @@ license=('spdx:AGPL-3.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-libwinpthread")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=(https://download.oracle.com/berkeley-db/db-${pkgver}.tar.gz
         0001-db-tls-m4-fix-pthread.patch
         mingw.patch

@@ -20,9 +20,9 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          #"${MINGW_PACKAGE_PREFIX}-gst-plugins-base")
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
-  "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+  "gtk-doc"
   "${MINGW_PACKAGE_PREFIX}-yelp-tools"
   "${MINGW_PACKAGE_PREFIX}-itstool"
   "intltool")

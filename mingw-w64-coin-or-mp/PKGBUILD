@@ -21,7 +21,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-coin-or-clp"
          "${MINGW_PACKAGE_PREFIX}-coin-or-coinutils")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-coin-or-buildtools")
 source=("${url}/archive/releases/${pkgver}/${_realname}-${pkgver}.tar.gz"
         "001-fix-build-on-mingw.patch")

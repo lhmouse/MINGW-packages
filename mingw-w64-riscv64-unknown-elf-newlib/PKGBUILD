@@ -19,7 +19,7 @@ license=('spdx:GPL-2.0-or-later AND GPL-3.0-or-later AND LGPL-2.1-or-later AND L
 groups=("${MINGW_PACKAGE_PREFIX}-${_target}-toolchain")
 depends=("${MINGW_PACKAGE_PREFIX}-${_target}-binutils")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-gmp"
              "${MINGW_PACKAGE_PREFIX}-mpc"
              "${MINGW_PACKAGE_PREFIX}-mpfr"

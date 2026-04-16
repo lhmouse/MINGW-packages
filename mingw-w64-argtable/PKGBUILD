@@ -18,7 +18,7 @@ sha256sums=('8f77e8a7ced5301af6e22f47302fdbc3b1ff41f2b83c43c77ae5ca041771ddbf'
             'e487bf08f7d3d400e6a39f730da5af3ecd2ea239ccee348d5fc97881a9e76520'
             '4d635e457283396e381964c232097a1c4423ad611afd4411390f03d04e2c3cc6')
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 
 
 prepare() {

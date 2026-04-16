@@ -14,7 +14,7 @@ license=('spdx:GPL-2.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-libiconv"
          "${MINGW_PACKAGE_PREFIX}-libmspack")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://github.com/kyz/libmspack/archive/v${pkgver}/libmspack-${pkgver}.tar.gz"
         "001-fix-build-on-mingw.patch")
 sha256sums=('284e0e51fee991c40e8cbbc0f5e635f99722796a3642a14397989fc00b862f72'

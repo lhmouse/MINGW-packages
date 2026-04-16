@@ -14,9 +14,9 @@ msys2_repository_url='https://gitlab.gnome.org/World/gedit/libgedit-amtk'
 license=('spdx:LGPL-3.0-or-later')
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+  "gettext"
   "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
-  "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+  "gtk-doc"
   "${MINGW_PACKAGE_PREFIX}-meson"
   "${MINGW_PACKAGE_PREFIX}-pkgconf"
 )

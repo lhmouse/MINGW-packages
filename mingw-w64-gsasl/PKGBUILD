@@ -21,8 +21,8 @@ depends=("${MINGW_PACKAGE_PREFIX}-gettext-runtime"
          "${MINGW_PACKAGE_PREFIX}-libntlm"
          "${MINGW_PACKAGE_PREFIX}-readline")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+             "autotools"
+             "gtk-doc"
              "help2man")
 source=(https://ftp.gnu.org/gnu/gsasl/${_realname}-${pkgver}.tar.gz{,.sig})
 sha256sums=('d45b562e13bd13b9fc20b372f4b53269740cf6279f836f09ce11b9d32bcee075'

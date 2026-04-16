@@ -15,8 +15,8 @@ depends=("${MINGW_PACKAGE_PREFIX}-curl"
          "${MINGW_PACKAGE_PREFIX}-libwinpthread")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc")
+             "autotools"
+             "gtk-doc")
 source=("http://download.dajobe.org/flickcurl/flickcurl-${pkgver}.tar.gz"
         flickcurl-1.26-build.patch)
 sha256sums=('ff42a36c7c1c7d368246f6bc9b7d792ed298348e5f0f5d432e49f6803562f5a3'

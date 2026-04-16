@@ -13,7 +13,7 @@ msys2_repository_url='https://github.com/libsidplayfp/sidplayfp'
 license=('spdx:GPL-2.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-libsidplayfp")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://github.com/libsidplayfp/sidplayfp/releases/download/v${pkgver}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('887edcf2d8f9707a65e9ff9af3c33de18da85fcd9d7ac6f3ddc170f9588299a4')
 

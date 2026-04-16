@@ -67,7 +67,7 @@ makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cmake"
   "${MINGW_PACKAGE_PREFIX}-ninja"
   "${MINGW_PACKAGE_PREFIX}-boost"
-  "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+  "gettext"
 )
 optdepends=(
   "${MINGW_PACKAGE_PREFIX}-texlive-scheme-medium: latex formulas"

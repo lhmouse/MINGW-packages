@@ -29,7 +29,7 @@ makedepends=(
   "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
   "${MINGW_PACKAGE_PREFIX}-libxslt"
   "${MINGW_PACKAGE_PREFIX}-docbook-xsl"
-  "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+  "gettext"
 )
 source=("https://github.com/ximion/appstream/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz")
 noextract=("${_realname}-${pkgver}.tar.gz")

@@ -17,7 +17,7 @@ conflicts=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 replaces=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 depends=(${MINGW_PACKAGE_PREFIX}-libusb)
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "git")
 _commit="b5db9d011728e957ec87f38a4dcf07cd464ac003"
 source=("${_realname}::git+https://github.com/libusb/libusb-compat-0.1.git#commit=${_commit}")

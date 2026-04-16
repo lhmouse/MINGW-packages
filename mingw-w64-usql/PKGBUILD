@@ -20,7 +20,7 @@ depends=(
 )
 checkdepends=("${MINGW_PACKAGE_PREFIX}-boost")
 makedepends=(
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
   "${checkdepends[@]}"
 )

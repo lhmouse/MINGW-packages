@@ -12,7 +12,7 @@ url='https://www.leonerd.org.uk/code/libtermkey'
 license=('spdx:MIT')
 depends=("${MINGW_PACKAGE_PREFIX}-unibilium")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://www.leonerd.org.uk/code/${_realname}/${_realname}-${pkgver}.tar.gz"
         0001-make-remove-demos-sources.patch
         0002-libtermkey-make-add-no-undefined.patch)

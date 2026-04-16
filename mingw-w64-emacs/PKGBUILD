@@ -21,7 +21,7 @@ msys2_references=(
 license=('spdx:GPL-3.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-ctags"
          $([[ "$_enable_jit" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-libgccjit")
-         "${MINGW_PACKAGE_PREFIX}-texinfo" # solves https://github.com/msys2/MINGW-packages/issues/631
+         "texinfo" # solves https://github.com/msys2/MINGW-packages/issues/631
          "${MINGW_PACKAGE_PREFIX}-zlib"
          "${MINGW_PACKAGE_PREFIX}-xpm-nox"
          "${MINGW_PACKAGE_PREFIX}-freetype"
@@ -37,7 +37,7 @@ optdepends=("${MINGW_PACKAGE_PREFIX}-giflib"
             "${MINGW_PACKAGE_PREFIX}-libtiff"
             "${MINGW_PACKAGE_PREFIX}-libxml2")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${optdepends[@]}")
 # Don't zip info files because the built-in info reader uses gzip to
 # decompress them. gzip is not available as a mingw binary.

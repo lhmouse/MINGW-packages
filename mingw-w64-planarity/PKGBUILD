@@ -15,7 +15,7 @@ msys2_references=(
   'gentoo: sci-mathematics/planarity'
 )
 license=('spdx:BSD-3-Clause')
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=("autotools"
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=("https://github.com/graph-algorithms/edge-addition-planarity-suite/releases/download/Version_${pkgver}/planarity-${pkgver}.tar.gz")
 sha256sums=('8aa3958f92e3fbbc63815e5b6b454abe40889af5aa35da8306659c58ec16a2d0')

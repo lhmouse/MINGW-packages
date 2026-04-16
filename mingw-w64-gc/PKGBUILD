@@ -19,7 +19,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-libwinpthread"
          "${MINGW_PACKAGE_PREFIX}-libatomic_ops")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://github.com/bdwgc/bdwgc/releases/download/v${pkgver}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('42e5194ad06ab6ffb806c83eb99c03462b495d979cda782f3c72c08af833cd4e')
 

@@ -13,7 +13,7 @@ url="https://www.videolan.org/developers/libaacs.html"
 msys2_repository_url='https://code.videolan.org/videolan/libaacs'
 depends=("${MINGW_PACKAGE_PREFIX}-libgcrypt")
 makedepends=(
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
 )
 source=("https://download.videolan.org/pub/videolan/${_realname}/${pkgver}/${_realname}-${pkgver}.tar.bz2")

@@ -18,7 +18,7 @@ msys2_references=(
 )
 license=('spdx:GPL-3.0-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-libjpeg-turbo")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools"
+makedepends=("autotools"
              "${MINGW_PACKAGE_PREFIX}-cc")
 source=(https://github.com/tjko/jpegoptim/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz)
 sha256sums=('661a808dfffa933d78c6beb47a2937d572b9f03e94cbaaab3d4c0d72f410e9be')

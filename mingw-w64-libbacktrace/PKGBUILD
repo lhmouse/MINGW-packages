@@ -16,7 +16,7 @@ msys2_references=(
 license=('spdx:BSD-3-Clause')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              'git')
 source=("git+${msys2_repository_url}.git#commit=${_commit}"
         "0001-libbacktrace-no-undefined.patch"

@@ -25,8 +25,8 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
              "${MINGW_PACKAGE_PREFIX}-ninja"
              "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools")
+             "gtk-doc"
+             "gettext")
 source=("${url}/src/${_realname}/${_realname}-${pkgver}.tar.xz"{,.asc})
 sha256sums=('0cb725b1351f75e88803c55dddea1f27be09523ddcd7f29ab18270e182a2a463'
             'SKIP')

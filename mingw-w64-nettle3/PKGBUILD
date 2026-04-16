@@ -19,7 +19,7 @@ depends=(
   "${MINGW_PACKAGE_PREFIX}-gmp"
 )
 makedepends=(
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
 )
 conflicts=(

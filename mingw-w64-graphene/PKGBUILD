@@ -17,7 +17,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-ninja"
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
              "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc")
+             "gtk-doc")
 source=("https://github.com/ebassi/graphene/archive/${pkgver}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('922dc109d2dc5dc56617a29bd716c79dd84db31721a8493a13a5f79109a4a4ed')
 

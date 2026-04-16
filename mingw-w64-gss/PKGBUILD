@@ -17,8 +17,8 @@ depends=(
 )
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-gtk-doc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "gtk-doc"
+  "autotools"
   "texinfo"
   "help2man"
 )

@@ -17,7 +17,7 @@ msys2_references=(
   "cpe: cpe:/a:pcre:pcre2"
 )
 license=("spdx:BSD-3-Clause")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 depends=("${MINGW_PACKAGE_PREFIX}-bzip2"
          #"${MINGW_PACKAGE_PREFIX}-readline"
          "${MINGW_PACKAGE_PREFIX}-wineditline"

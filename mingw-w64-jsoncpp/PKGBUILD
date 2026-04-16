@@ -2,7 +2,7 @@
 
 # Note: Everytime the dllname is changed, _bootstrap must be set to 1, otherwise CMake will be rebuilt before jsoncpp,
 # causing it to still link to the old dllname.
-_bootstrap=1
+_bootstrap=0
 
 _realname=jsoncpp
 pkgbase=mingw-w64-${_realname}

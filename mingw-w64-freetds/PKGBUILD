@@ -24,7 +24,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-openssl"
          "${MINGW_PACKAGE_PREFIX}-libiconv")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-pkgconf")
 source=(https://www.freetds.org/files/stable/freetds-${pkgver}.tar.gz)
 sha256sums=('4d4a6ae271dd944531db5b10e110540d020bf99d9986237c8ac5137d894d4149')

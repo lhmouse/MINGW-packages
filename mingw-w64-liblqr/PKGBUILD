@@ -15,7 +15,7 @@ msys2_references=(
 )
 license=("spdx:LGPL-2.1-or-later OR GPL-2.1-or-later")
 depends=("${MINGW_PACKAGE_PREFIX}-glib2")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 source=(https://github.com/carlobaldassi/liblqr/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz)
 sha256sums=('64b0c4ac76d39cca79501b3f53544af3fc5f72b536ac0f28d2928319bfab6def')
 

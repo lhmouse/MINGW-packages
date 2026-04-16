@@ -23,7 +23,7 @@ makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
   "${MINGW_PACKAGE_PREFIX}-meson"
   "${MINGW_PACKAGE_PREFIX}-pkgconf"
-  "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+  "gtk-doc"
 )
 source=("${msys2_repository_url}/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz")
 sha256sums=('2ba3521d3f24e9696185a67a16f1a9643429d6c897d89d83dfb2aad3a398732a')

@@ -20,8 +20,8 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-omp"
          "${MINGW_PACKAGE_PREFIX}-poppler")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             "autotools"
+             "gettext"
              "autoconf-archive")
 checkdepends=("${MINGW_PACKAGE_PREFIX}-python2-nose")
 source=(https://github.com/jwilk/pdf2djvu/releases/download/${pkgver}/pdf2djvu-${pkgver}.tar.xz{,.asc}

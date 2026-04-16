@@ -19,10 +19,10 @@ depends=("${MINGW_PACKAGE_PREFIX}-cairo"
          "${MINGW_PACKAGE_PREFIX}-pango")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-meson"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             "gettext"
              "${MINGW_PACKAGE_PREFIX}-gi-docgen"
              "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+             "gtk-doc"
              "${MINGW_PACKAGE_PREFIX}-gtk4")
 optdepends=("${MINGW_PACKAGE_PREFIX}-gtk4: lsm-viewer")
 source=("https://github.com/LasemProject/lasem/releases/download/${pkgver}/${_realname}-${pkgver}.tar.xz")

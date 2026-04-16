@@ -20,7 +20,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-glib2"
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-meson"
              "${MINGW_PACKAGE_PREFIX}-pkgconf"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc"
+             "gtk-doc"
              "${MINGW_PACKAGE_PREFIX}-vala"
              "${MINGW_PACKAGE_PREFIX}-gobject-introspection")
 source=(https://libvirt.org/sources/glib/${_realname}-${pkgver}.tar.xz{,.asc})

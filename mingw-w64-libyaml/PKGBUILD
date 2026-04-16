@@ -14,7 +14,7 @@ msys2_references=(
   "cpe: cpe:/a:pyyaml:libyaml"
 )
 license=("spdx:MIT")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 source=("https://github.com/yaml/libyaml/archive/${pkgver}/${_realname}-${pkgver}.tar.gz"
         "0001-Proper-mingw-YAML_DECLARE-definition.patch"
         "0002-libyaml-no-undefined.patch")

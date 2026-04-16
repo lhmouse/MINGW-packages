@@ -16,7 +16,7 @@ depends=(
   "${MINGW_PACKAGE_PREFIX}-libgpg-error"
 )
 makedepends=(
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
 )
 source=("https://download.videolan.org/pub/videolan/${_realname}/${pkgver}/${_realname}-${pkgver}.tar.bz2")

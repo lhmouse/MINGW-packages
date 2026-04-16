@@ -19,7 +19,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-zimg")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-cython"
-             "${MINGW_PACKAGE_PREFIX}-autotools"
+             "autotools"
              "${MINGW_PACKAGE_PREFIX}-python-setuptools")
 source=("https://github.com/vapoursynth/vapoursynth/archive/R${pkgver}/vapoursynth-${pkgver}.tar.gz"
         "0001-wrong-arguments-to-Mem32-constructor.patch"

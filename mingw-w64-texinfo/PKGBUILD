@@ -23,9 +23,9 @@ depends=(
     || echo "${MINGW_PACKAGE_PREFIX}-perl")
 )
 makedepends=(
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+  "gettext"
   'help2man'
 )
 source=("https://ftp.gnu.org/pub/gnu/${_realname}/${_realname}-${pkgver}.tar.xz"{,.sig}

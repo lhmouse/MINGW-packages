@@ -17,7 +17,7 @@ license=("spdx:LGPL-2.1-or-later")
 depends=("${MINGW_PACKAGE_PREFIX}-gmp"
          "${MINGW_PACKAGE_PREFIX}-mpfr")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=(https://github.com/arpra-project/mpfi/archive/${pkgver}/${_realname}-${pkgver}.tar.gz)
 sha256sums=('32e6ad529c97aa5ce03e28d01c921d1bce1a464fb4c57fbc248d7be21e652782')
 

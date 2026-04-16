@@ -13,7 +13,7 @@ msys2_repository_url='https://github.com/cpptest/cpptest'
 license=('spdx:LGPL-2.1-or-later')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 makedepends=(
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-cc"
 )
 source=("${url}/releases/download/${pkgver}/${_realname}-${pkgver}.tar.bz2"

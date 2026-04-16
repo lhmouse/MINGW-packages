@@ -19,7 +19,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-librevenge"
          "${MINGW_PACKAGE_PREFIX}-zlib")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://github.com/fosnola/libstaroffice/releases/download/${pkgver}/${_realname}-${pkgver}.tar.xz")
 sha256sums=('bbca92882e96c55bd1527670866d6bc7529ccb12786da55a2398b60a063378da')
 

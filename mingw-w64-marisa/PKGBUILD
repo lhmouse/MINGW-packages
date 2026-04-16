@@ -13,7 +13,7 @@ msys2_repository_url='https://github.com/s-yata/marisa-trie'
 license=('spdx:BSD-2-Clause')
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://github.com/s-yata/marisa-trie/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz"
        "001-tools-makefile.patch")
 sha256sums=('d4e0097d3a78e2799dfc55c73420d1a43797a2986a4105facfe9a33f4b0ba3c2'

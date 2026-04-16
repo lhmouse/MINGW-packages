@@ -33,7 +33,7 @@ makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cmake"
   "${MINGW_PACKAGE_PREFIX}-ninja"
   "${MINGW_PACKAGE_PREFIX}-libiconv"
-  "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+  "gettext"
 )
 source=("https://github.com/TigerVNC/tigervnc/archive/v${pkgver}/${_realname}-${pkgver}.tar.gz"
         'nettle-4.patch')

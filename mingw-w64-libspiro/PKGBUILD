@@ -15,7 +15,7 @@ msys2_references=(
   "cpe: cpe:/a:libspiro_project:libspiro"
 )
 license=("spdx:GPL-3.0-or-later")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 source=(https://github.com/fontforge/libspiro/archive/${pkgver}/${_realname}-${pkgver}.tar.gz)
 sha256sums=('cf0251eb5f3545cce365b727a4a56a2f1292f1ef29245c2045c83e28f8a1df42')
 

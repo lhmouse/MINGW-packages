@@ -15,7 +15,7 @@ msys2_references=(
 )
 license=("spdx:GPL-3.0-or-later")
 makedepends=("${MINGW_PACKAGE_PREFIX}-meson"
-             "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+             "gettext"
              "${MINGW_PACKAGE_PREFIX}-sassc")
 source=(${_realname}-${pkgver}.tar.gz::https://github.com/elementary/stylesheet/archive/${pkgver}.tar.gz)
 sha256sums=('b5f016c9e7c528d18bb1fa7a405bc294af336a9d967574a66eb22e5fffb89aa9')

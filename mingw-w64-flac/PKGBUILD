@@ -22,7 +22,7 @@ depends=(
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
   "${MINGW_PACKAGE_PREFIX}-cmake"
-  "${MINGW_PACKAGE_PREFIX}-gettext-tools"
+  "gettext"
   "${MINGW_PACKAGE_PREFIX}-ninja"
 )
 source=("https://github.com/xiph/flac/releases/download/${pkgver}/flac-${pkgver}.tar.xz")

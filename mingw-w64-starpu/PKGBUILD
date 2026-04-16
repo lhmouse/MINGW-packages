@@ -23,7 +23,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
 )
 makedepends=(
   "${MINGW_PACKAGE_PREFIX}-cc"
-  "${MINGW_PACKAGE_PREFIX}-autotools"
+  "autotools"
   "${MINGW_PACKAGE_PREFIX}-opencl-headers"
   #"${MINGW_PACKAGE_PREFIX}-python"
   #"${MINGW_PACKAGE_PREFIX}-python-setuptools"

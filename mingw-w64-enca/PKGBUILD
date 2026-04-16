@@ -12,7 +12,7 @@ url="https://cihar.com/software/enca/"
 msys2_repository_url='https://github.com/Project-OSS-Revival/enca'
 license=('GPL')
 depends=("${MINGW_PACKAGE_PREFIX}-recode")
-makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "${MINGW_PACKAGE_PREFIX}-autotools")
+makedepends=("${MINGW_PACKAGE_PREFIX}-cc" "autotools")
 source=("https://dl.cihar.com/enca/enca-${pkgver}.tar.xz"
         'configure.patch'
         'noconfigure-autogen.patch')

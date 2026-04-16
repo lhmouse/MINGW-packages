@@ -23,7 +23,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-ninja"
              "${MINGW_PACKAGE_PREFIX}-vala"
              "${MINGW_PACKAGE_PREFIX}-gobject-introspection"
-             "${MINGW_PACKAGE_PREFIX}-gtk-doc")
+             "gtk-doc")
 source=("https://gitlab.gnome.org/GNOME/gspell/-/archive/${pkgver}/${_realname}-${pkgver}.tar.bz2")
 sha256sums=('184c23194c65150fcc3abb2a9523fd13427d8f225dcbd3ec034ca94ab6c4d619')
 

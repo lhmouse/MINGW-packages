@@ -13,7 +13,7 @@ msys2_repository_url="https://github.com/libcheck/check"
 license=("spdx:LGPL-2.1-or-later")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
          "${MINGW_PACKAGE_PREFIX}-libwinpthread")
-makedepends=("${MINGW_PACKAGE_PREFIX}-autotools" "${MINGW_PACKAGE_PREFIX}-cc")
+makedepends=("autotools" "${MINGW_PACKAGE_PREFIX}-cc")
 source=(https://github.com/libcheck/check/releases/download/${pkgver}/${_realname}-${pkgver}.tar.gz
         001-fix-build-with-mingw-w64-clang.patch)
 sha256sums=('a8de4e0bacfb4d76dd1c618ded263523b53b85d92a146d8835eb1a52932fa20a'

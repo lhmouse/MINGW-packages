@@ -23,7 +23,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-libsystre")
          #"${MINGW_PACKAGE_PREFIX}-zlib"
          #"${MINGW_PACKAGE_PREFIX}-zstd")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
-             "${MINGW_PACKAGE_PREFIX}-autotools")
+             "autotools")
 source=("https://astron.com/pub/file/${_realname}-${pkgver}.tar.gz")
 sha256sums=('ed14656883b23a364b4057c05595d93252da9bc473d30106519519d0da141283')
 
