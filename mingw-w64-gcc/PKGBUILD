@@ -16,7 +16,7 @@ else
   _enable_ada=no
   _enable_fortran=no
   _enable_jit=no
-  _enable_lto=no
+  _enable_lto=yes
   _enable_objc=no
   _enable_rust=no
 fi
@@ -53,7 +53,7 @@ else
   _url=https://gcc.gnu.org/pub/gcc/snapshots/${_version}-${_snapshot}
 fi
 _libdir=lib/gcc/${CHOST}/${pkgver}
-pkgrel=1
+pkgrel=2
 pkgdesc="GCC for the MinGW-w64"
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64')
