@@ -3,7 +3,7 @@
 _realname=wakatime
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=2.9.3
+pkgver=2.11.2
 pkgrel=1
 pkgdesc="Command line interface used by all WakaTime text editor plugins (mingw-w64)"
 arch=('any')
