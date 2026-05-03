@@ -19,7 +19,7 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-go"
              "${MINGW_PACKAGE_PREFIX}-cc"
              'git')
 source=("git+${url}.git#tag=v${pkgver}")
-sha256sums=('f904afc02b8d56f81d051bb1cbaad881d33b7a2eaa1f0b8b94f3a058166d262f')
+sha256sums=('6b7bee00e7c6e78b424cdae9c61d154e7f544ae579bfdc57370a3872da93dd8b')
 
 build() {
   # provide date but make it reproducible
