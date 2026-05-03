@@ -4,7 +4,7 @@ _realname=scopehal-apps
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
 pkgver=0.0.0.r3329.gb2b889d8
-pkgrel=2
+pkgrel=3
 pkgdesc="scopehal-apps: applications for libscopehal (mingw-w64)"
 arch=('any')
 mingw_arch=('mingw64' 'ucrt64' 'clang64' 'clangarm64')
@@ -36,7 +36,7 @@ _commit='b2b889d87045c4e1848ab6859307519f7cfd875b'
 source=("${_realname}::git+https://github.com/ngscopeclient/scopehal-apps.git#commit=${_commit}"
         "001-enable-avx-clang.patch::https://github.com/ngscopeclient/scopehal/pull/966.patch")
 sha256sums=('2eeb71edb4d930e2152f797520c7a240746ea272d2304a51cf44d05d4b16963d'
-            '440cc70e04eb40bf4e21c614553a214d5f8df39ebc9424b668e4ed0fb5fc9f15')
+            '16493378584d9ce867903ccaabf3da51b3e0b4e7b2475b0c53733b67b3fb16b2')
 
 pkgver() {
   cd "${_realname}"
