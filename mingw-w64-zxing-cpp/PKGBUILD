@@ -4,7 +4,7 @@ _realname=zxing-cpp
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
 pkgver=2.3.0
-pkgrel=3
+pkgrel=2
 pkgdesc='A multi-format linear/matrix barcode image processing library implemented in C++ (mingw-w64)'
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
@@ -37,7 +37,6 @@ build() {
   -DBUILD_SHARED_LIBS=ON \
   -DBUILD_EXAMPLES=OFF \
   -DBUILD_BLACKBOX_TESTS=OFF \
-  -DCMAKE_CXX_STANDARD=17 \
   ../${_realname}-${pkgver}
 
   ${MINGW_PREFIX}/bin/cmake.exe --build .
@@ -53,7 +52,6 @@ build() {
   -DBUILD_SHARED_LIBS=OFF \
   -DBUILD_EXAMPLES=OFF \
   -DBUILD_BLACKBOX_TESTS=OFF \
-  -DCMAKE_CXX_STANDARD=17 \
   ../${_realname}-${pkgver}
 
   ${MINGW_PREFIX}/bin/cmake.exe --build .
