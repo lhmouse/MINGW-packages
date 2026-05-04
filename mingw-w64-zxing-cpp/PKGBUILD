@@ -4,18 +4,19 @@ _realname=zxing-cpp
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
 pkgver=3.0.2
-pkgrel=1
+pkgrel=2
 pkgdesc='A multi-format linear/matrix barcode image processing library implemented in C++ (mingw-w64)'
 arch=('any')
 mingw_arch=('ucrt64' 'clang64' 'clangarm64')
 url='https://github.com/zxing-cpp/zxing-cpp'
 msys2_repository_url='https://github.com/zxing-cpp/zxing-cpp'
 license=('spdx:Apache-2.0')
-depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
+depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
+         "${MINGW_PACKAGE_PREFIX}-zint")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-cmake"
-             "${MINGW_PACKAGE_PREFIX}-ninja")
-             #"${MINGW_PACKAGE_PREFIX}-stb")
+             "${MINGW_PACKAGE_PREFIX}-ninja"
+             "${MINGW_PACKAGE_PREFIX}-stb")
 source=(https://github.com/zxing-cpp/zxing-cpp/releases/download/v${pkgver}/${_realname}-${pkgver}.tar.gz
         001-fix-build-with-gcc-16.patch)
 noextract=("${_realname}-${pkgver}.tar.gz")
@@ -43,6 +44,7 @@ build() {
   -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
   "${_extra_config[@]}" \
   -DBUILD_SHARED_LIBS=ON \
+  -DZXING_USE_BUNDLED_ZINT=OFF \
   -DZXING_EXAMPLES=OFF \
   -DZXING_BLACKBOX_TESTS=OFF \
   -S ${_realname}-${pkgver} \
@@ -56,6 +58,7 @@ build() {
   -DCMAKE_INSTALL_PREFIX=${MINGW_PREFIX} \
   "${_extra_config[@]}" \
   -DBUILD_SHARED_LIBS=OFF \
+  -DZXING_USE_BUNDLED_ZINT=OFF \
   -DZXING_EXAMPLES=OFF \
   -DZXING_BLACKBOX_TESTS=OFF \
   -S ${_realname}-${pkgver} \
