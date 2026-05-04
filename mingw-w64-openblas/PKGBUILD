@@ -6,7 +6,7 @@ pkgbase=mingw-w64-openblas
 pkgname=("${MINGW_PACKAGE_PREFIX}-openblas"
          "${MINGW_PACKAGE_PREFIX}-openblas64")
 pkgver=0.3.33
-pkgrel=1
+pkgrel=2
 pkgdesc="An optimized BLAS library based on GotoBLAS2 1.13 BSD version. (mingw-w64)"
 arch=('any')
 mingw_arch=('mingw64' 'ucrt64' 'clang64' 'clangarm64')
