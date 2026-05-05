@@ -4,7 +4,7 @@ _realname=pygame
 pkgbase=mingw-w64-python-${_realname}
 pkgname=${MINGW_PACKAGE_PREFIX}-python-${_realname}
 pkgver=2.6.1
-pkgrel=7
+pkgrel=8
 pkgdesc='A Python library for making multimedia applications like games (mingw-w64)'
 arch=('any')
 mingw_arch=('mingw64' 'ucrt64' 'clang64' 'clangarm64')
@@ -45,7 +45,7 @@ source=(https://github.com/pygame/pygame/archive/${pkgver}/${_realname}-${pkgver
         003-do-not-redefine-WINVER.patch)
 sha256sums=('6a5dd68af93a11ba6eb35c971fa220bf253cebf63b1f54cbe697b30fae9c7c72'
             '1567a433fc8bb60e8bafafd92169372e181907e397736200c8f950a39a4722de'
-            '7e222c39766fbeedcd1a00c98775fe1b71ee1cb586b719c7af6f2f14c6443020'
+            '0d03053e33fb794d7eea2a907a015af05a0770f64d30f7bde41b2165bba9fb60'
             'e99eeabb1e506b6932b6e1a40fc771dadfe63ab25dacad25a2bd4d9052eef5c3')
 
 apply_patch_with_msg() {
