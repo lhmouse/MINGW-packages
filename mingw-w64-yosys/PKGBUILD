@@ -4,7 +4,7 @@ _realname=yosys
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
 pkgver=0.56
-pkgrel=2
+pkgrel=3
 pkgdesc="A framework for RTL synthesis tools (mingw-w64)"
 arch=('any')
 mingw_arch=('mingw64' 'ucrt64')
@@ -34,10 +34,12 @@ source=(
   "${_realname}-${pkgver}.tar.gz::https://github.com/YosysHQ/yosys/releases/download/v${pkgver}/yosys.tar.gz"
   "https://github.com/ghdl/ghdl-yosys-plugin/archive/${_ghdl_plugin_commit}/ghdl-yosys-plugin-${_ghdl_plugin_commit}.tar.gz"
   "001-fix-build-on-mingw.patch"
+  "002-MINGW-proper-pthread-handling.patch"
 )
 sha256sums=('b5270419812a38ab3dade6003130fc2eebc9757a4ed9e48b0ceb311428743d04'
             '84cc34bff7029f76d085e7c741e1a609592ef58f8fdc9d668beaad7691753b0e'
-            '3c9c9da87788f3124824d634e89a6702f317793a47cab819e5461b804f280aad')
+            '3c9c9da87788f3124824d634e89a6702f317793a47cab819e5461b804f280aad'
+            'a5cfef78294ce00fea17f61df9fd5e4404467f1735915ca41a565d6eb30ebe4b')
 noextract=(${_realname}-${pkgver}.tar.gz)
 
 prepare() {
@@ -47,6 +49,8 @@ prepare() {
   cd ${_realname}-${pkgver}/abc
   # https://github.com/berkeley-abc/abc/pull/435
   patch -p1 -i "${srcdir}"/001-fix-build-on-mingw.patch
+  # https://github.com/YosysHQ/abc/commit/79010216.patch
+  patch -p1 -i "${srcdir}"/002-MINGW-proper-pthread-handling.patch
 
   cp -r "${srcdir}"/ghdl-yosys-plugin-${_ghdl_plugin_commit}/src \
     "${srcdir}"/${_realname}-${pkgver}/frontends/ghdl
