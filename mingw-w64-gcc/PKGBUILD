@@ -53,7 +53,7 @@ else
   _url=https://gcc.gnu.org/pub/gcc/snapshots/${_version}-${_snapshot}
 fi
 _libdir=lib/gcc/${CHOST}/${pkgver}
-pkgrel=2
+pkgrel=3
 pkgdesc="GCC for the MinGW-w64"
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64')
@@ -263,6 +263,7 @@ build() {
     --enable-static \
     --enable-libatomic \
     --enable-threads=${_threads} \
+    --enable-tls \
     --enable-graphite \
     --enable-fully-dynamic-string \
     --enable-libstdcxx-backtrace=yes \
