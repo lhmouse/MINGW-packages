@@ -7,7 +7,7 @@ pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 _vername=bonsai
 _pkgver=0.8.5-post1
 pkgver=${_pkgver//-/_}
-pkgrel=1
+pkgrel=2
 pkgdesc="Open source IFC library and geometry engine (mingw-w64)"
 arch=('any')
 mingw_arch=('ucrt64' 'clang64' 'clangarm64')
@@ -43,12 +43,14 @@ source=("https://github.com/IfcOpenShell/IfcOpenShell/archive/refs/tags/${_verna
         "001-hdf5-target-fallback.patch"
         "002-svgfill-mingw-noimplib.patch"
         "003-python-init-dll-dir-mingw.patch"
-        "004-svgfill-svgpp-cache-var.patch")
+        "004-svgfill-svgpp-cache-var.patch"
+        "005-build-fix.patch")
 sha256sums=('d2d566cf97e784de10c70f3be747cf7bf7b19a1ccb711b7bcf25cf884325c76d'
             '3e76ca1c2efcaad3ba893a6d2d0df5a5a8dd4a2ecec9d583c20ede9af1654003'
             '19ae15aedec6bb2783c488085275c5fb2c3ff807e8ccea9749a5564ced88df16'
             '46b67742bd92d4ed37d2b4f9603ed3bb5a67510425fc21c98591bd35d48406d1'
-            '6388baaec79d0af9b56024130ecee42af0a8c418f327c5fa20e0aa1a1f1e5fb4')
+            '6388baaec79d0af9b56024130ecee42af0a8c418f327c5fa20e0aa1a1f1e5fb4'
+            '10e3a1efb163564b84038c26aa1c2d29ffdca1a00172ee913995d170f64c20fd')
 
 _iosdir="IfcOpenShell-${_vername}-${_pkgver}"
 
@@ -61,6 +63,7 @@ prepare() {
   patch -Nbp1 -i "${srcdir}/002-svgfill-mingw-noimplib.patch"
   patch -Nbp1 -i "${srcdir}/003-python-init-dll-dir-mingw.patch"
   patch -Nbp1 -i "${srcdir}/004-svgfill-svgpp-cache-var.patch"
+  patch -Nbp1 -i "${srcdir}/005-build-fix.patch"
 }
 
 build() {
