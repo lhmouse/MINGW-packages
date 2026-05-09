@@ -10,7 +10,7 @@ pkgver=5.0.7
 # NOTE: You need to run ./get-compatible-versions.sh after changing the pkgver!
 _binaryen_revision=c6a5e65b77a4b6e9d72fa7ba674632aba4b99099
 _llvm_project_revision=7b58716d96c3ae4c0c4e6f72e29b16137bb6224b
-pkgrel=1
+pkgrel=2
 pkgdesc="Compile C and C++ into highly-optimizable JavaScript for the web (mingw-w64)"
 arch=('any')
 mingw_arch=('ucrt64' 'clang64' 'clangarm64')
