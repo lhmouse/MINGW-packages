@@ -4,7 +4,7 @@ source "$(dirname ${BASH_SOURCE[0]})"/../mingw-w64-PKGBUILD-common/kde-framework
 _realname=kirigami
 pkgbase="mingw-w64-${_realname}"
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}")
-pkgver=6.25.0
+pkgver=6.26.0
 pkgrel=1
 pkgdesc="QtQuick plugins to build user interfaces (mingw-w64)"
 arch=('any')
@@ -33,7 +33,7 @@ makedepends=(
 groups=("${MINGW_PACKAGE_PREFIX}-kf6")
 source=("https://download.kde.org/stable/frameworks/${pkgver%.*}/${_realname}-${pkgver}.tar.xz"{,.sig}
         "001-template-dllexport-static.patch")
-sha256sums=('da7f3b733557b19975bb6b122e05d2f4d9214a70a81e2bb6e71c65761a3c6b43'
+sha256sums=('b268785b271198acec7fe4b6177eafdee890e180245c7168916da3ccff1425ff'
             'SKIP'
             '68903575724a4ac4b0d152de73774d35c0f6908db9b409e7952a55669aac48c0')
 validpgpkeys=(

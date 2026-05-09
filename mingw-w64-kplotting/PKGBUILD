@@ -4,7 +4,7 @@ source "$(dirname ${BASH_SOURCE[0]})"/../mingw-w64-PKGBUILD-common/kde-framework
 _realname=kplotting
 pkgbase="mingw-w64-${_realname}"
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}")
-pkgver=6.25.0
+pkgver=6.26.0
 pkgrel=1
 pkgdesc="Lightweight plotting framework (mingw-w64)"
 arch=('any')
@@ -27,7 +27,7 @@ makedepends=(
 )
 groups=("${MINGW_PACKAGE_PREFIX}-kf6")
 source=("https://download.kde.org/stable/frameworks/${pkgver%.*}/${_realname}-${pkgver}.tar.xz"{,.sig})
-sha256sums=('9fbd4775c9b1f56a24d90ee47cd0ad57c816fbbf60e3aaeba6e2b631f7b3fc9b'
+sha256sums=('bb120f446e6bfc376129e03663e4b3b9e7146abc948ccc68da19187840f9f181'
             'SKIP')
 validpgpkeys=(
   'E0A3EB202F8E57528E13E72FD7574483BB57B18D' # Jonathan Esk-Riddell <jr@jriddell.org>

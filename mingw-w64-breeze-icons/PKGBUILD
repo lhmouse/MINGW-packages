@@ -4,7 +4,7 @@ source "$(dirname ${BASH_SOURCE[0]})"/../mingw-w64-PKGBUILD-common/kde-framework
 _realname=breeze-icons
 pkgbase="mingw-w64-${_realname}"
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}")
-pkgver=6.25.0
+pkgver=6.26.0
 pkgrel=1
 pkgdesc="Breeze icon theme (mingw-w64)"
 arch=('any')
@@ -33,7 +33,7 @@ replaces=("${MINGW_PACKAGE_PREFIX}-${_realname}-qt5")
 source=("https://download.kde.org/stable/frameworks/${pkgver%.*}/${_realname}-${pkgver}.tar.xz"{,.sig}
         breeze-icons-std-filesystem-to-generate-symlink.diff)
 noextract=("${_realname}-${pkgver}.tar.xz")
-sha256sums=('2188492d83ead80cae83cbb0db80cac0b55388ea2e3e02d436354b6ca2559d0c'
+sha256sums=('4e123fac511dfab2b7c505857849a5cecfac2ce6194e3230c51ceec31676b06e'
             'SKIP'
             '65891ebf0dea16ec6200ca8f5168c632db6c1682293c9a8d76e178d9f62a5322')
 validpgpkeys=(

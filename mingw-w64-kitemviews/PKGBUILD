@@ -4,7 +4,7 @@ source "$(dirname ${BASH_SOURCE[0]})"/../mingw-w64-PKGBUILD-common/kde-framework
 _realname=kitemviews
 pkgbase="mingw-w64-${_realname}"
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}")
-pkgver=6.25.0
+pkgver=6.26.0
 pkgrel=1
 pkgdesc="Widget addons for Qt Model/View (mingw-w64)"
 arch=('any')
@@ -27,7 +27,7 @@ makedepends=(
 )
 groups=("${MINGW_PACKAGE_PREFIX}-kf6")
 source=("https://download.kde.org/stable/frameworks/${pkgver%.*}/${_realname}-${pkgver}.tar.xz"{,.sig})
-sha256sums=('b57f38d6fd184a4b260d0b35d76f6c0fb96bdd80475e3ca7d4151023730e5d3d'
+sha256sums=('e76cc9d7561d0aae22b07a77552fbcddf61c8066bac5cfac9958ac065b617e74'
             'SKIP')
 validpgpkeys=(
   'E0A3EB202F8E57528E13E72FD7574483BB57B18D' # Jonathan Esk-Riddell <jr@jriddell.org>
