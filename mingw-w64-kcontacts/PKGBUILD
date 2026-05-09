@@ -4,7 +4,7 @@ source "$(dirname ${BASH_SOURCE[0]})"/../mingw-w64-PKGBUILD-common/kde-framework
 _realname=kcontacts
 pkgbase="mingw-w64-${_realname}"
 pkgname=("${MINGW_PACKAGE_PREFIX}-${_realname}")
-pkgver=6.25.0
+pkgver=6.26.0
 pkgrel=1
 pkgdesc="Library for working with contact information (mingw-w64)"
 arch=('any')
@@ -39,7 +39,7 @@ optdepends=(
 )
 groups=("${MINGW_PACKAGE_PREFIX}-kf6")
 source=("https://download.kde.org/stable/frameworks/${pkgver%.*}/${_realname}-${pkgver}.tar.xz"{,.sig})
-sha256sums=('386826b3886d6b32a4583e638493ccd3cfb37722faaf318742d70d6bf0e3f0a7'
+sha256sums=('dce9af34050fcf09c8b4ece6df5a0abedbaf02fe85039fc371c5e11e91443cf0'
             'SKIP')
 validpgpkeys=(
   'E0A3EB202F8E57528E13E72FD7574483BB57B18D' # Jonathan Esk-Riddell <jr@jriddell.org>
