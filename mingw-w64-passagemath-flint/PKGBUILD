@@ -8,16 +8,20 @@ pkgver=10.8.4
 pkgrel=4
 pkgdesc="passagemath: Fast computations with MPFI and FLINT (mingw-w64)"
 arch=('any')
-mingw_arch=('mingw64' 'ucrt64')
+mingw_arch=('ucrt64' 'clang64' 'clangarm64')
 url='https://github.com/passagemath/passagemath'
 msys2_repository_url='https://github.com/passagemath/passagemath'
 msys2_references=(
   'purl: pkg:pypi/passagemath-flint'
 )
 license=('spdx:GPL-2.0-or-later')
-depends=("${MINGW_PACKAGE_PREFIX}-flint"
+depends=("${MINGW_PACKAGE_PREFIX}-cc-libs"
+         "${MINGW_PACKAGE_PREFIX}-flint"
+         "${MINGW_PACKAGE_PREFIX}-gmp"
          "${MINGW_PACKAGE_PREFIX}-gsl"
          "${MINGW_PACKAGE_PREFIX}-mpfi"
+         "${MINGW_PACKAGE_PREFIX}-mpfr"
+         "${MINGW_PACKAGE_PREFIX}-ntl"
          "${MINGW_PACKAGE_PREFIX}-python"
          "${MINGW_PACKAGE_PREFIX}-python-numpy"
          "${MINGW_PACKAGE_PREFIX}-python-passagemath-categories"
