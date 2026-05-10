@@ -5,7 +5,7 @@ pkgbase=mingw-w64-python-${_realname}
 pkgname=("${MINGW_PACKAGE_PREFIX}-python-${_realname}")
 provides=("${MINGW_PACKAGE_PREFIX}-${_realname}")
 pkgver=10.8.4
-pkgrel=3
+pkgrel=4
 pkgdesc="passagemath: Computational Number Theory with NTL (mingw-w64)"
 arch=('any')
 # Builds for clang64 and clangarm64 currently have problems with ntl, so it's
@@ -47,7 +47,15 @@ build() {
   CFLAGS+=" -fpermissive"
   CXXFLAGS="$CFLAGS"
 
-  python -m build --wheel --skip-dependency-check --no-isolation
+  # Make -lntl resolve to the static archive. With native TLS, linking against
+  # the NTL import library leaves TLS symbols unresolved (NTL::ZZ_pInfo, NTL::zz_pInfo).
+  mkdir -p ntl-link-override
+  printf 'INPUT ( %s -lgf2x -lgmp )\n' \
+    "$(cygpath -m "${MINGW_PREFIX}/lib/libntl.a")" \
+    > ntl-link-override/libntl.dll.a
+
+  LDFLAGS="-L$(cygpath -m "${PWD}/ntl-link-override") -pthread ${LDFLAGS}" \
+    python -m build --wheel --skip-dependency-check --no-isolation
 }
 
 package() {
