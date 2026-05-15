@@ -5,7 +5,7 @@ pkgbase=mingw-w64-${_realname}
 pkgname=${MINGW_PACKAGE_PREFIX}-${_realname}
 pkgver=10.0.0rc1
 _version=10.0.0-rc1
-pkgrel=1
+pkgrel=2
 pkgdesc='C++ bindings for the Godot script API (mingw-w64)'
 arch=('any')
 mingw_arch=('mingw64' 'ucrt64' 'clang64' 'clangarm64')
@@ -45,6 +45,6 @@ package() {
   install -dm755 "${pkgdir}${MINGW_PREFIX}"/{lib,include}
   install -Dm644 build/bin/libgodot-cpp.*.*.*.a "${pkgdir}${MINGW_PREFIX}"/lib/libgodot-cpp.a
   cp -rup {,build/gen/}include/godot_cpp "${pkgdir}${MINGW_PREFIX}"/include
-  install -Dm644 gdextension/gdextension_interface.h "${pkgdir}${MINGW_PREFIX}"/include/godot_cpp
+  install -Dm644 build/gen/include/gdextension_interface.h "${pkgdir}${MINGW_PREFIX}"/include/godot_cpp
   install -Dm644 LICENSE.md "${pkgdir}${MINGW_PREFIX}/share/licenses/${_realname}/LICENSE.md"
 }
