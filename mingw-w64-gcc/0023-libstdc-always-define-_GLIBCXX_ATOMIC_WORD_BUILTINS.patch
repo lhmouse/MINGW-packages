@@ -1,0 +1,27 @@
+From 720a45fff3be34174b3f360c0b672890505f4fb5 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Fri, 15 May 2026 17:40:30 +0800
+Subject: [PATCH] libstdc++: always define `_GLIBCXX_ATOMIC_WORD_BUILTINS`
+
+See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=125312
+---
+ libstdc++-v3/acinclude.m4 | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/libstdc++-v3/acinclude.m4 b/libstdc++-v3/acinclude.m4
+index 8dc9e17b214c..177b2dac174a 100644
+--- a/libstdc++-v3/acinclude.m4
++++ b/libstdc++-v3/acinclude.m4
+@@ -3802,6 +3802,9 @@ EOF
+   CXXFLAGS="$old_CXXFLAGS"
+   AC_LANG_RESTORE
+ 
++  # XXX: Hard-coded: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=125312
++  glibcxx_cv_atomic_word=yes
++
+   # Set atomicity_dir to builtins if the test above passes,
+   # or if the builtins were already chosen (e.g. by configure.host).
+   if test "$glibcxx_cv_atomic_word" = yes \
+-- 
+2.54.0
+
