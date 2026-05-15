@@ -53,7 +53,7 @@ else
   _url=https://gcc.gnu.org/pub/gcc/snapshots/${_version}-${_snapshot}
 fi
 _libdir=lib/gcc/${CHOST}/${pkgver}
-pkgrel=3
+pkgrel=4
 pkgdesc="GCC for the MinGW-w64"
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64')
@@ -232,6 +232,9 @@ build() {
   # This configure check fails with msvcrt due to
   # https://github.com/mingw-w64/mingw-w64/issues/163
   export gcc_cv_have_tls=yes
+
+  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=125312
+  export glibcxx_cv_atomic_word=yes
 
   # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=105507#c3
   # At least with mingw32 + dwarf-2 exceptions there can only be one libgcc in
