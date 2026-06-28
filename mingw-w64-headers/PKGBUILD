@@ -3,9 +3,8 @@
 _realname=headers
 pkgbase="mingw-w64-${_realname}"
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=14.0.0.r598.ge3d18511f
+pkgver=14.0.0.r613.gae5227f62
 pkgrel=1
-_commit='e3d18511f9759d455cae20c34703eea4a0723cf3'
 pkgdesc='MinGW-w64 headers for Windows (mingw-w64)'
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
@@ -21,12 +20,20 @@ provides=("${MINGW_PACKAGE_PREFIX}-${_realname}-git=${pkgver}")
 conflicts=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 replaces=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 options=('!emptydirs')
-source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#commit=$_commit")
-sha256sums=('f96372df71b5f32f54e0c3d37e59dfc4628b41137f64a87e7ca67eda6d197185')
+source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#branch=master"
+        9004-headers-crt-Copy-clock-and-nanosleep-from-winpthread.patch)
+sha256sums=('SKIP'
+            'e40893716e412a363ca8e6acd00413733013caaf25782f9f37f9ccd677185621')
 
 pkgver() {
   cd mingw-w64
-  git describe --long ${_commit} | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
+  git describe --long HEAD | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
+}
+
+prepare() {
+  cd mingw-w64
+
+  git apply "${srcdir}/9004-headers-crt-Copy-clock-and-nanosleep-from-winpthread.patch"
 }
 
 build() {
@@ -57,7 +64,7 @@ package() {
   cd "${srcdir}"/build-${MSYSTEM}
   make DESTDIR="${pkgdir}" install
 
-  rm -v "${pkgdir}"${MINGW_PREFIX}/include/pthread_{signal,time,unistd}.h
+  rm -v "${pkgdir}"${MINGW_PREFIX}/include/pthread_{signal,unistd}.h
 
   install -Dm644 "${srcdir}"/mingw-w64/mingw-w64-headers/ddk/readme.txt \
     "${pkgdir}"${MINGW_PREFIX}/share/licenses/${_realname}/ddk-readme.txt
