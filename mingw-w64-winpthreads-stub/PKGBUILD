@@ -19,6 +19,6 @@ sha256sums=()
 
 package() {
   mkdir -p ${pkgdir}${MINGW_PREFIX}/{include,lib}
-  touch ${pkgdir}${MINGW_PREFIX}/include/pthread_{signal,time,unistd}.h
+  touch ${pkgdir}${MINGW_PREFIX}/include/pthread_{signal,unistd}.h
   ar rcs ${pkgdir}${MINGW_PREFIX}/lib/libpthread.a
 }
