@@ -19,7 +19,6 @@ replaces=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 groups=("${MINGW_PACKAGE_PREFIX}-toolchain")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "autotools"
-             "${MINGW_PACKAGE_PREFIX}-libmangle"
              "git")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 options=('!emptydirs')
@@ -38,7 +37,7 @@ build() {
     mkdir -p "${srcdir}"/${MSYSTEM}-${cur} && cd "${srcdir}"/${MSYSTEM}-${cur}
     "${srcdir}"/mingw-w64/mingw-w64-tools/${cur}/configure \
       --prefix=${MINGW_PREFIX} \
-      --with-mangle=${MINGW_PREFIX} \
+      --with-mangle=no \
       --with-widl-includedir=${MINGW_PREFIX}/include
     make
   done

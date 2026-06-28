@@ -1,0 +1,127 @@
+From 1ba9bec1ea24f9c4863f9dc2e8068b32fb4fdd8a Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Wed, 1 Jul 2026 17:32:00 +0800
+Subject: [PATCH] crt,winpthreads: Do not run any user-defined destructors in
+ TLS callbacks upon process termination
+
+These callbacks are called after `ExitProcess()` is called, after all atexit
+callbacks are called. So first, standard C++ requires that destructors of
+thread-local objects be called before destructors of static objects, and POSIX
+doesn't say that destructors to `pthread_key_create()` should be called upon
+process exit. Either way, this isn't the correct opportunity to run thread-local
+destructors.
+
+Second, TLS callbacks (as well as `DllMain()`) are called after the system
+terminates all the other threads in indeterminate states. If another thread has
+locked a mutex when it is terminated, there's no chance for it to unlock the
+mutex. If the current thread attempts to lock such a mutex, it will have to wait
+forever, resulting in a deadlock.
+
+Reference: https://devblogs.microsoft.com/oldnewthing/20100122-00/?p=15193
+Signed-off-by: LIU Hao <lh_mouse@126.com>
+---
+ mingw-w64-crt/crt/crtdll.c                   |  3 ++-
+ mingw-w64-crt/crt/tls_atexit.c               | 25 +++++++++++---------
+ mingw-w64-crt/crt/tlsthrd.c                  |  5 ++--
+ mingw-w64-libraries/winpthreads/src/thread.c |  3 ++-
+ 4 files changed, 21 insertions(+), 15 deletions(-)
+
+diff --git a/mingw-w64-crt/crt/crtdll.c b/mingw-w64-crt/crt/crtdll.c
+index 18e831ef9..9c4857a2a 100644
+--- a/mingw-w64-crt/crt/crtdll.c
++++ b/mingw-w64-crt/crt/crtdll.c
+@@ -122,7 +122,8 @@ i__leave:
+ 	}
+       else
+ 	{
+-          _execute_onexit_table(&atexit_table);
++          if (lpreserved == NULL)  /* FreeLibrary is called.  */
++            _execute_onexit_table(&atexit_table);
+ 	  __native_startup_state = __uninitialized;
+ 	}
+       if (! nested)
+diff --git a/mingw-w64-crt/crt/tls_atexit.c b/mingw-w64-crt/crt/tls_atexit.c
+index 60c4f513e..b1dff577b 100644
+--- a/mingw-w64-crt/crt/tls_atexit.c
++++ b/mingw-w64-crt/crt/tls_atexit.c
+@@ -86,18 +86,21 @@ int __mingw_cxa_thread_atexit(dtor_fn dtor, void *obj, void *dso) {
+   return 0;
+ }
+ 
+-static void WINAPI tls_atexit_callback(HANDLE __UNUSED_PARAM(hDllHandle), DWORD dwReason, LPVOID __UNUSED_PARAM(lpReserved)) {
+-  if (dwReason == DLL_PROCESS_DETACH) {
+-    dtor_obj **p = (dtor_obj **)TlsGetValue(tls_dtors_slot);
+-    run_dtor_list(p);
+-    free(p);
+-    TlsSetValue(tls_dtors_slot, NULL);
+-    TlsFree(tls_dtors_slot);
+-    run_dtor_list(&global_dtors);
+-  }
++static void WINAPI tls_atexit_callback(HANDLE __UNUSED_PARAM(hDllHandle), DWORD dwReason, LPVOID lpReserved) {
++  if (dwReason != DLL_PROCESS_DETACH)
++    return;
++  if (lpReserved != NULL)  /* Process is terminating.  */
++    return;
++
++  dtor_obj **p = (dtor_obj **)TlsGetValue(tls_dtors_slot);
++  run_dtor_list(p);
++  free(p);
++  TlsSetValue(tls_dtors_slot, NULL);
++  TlsFree(tls_dtors_slot);
++  run_dtor_list(&global_dtors);
+ }
+ 
+-static void WINAPI tls_callback(HANDLE hDllHandle, DWORD dwReason, LPVOID __UNUSED_PARAM(lpReserved)) {
++static void WINAPI tls_callback(HANDLE hDllHandle, DWORD dwReason, LPVOID lpReserved) {
+   dtor_obj **p;
+   switch (dwReason) {
+   case DLL_PROCESS_ATTACH:
+@@ -142,7 +145,7 @@ static void WINAPI tls_callback(HANDLE hDllHandle, DWORD dwReason, LPVOID __UNUS
+      * standard says, but differs from what MSVC does with a dynamically
+      * linked CRT (which still runs TLS destructors for the main thread).
+      */
+-    if (__mingw_module_is_dll) {
++    if (__mingw_module_is_dll && lpReserved == NULL) {
+       p = (dtor_obj **)TlsGetValue(tls_dtors_slot);
+       run_dtor_list(p);
+       free(p);
+diff --git a/mingw-w64-crt/crt/tlsthrd.c b/mingw-w64-crt/crt/tlsthrd.c
+index bebe27b37..1096cf006 100644
+--- a/mingw-w64-crt/crt/tlsthrd.c
++++ b/mingw-w64-crt/crt/tlsthrd.c
+@@ -120,8 +120,7 @@ __mingwthr_run_key_dtors (void)
+ 
+ WINBOOL
+ __mingw_TLScallback (HANDLE __UNUSED_PARAM(hDllHandle),
+-		     DWORD reason,
+-		     LPVOID __UNUSED_PARAM(reserved))
++		     DWORD reason, LPVOID reserved)
+ {
+   switch (reason)
+     {
+@@ -131,6 +130,8 @@ __mingw_TLScallback (HANDLE __UNUSED_PARAM(hDllHandle),
+       __mingwthr_cs_init = 1;
+       break;
+     case DLL_PROCESS_DETACH:
++      if (reserved != NULL)  /* Process is terminating.  */
++        break;
+       __mingwthr_run_key_dtors();
+       if (__mingwthr_cs_init == 1)
+         {
+diff --git a/mingw-w64-libraries/winpthreads/src/thread.c b/mingw-w64-libraries/winpthreads/src/thread.c
+index 476370422..a6e88aef4 100644
+--- a/mingw-w64-libraries/winpthreads/src/thread.c
++++ b/mingw-w64-libraries/winpthreads/src/thread.c
+@@ -463,7 +463,8 @@ __dyn_tls_pthread (HANDLE hDllHandle, DWORD dwReason, LPVOID lpreserved)
+ 
+   if (dwReason == DLL_PROCESS_DETACH)
+     {
+-      free_pthread_mem ();
++      if (lpreserved == NULL)  /* FreeLibrary is called.  */
++        free_pthread_mem ();
+     }
+   else if (dwReason == DLL_PROCESS_ATTACH)
+     {
+-- 
+2.54.0
+
