@@ -4,9 +4,8 @@
 _realname=tools
 pkgbase="mingw-w64-${_realname}"
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=14.0.0.r426.g4564ee4b5
+pkgver=14.0.0.r460.g2bcf06abc
 pkgrel=1
-_commit='4564ee4b5063097bf747af3a3f8270a28adff820'
 pkgdesc="MinGW-w64 tools (mingw-w64)"
 arch=('any')
 mingw_arch=('mingw32' 'mingw64' 'ucrt64' 'clang64' 'clangarm64')
@@ -19,17 +18,24 @@ replaces=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 groups=("${MINGW_PACKAGE_PREFIX}-toolchain")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "autotools"
-             "${MINGW_PACKAGE_PREFIX}-libmangle"
              "git")
 depends=("${MINGW_PACKAGE_PREFIX}-cc-libs")
 options=('!emptydirs')
-source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#commit=$_commit")
-sha256sums=('6d5e5e4c55ec1b28a36768bf8fa64658724ce2e0d0cc95a069faeddf59dd6599')
+source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#branch=master")
+sha256sums=('SKIP')
 _tools="gendef genidl genpeimg widl" # genstubdll
 
 pkgver() {
   cd "${srcdir}/mingw-w64"
-  git describe --long ${_commit} | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
+  git describe --long HEAD | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
+}
+
+prepare() {
+  cd "${srcdir}/mingw-w64"
+
+  git reset --hard
+  git clean -fdx
+
 }
 
 build() {
@@ -38,7 +44,7 @@ build() {
     mkdir -p "${srcdir}"/${MSYSTEM}-${cur} && cd "${srcdir}"/${MSYSTEM}-${cur}
     "${srcdir}"/mingw-w64/mingw-w64-tools/${cur}/configure \
       --prefix=${MINGW_PREFIX} \
-      --with-mangle=${MINGW_PREFIX} \
+      --with-mangle=no \
       --with-widl-includedir=${MINGW_PREFIX}/include
     make
   done
