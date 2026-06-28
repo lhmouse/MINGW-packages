@@ -1,0 +1,2401 @@
+From ec01f11c99f07499196570b9e56b94d3750968c3 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Fri, 30 Oct 2026 16:48:58 +0800
+Subject: [PATCH] headers,crt: Copy clock and nanosleep from winpthreads
+
+---
+ mingw-w64-crt/Makefile.am              |    2 +
+ mingw-w64-crt/time/misc.c              |  357 +++++++
+ mingw-w64-crt/time/misc.h              |  267 +++++
+ mingw-w64-crt/time/time.c              | 1323 ++++++++++++++++++++++++
+ mingw-w64-crt/time/winpthreads-time.h  |   72 ++
+ mingw-w64-headers/crt/pthread_compat.h |  178 ++++
+ mingw-w64-headers/crt/pthread_time.h   |  133 ++-
+ 7 files changed, 2331 insertions(+), 1 deletion(-)
+ create mode 100644 mingw-w64-crt/time/misc.c
+ create mode 100644 mingw-w64-crt/time/misc.h
+ create mode 100644 mingw-w64-crt/time/time.c
+ create mode 100644 mingw-w64-crt/time/winpthreads-time.h
+ create mode 100644 mingw-w64-headers/crt/pthread_compat.h
+
+diff --git a/mingw-w64-crt/Makefile.am b/mingw-w64-crt/Makefile.am
+index 2ff7c553a..2038d72bd 100644
+--- a/mingw-w64-crt/Makefile.am
++++ b/mingw-w64-crt/Makefile.am
+@@ -1341,6 +1341,8 @@ src_libmingwex=\
+   misc/__mingw_raise_matherr.c \
+   misc/__mingw_setusermatherr.c \
+   \
++  time/misc.c            time/misc.h                time/time.c             time/winpthreads-time.h \
++  \
+   ssp/chk_fail.c         ssp/gets_chk.c             ssp/memcpy_chk.c        ssp/memmove_chk.c \
+   ssp/mempcpy_chk.c \
+   ssp/memset_chk.c       ssp/stack_chk_fail.c       ssp/stack_chk_guard.c   ssp/strcat_chk.c \
+diff --git a/mingw-w64-crt/time/misc.c b/mingw-w64-crt/time/misc.c
+new file mode 100644
+index 000000000..9cd8fb9a6
+--- /dev/null
++++ b/mingw-w64-crt/time/misc.c
+@@ -0,0 +1,357 @@
++/*
++   Copyright (c) 2011-2016, 2026 mingw-w64 project
++
++   Permission is hereby granted, free of charge, to any person obtaining a
++   copy of this software and associated documentation files (the "Software"),
++   to deal in the Software without restriction, including without limitation
++   the rights to use, copy, modify, merge, publish, distribute, sublicense,
++   and/or sell copies of the Software, and to permit persons to whom the
++   Software is furnished to do so, subject to the following conditions:
++
++   The above copyright notice and this permission notice shall be included in
++   all copies or substantial portions of the Software.
++
++   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++   DEALINGS IN THE SOFTWARE.
++*/
++
++#ifdef HAVE_CONFIG_H
++#include "config.h"
++#endif
++
++#include <stdlib.h>
++
++#define WIN32_LEAN_AND_MEAN
++#include <windows.h>
++
++/* public header files */
++//#include "pthread.h"
++/* internal header files */
++#include "winpthreads-time.h"
++
++#if WINPTHREADS_WINNT <= WINPTHREADS_WINNT_WIN10
++#define RUNTIME_CHECKS
++#endif
++
++/**
++ * Function type corrsponding to `GetHandleInformation`.
++ */
++typedef BOOL (WINAPI *FuncGetHandleInformation) (HANDLE, LPDWORD);
++
++/**
++ * Function type corrsponding to `SetThreadDescription`.
++ */
++typedef HRESULT (WINAPI *FuncSetThreadDescription) (HANDLE, PCWSTR);
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_5
++/**
++ * Replacement for `GetHandleInformation`;
++ * a simple stub that always fails.
++ */
++static BOOL WINAPI WinpthreadsGetHandleInformation (HANDLE handle, LPDWORD flags) {
++  SetLastError (ERROR_CALL_NOT_IMPLEMENTED);
++  return FALSE;
++  UNREFERENCED_PARAMETER (handle);
++  UNREFERENCED_PARAMETER (flags);
++}
++#endif
++
++#if WINPTHREADS_WINNT <= WINPTHREADS_WINNT_WIN10
++/**
++ * Replacement for `SetThreadDescription`;
++ * a simple stub that always fails.
++ */
++static HRESULT WINAPI WinpthreadsSetThreadDescription (HANDLE handle, PCWSTR description) {
++  return HRESULT_FROM_WIN32 (ERROR_CALL_NOT_IMPLEMENTED);
++  UNREFERENCED_PARAMETER (handle);
++  UNREFERENCED_PARAMETER (description);
++}
++#endif
++
++#ifdef RUNTIME_CHECKS
++/**
++ * Functions which are looked up at runtime.
++ */
++static struct {
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_5
++  /**
++   * Function `GetHandleInformation` is available since Windows NT 3.5.
++   */
++  FuncGetHandleInformation PtrGetHandleInformation;
++#endif
++#if WINPTHREADS_WINNT <= WINPTHREADS_WINNT_WIN10
++  /**
++   * Function `SetThreadDescription` is available since Windows 10 1607.
++   */
++  FuncSetThreadDescription PtrSetThreadDescription;
++#endif
++} WinpthreadsApi;
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_5
++#define GetHandleInformation WinpthreadsApi.PtrGetHandleInformation
++#endif
++
++#if WINPTHREADS_WINNT <= WINPTHREADS_WINNT_WIN10
++#define SetThreadDescription WinpthreadsApi.PtrSetThreadDescription
++#endif
++#endif /* RUNTIME_CHECKS */
++
++/**
++ * Function type corresponding to `winpthreads_set_thread_description_ansi`.
++ */
++typedef int (* FuncWinpthreadsSetThreadDescriptionAnsi) (void *, const char *);
++
++#if WINPTHREADS_WINNT <= WINPTHREADS_WINNT_WIN10
++/**
++ * Stubbed implementation for `winpthreads_set_thread_description_ansi`.
++ */
++static int WinpthreadsStubSetThreadDescriptionAnsi (void *handle, const char *description) {
++  return HRESULT_FROM_WIN32 (ERROR_CALL_NOT_IMPLEMENTED);
++  UNREFERENCED_PARAMETER (handle);
++  UNREFERENCED_PARAMETER (description);
++}
++#endif
++
++/**
++ * Implementation for `winpthreads_set_thread_description_ansi`.
++ */
++static int WinpthreadsSetThreadDescriptionAnsi (void *handle, const char *description) {
++  HRESULT hr;
++
++  int      bufferSize = 0;
++  wchar_t *buffer     = NULL;
++
++  bufferSize = MultiByteToWideChar (CP_ACP, 0, description, -1, buffer, bufferSize);
++
++  if (bufferSize == 0) {
++    hr = HRESULT_FROM_WIN32 (GetLastError ());
++    goto fail;
++  }
++
++  buffer = malloc (bufferSize * sizeof (wchar_t));
++
++  if (buffer == NULL) {
++    hr = HRESULT_FROM_WIN32 (ERROR_OUTOFMEMORY);
++    goto fail;
++  }
++
++  int written = MultiByteToWideChar (CP_ACP, 0, description, -1, buffer, bufferSize);
++
++  if (written == 0) {
++    hr = HRESULT_FROM_WIN32 (GetLastError ());
++    goto fail_free;
++  }
++
++  hr = SetThreadDescription (handle, buffer);
++
++fail_free:
++  free (buffer);
++
++fail:
++  return hr;
++}
++
++#if WINPTHREADS_WINNT <= WINPTHREADS_WINNT_WIN10
++/**
++ * Implementation based on functions available at runtime.
++ */
++static struct {
++  /**
++   * Implementation for `winpthreads_set_thread_description_ansi`.
++   */
++  FuncWinpthreadsSetThreadDescriptionAnsi PtrWinpthreadsSetThreadDescriptionAnsi;
++} WinpthreadsImpl;
++#endif
++
++#if defined(__GNUC__) || defined(__clang__)
++#if __GNUC__ >= 9 && !defined(__clang__)
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wprio-ctor-dtor"
++#endif
++__attribute__ ((constructor (0)))
++#endif
++static void winpthreads_init (void)
++{
++#ifdef RUNTIME_CHECKS
++  HMODULE kernel32   = GetModuleHandleA ("kernel32.dll");
++  HMODULE kernelbase = GetModuleHandleA ("kernelbase.dll");
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_5
++  FuncGetHandleInformation ptrGetHandleInformation = NULL;
++#endif
++#if WINPTHREADS_WINNT <= WINPTHREADS_WINNT_WIN10
++  FuncSetThreadDescription ptrSetThreadDescription = NULL;
++#endif
++
++  if (kernel32 != NULL) {
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_5
++    ptrGetHandleInformation = (FuncGetHandleInformation) (UINT_PTR) GetProcAddress (kernel32, "GetHandleInformation");
++#endif
++#if WINPTHREADS_WINNT <= WINPTHREADS_WINNT_WIN10
++    ptrSetThreadDescription = (FuncSetThreadDescription) (UINT_PTR) GetProcAddress (kernel32, "SetThreadDescription");
++#endif
++  }
++
++  if (kernelbase != NULL) {
++#if WINPTHREADS_WINNT <= WINPTHREADS_WINNT_WIN10
++    /**
++     * Although `SetThreadDescription` lives in kernel32.dll,
++     * on Windows Server 2016, Windows 10 LTSB 2016 and Windows 10 version 1607,
++     * it was only available in kernelbase.dll.
++     */
++    if (ptrSetThreadDescription == NULL) {
++      ptrSetThreadDescription = (FuncSetThreadDescription) (UINT_PTR) GetProcAddress (kernelbase, "SetThreadDescription");
++    }
++#endif
++  }
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_5
++  if (ptrGetHandleInformation != NULL) {
++    WinpthreadsApi.PtrGetHandleInformation = ptrGetHandleInformation;
++  } else {
++    WinpthreadsApi.PtrGetHandleInformation = WinpthreadsGetHandleInformation;
++  }
++#endif
++
++#if WINPTHREADS_WINNT <= WINPTHREADS_WINNT_WIN10
++  if (ptrSetThreadDescription != NULL) {
++    WinpthreadsApi.PtrSetThreadDescription                 = ptrSetThreadDescription;
++    WinpthreadsImpl.PtrWinpthreadsSetThreadDescriptionAnsi = WinpthreadsSetThreadDescriptionAnsi;
++  } else {
++    WinpthreadsApi.PtrSetThreadDescription                 = WinpthreadsSetThreadDescription;
++    WinpthreadsImpl.PtrWinpthreadsSetThreadDescriptionAnsi = WinpthreadsStubSetThreadDescriptionAnsi;
++  }
++#endif
++#endif /* RUNTIME_CHECKS */
++}
++#if defined(__GNUC__) && __GNUC__ >= 9 && !defined(__clang__)
++#pragma GCC diagnostic pop
++#endif
++
++#if defined(_MSC_VER) && !defined(__clang__)
++/* Force a reference to __xc_t to prevent whole program optimization
++ * from discarding the variable. */
++
++/* On x86, symbols are prefixed with an underscore. */
++#if defined(_M_IX86)
++#pragma comment(linker, "/include:___xc_t")
++#else
++#pragma comment(linker, "/include:__xc_t")
++#endif
++
++#pragma section(".CRT$XCT", long, read)
++__declspec (allocate (".CRT$XCT"))
++extern const _PVFV __xc_t;
++const _PVFV __xc_t = winpthreads_init;
++#endif
++
++#if WINPTHREADS_WINNT > WINPTHREADS_WINNT_WIN10
++#define SetThreadDescriptionAnsi WinpthreadsSetThreadDescriptionAnsi
++#else
++#define SetThreadDescriptionAnsi WinpthreadsImpl.PtrWinpthreadsSetThreadDescriptionAnsi
++#endif
++
++unsigned long winpthreads_wait_for_single_object (void *handle, unsigned long timeout)
++{
++  DWORD result;
++  unsigned long long start_time, end_time;
++  unsigned long wait_time;
++
++  if (timeout == INFINITE || timeout == 0) {
++    return WaitForSingleObject ((HANDLE) handle, (DWORD) timeout);
++  }
++
++  start_time = winpthreads_windows_time_ms ();
++  end_time = start_time + timeout;
++  wait_time = timeout;
++
++  do {
++    unsigned long long current_time;
++
++    result = WaitForSingleObject ((HANDLE) handle, (DWORD) wait_time);
++
++    if (result != WAIT_TIMEOUT) {
++      break;
++    }
++
++    current_time = winpthreads_windows_time_ms ();
++
++    if (current_time >= end_time) {
++      break;
++    }
++
++    wait_time = (DWORD) (end_time - current_time);
++  } while (TRUE);
++
++  return result;
++}
++
++unsigned long winpthreads_wait_for_multiple_objects (unsigned long count, void **handles, unsigned int all, unsigned long timeout)
++{
++  DWORD result;
++  unsigned long long start_time, end_time;
++  unsigned long wait_time;
++
++  if (timeout == INFINITE || timeout == 0) {
++    return WaitForMultipleObjects ((DWORD) count, (HANDLE *) handles, all, (DWORD) timeout);
++  }
++
++  start_time = winpthreads_windows_time_ms ();
++  end_time = start_time + timeout;
++  wait_time = timeout;
++
++  do {
++    unsigned long long current_time;
++
++    result = WaitForMultipleObjects ((DWORD) count, (HANDLE *) handles, all, (DWORD) wait_time);
++
++    if (result != WAIT_TIMEOUT) {
++      break;
++    }
++
++    current_time = winpthreads_windows_time_ms ();
++
++    if (current_time >= end_time) {
++      break;
++    }
++
++    wait_time = (DWORD) (end_time - current_time);
++  } while (TRUE);
++
++  return result;
++}
++
++int winpthreads_get_handle_information (void *handle, unsigned *flags) {
++  return GetHandleInformation (handle, (LPDWORD) flags);
++}
++
++int winpthreads_set_thread_description_ansi (void *handle, const char *description) {
++  return SetThreadDescriptionAnsi (handle, description);
++}
++
++int winpthreads_set_thread_description_unicode (void *handle, const wchar_t *description) {
++  return SetThreadDescription (handle, description);
++}
++
++int winpthreads_validate_handle (void *handle) {
++  if (handle == NULL || handle == INVALID_HANDLE_VALUE) {
++    return FALSE;
++  }
++
++  DWORD flags;
++
++  /**
++   * Function `GetHandleInformation` is available on Win9x systems,
++   * but it always fails with `ERROR_CALL_NOT_IMPLEMENTED`.
++   */
++  if (!GetHandleInformation (handle, &flags)) {
++    return GetLastError () == ERROR_CALL_NOT_IMPLEMENTED;
++  }
++
++  return TRUE;
++}
+diff --git a/mingw-w64-crt/time/misc.h b/mingw-w64-crt/time/misc.h
+new file mode 100644
+index 000000000..cbeacc767
+--- /dev/null
++++ b/mingw-w64-crt/time/misc.h
+@@ -0,0 +1,267 @@
++/*
++   Copyright (c) 2011-2016, 2026 mingw-w64 project
++
++   Permission is hereby granted, free of charge, to any person obtaining a
++   copy of this software and associated documentation files (the "Software"),
++   to deal in the Software without restriction, including without limitation
++   the rights to use, copy, modify, merge, publish, distribute, sublicense,
++   and/or sell copies of the Software, and to permit persons to whom the
++   Software is furnished to do so, subject to the following conditions:
++
++   The above copyright notice and this permission notice shall be included in
++   all copies or substantial portions of the Software.
++
++   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++   DEALINGS IN THE SOFTWARE.
++*/
++
++#ifndef WIN_PTHREADS_MISC_H
++#define WIN_PTHREADS_MISC_H
++
++#include <sdkddkver.h>
++
++/**
++ * Windows NT 3.1
++ *
++ * Major version: 3
++ * Minor version: 10
++ */
++#define WINPTHREADS_WINNT_NT_3_1  (0x030A)
++/**
++ * Windows NT 3.5
++ *
++ * Major version: 3
++ * Minor version: 50
++ */
++#define WINPTHREADS_WINNT_NT_3_5  (0x0332)
++/**
++ * Windows NT 3.51
++ *
++ * Major version: 3
++ * Minor version: 51
++ */
++#define WINPTHREADS_WINNT_NT_3_51 (0x0333)
++/**
++ * Windows NT 4
++ *
++ * Major version: 4
++ * Minor version: 0
++ */
++#define WINPTHREADS_WINNT_NT_4    _WIN32_WINNT_NT4
++/**
++ * Windows 2000
++ *
++ * Major version: 5
++ * Minor version: 0
++ */
++#define WINPTHREADS_WINNT_2000    _WIN32_WINNT_WIN2K
++/**
++ * Windows XP
++ *
++ * Major version: 5
++ * Minor version: 1
++ */
++#define WINPTHREADS_WINNT_XP      _WIN32_WINNT_WINXP
++/**
++ * Windows Vista
++ *
++ * Major version: 6
++ * Minor version: 0
++ */
++#define WINPTHREADS_WINNT_VISTA   _WIN32_WINNT_VISTA
++/**
++ * Windows 7
++ *
++ * Major version: 6
++ * Minor version: 1
++ */
++#define WINPTHREADS_WINNT_WIN7    _WIN32_WINNT_WIN7
++/**
++ * Windows 8
++ *
++ * Major version: 6
++ * Minor version: 2
++ */
++#define WINPTHREADS_WINNT_WIN8    _WIN32_WINNT_WIN8
++/**
++ * Windows 8.1
++ *
++ * Major version: 6
++ * Minor version: 3
++ */
++#define WINPTHREADS_WINNT_WIN8_1  _WIN32_WINNT_WINBLUE
++/**
++ * Windows 10
++ *
++ * Major version: 10
++ * Minor version: 0
++ */
++#define WINPTHREADS_WINNT_WIN10   _WIN32_WINNT_WIN10
++
++/**
++ * Define `WINPTHREADS_WINNT` macro.
++ *
++ * Minimal Windows NT version to be supported by the library.
++ */
++
++/**
++ * All Windows NT versions support x86.
++ * x86 builds can also be configured with Win9x support.
++ */
++#if defined(_M_IX86)
++
++/**
++ * For x86 builds with MSVC, use Windows XP as the minimal version as recent
++ * MSVC does not support targeting older Windows versions.
++ */
++#if defined(_MSC_VER)
++
++#ifndef WINPTHREADS_WINNT
++#define WINPTHREADS_WINNT WINPTHREADS_WINNT_XP
++#endif
++
++/**
++ * For x86 build with mingw-w64, use NT 3.1 as the minimal version and enable
++ * Win9x support if not disabled explicitly.
++ */
++#else /* mingw-w64 */
++
++#ifndef WINPTHREADS_WINNT
++#define WINPTHREADS_WINNT WINPTHREADS_WINNT_NT_3_1
++#endif
++
++#ifndef WINPTHREADS_WIN9X
++#define WINPTHREADS_WIN9X 1
++#endif
++
++#endif /* mingw-w64 */
++
++/**
++ * Native x64, not arm64ec.
++ * Support for x64 is only available since Windows XP.
++ */
++#elif defined(_M_X64) && !defined(_M_ARM64EC)
++
++#if defined(WINPTHREADS_WINNT) && WINPTHREADS_WINNT < WINPTHREADS_WINNT_XP
++#undef WINPTHREADS_WINNT
++#endif
++
++#ifndef WINPTHREADS_WINNT
++#define WINPTHREADS_WINNT WINPTHREADS_WINNT_XP
++#endif
++
++#ifdef WINPTHREADS_WIN9X
++#undef WINPTHREADS_WIN9X
++#endif
++
++/**
++ * Support for arm32 is available since Windows 8.
++ */
++#elif defined(_M_ARM)
++
++#if defined(WINPTHREADS_WINNT) && WINPTHREADS_WINNT < WINPTHREADS_WINNT_WIN8
++#undef WINPTHREADS_WINNT
++#endif
++
++#ifndef WINPTHREADS_WINNT
++#define WINPTHREADS_WINNT WINPTHREADS_WINNT_WIN8
++#endif
++
++#ifdef WINPTHREADS_WIN9X
++#undef WINPTHREADS_WIN9X
++#endif
++
++/**
++ * Support for arm64 and arm64ec is available since Windows 10.
++ */
++#elif defined(_M_ARM64) || defined(_M_ARM64EC)
++
++#if defined(WINPTHREADS_WINNT) && WINPTHREADS_WINNT < WINPTHREADS_WINNT_WIN10
++#undef WINPTHREADS_WINNT
++#endif
++
++#ifndef WINPTHREADS_WINNT
++#define WINPTHREADS_WINNT WINPTHREADS_WINNT_WIN10
++#endif
++
++#ifdef WINPTHREADS_WIN9X
++#undef WINPTHREADS_WIN9X
++#endif
++
++#else  /* unknown arch */
++#error Unsupported architecture
++#endif /* unknown arch */
++
++/**
++ * Whether to include code for Win9x support.
++ */
++#ifndef WINPTHREADS_WIN9X
++#define WINPTHREADS_WIN9X 0
++#endif
++
++#if defined(__GNUC__) || defined(__clang__)
++#define likely(cond)   __builtin_expect ((cond) != 0, 1)
++#define unlikely(cond) __builtin_expect ((cond) != 0, 0)
++#else
++#define likely(cond)   (cond)
++#define unlikely(cond) (cond)
++#endif
++
++#if defined(__GNUC__) || defined(__clang__)
++#define UNREACHABLE() __builtin_unreachable ()
++#elif defined(_MSC_VER)
++#define UNREACHABLE() __assume (0)
++#endif
++
++/**
++ * A wrapper around `WaitForSingleObject` that ensures that
++ * the wait function does not time out before the time actually runs out.
++ *
++ * This is needed because `WaitForSingleObject` might have poor accuracy,
++ * returning earlier than expected. On the other hand, returning a bit *later*
++ * than expected is acceptable in a preemptive multitasking environment.
++ */
++unsigned long winpthreads_wait_for_single_object (void *handle, unsigned long timeout);
++
++/**
++ * A wrapper around `WaitForMultipleObjects` that ensures that
++ * the wait function does not time out before the time actually runs out.
++ *
++ * This is needed because `WaitForMultipleObjects` might have poor accuracy,
++ * returning earlier than expected. On the other hand, returning a bit *later*
++ * than expected is acceptable in a preemptive multitasking environment.
++ */
++unsigned long winpthreads_wait_for_multiple_objects (unsigned long count, void **handles, unsigned int all, unsigned long timeout);
++
++/**
++ * Portability wrapper for `GetHandleInformation`.
++ */
++int winpthreads_get_handle_information (void *, unsigned *);
++
++/**
++ * Portability wrapper for `SetThreadDescription`.
++ *
++ * Since `SetThreadDescription` expects wide character string for its
++ * second argument, this wrapper converts its second argument using
++ * active ANSI code page before passing it to `SetThreadDescription`.
++ */
++int winpthreads_set_thread_description_ansi (void *, const char *);
++
++/**
++ * Portability wrapper for `SetThreadDescription`.
++ */
++int winpthreads_set_thread_description_unicode (void *, const wchar_t *);
++
++/**
++ * Validate `handle`.
++ *
++ * Returns non-zero if `handle` is valid and zero otherwise.
++ */
++int winpthreads_validate_handle (void *handle);
++
++#endif
+diff --git a/mingw-w64-crt/time/time.c b/mingw-w64-crt/time/time.c
+new file mode 100644
+index 000000000..496ed4add
+--- /dev/null
++++ b/mingw-w64-crt/time/time.c
+@@ -0,0 +1,1323 @@
++/*
++   Copyright (c) 2026 mingw-w64 project
++
++   Permission is hereby granted, free of charge, to any person obtaining a
++   copy of this software and associated documentation files (the "Software"),
++   to deal in the Software without restriction, including without limitation
++   the rights to use, copy, modify, merge, publish, distribute, sublicense,
++   and/or sell copies of the Software, and to permit persons to whom the
++   Software is furnished to do so, subject to the following conditions:
++
++   The above copyright notice and this permission notice shall be included in
++   all copies or substantial portions of the Software.
++
++   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++   DEALINGS IN THE SOFTWARE.
++*/
++
++#ifdef HAVE_CONFIG_H
++#include "config.h"
++#endif
++
++#include <assert.h>
++#include <errno.h>
++#include <stdint.h>
++#include <time.h>
++
++#define WIN32_LEAN_AND_MEAN
++#include <windows.h>
++
++#define WINPTHREAD_TIME_DECL WINPTHREAD_API
++
++/* public header files */
++//#include "pthread.h"
++/* internal header files */
++//#include "thread.h"           /* _pthread_delay_np_ms */
++static inline int _pthread_delay_np_ms (DWORD to) { Sleep (to); return 0; }
++#include "winpthreads-time.h"
++
++/**
++ * File Summary:
++ *
++ * This file contains all time-related definitions used by the library,
++ * as well as public functions declared in pthread_time.h.
++ */
++
++/**
++ * Reference:
++ *
++ * nanosleep():
++ *  <https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/functions/nanosleep.html>
++ *
++ * clock_getres(), clock_gettime(), clock_settime():
++ *  <https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/functions/clock_getres.html>
++ *
++ * clock_nanosleep():
++ *  <https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/functions/clock_nanosleep.html>
++ *
++ * clock_getcpuclockid():
++ *  <https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/functions/clock_getcpuclockid.html>
++ *
++ * This following functions are not implemented:
++ *
++ * - clock_getcpuclockid()
++ */
++
++#define POW10_3 1000
++#define POW10_4 10000
++#define POW10_6 1000000
++#define POW10_7 10000000
++#define POW10_9 1000000000
++
++/**
++ * This is the maximum amount of milliseconds `nanosleep` can sleep at a time.
++ */
++#define MAX_SLEEP_IN_MS (INFINITE - 1)
++
++/**
++ * Number of 100ns intervals between the beginning of the Windows epoch
++ * (Jan. 1, 1601) and the Unix epoch (Jan. 1, 1970)
++ */
++#define DELTA_EPOCH_IN_100NS INT64_C(116444736000000000)
++
++/**
++ * This is the maximum `FILETIME` value that can be passed to
++ * `FileTimeToSystemTime`.
++ */
++#define FILETIME_TO_SYSTEMTIME_MAX UINT64_C(0x7FFFFFFFFFFFFFFF)
++
++/*******************************************************************************
++ * In order to provide the best coverage in terms of backward compatibility
++ * and feature support, we lookup functions which may not be available on older
++ * Windows versions at runtime, and use them if they are available.
++ *
++ * If some function is not available, we provide a simple replacement or stub.
++ */
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_WIN8
++#define RUNTIME_CHECKS
++#endif
++
++/**
++ * Function type corresponding to `GetProcessTimes` and `GetThreadTimes`.
++ */
++typedef BOOL (WINAPI *FuncGetTimes) (HANDLE, FILETIME *, FILETIME *, FILETIME *, FILETIME *);
++
++/**
++ * Function type corresponding to `GetSystemTimeAsFileTime` and
++ * `GetSystemTimePreciseAsFileTime`.
++ */
++typedef VOID (WINAPI *FuncGetSystemTimeAsFileTime) (FILETIME *);
++
++/**
++ * Function type corresponding to `GetSystemTimeAdjustment`.
++ */
++typedef BOOL (WINAPI *FuncGetSystemTimeAdjustment) (DWORD *, DWORD *, BOOL *);
++
++/**
++ * Function type corresponding to `GetTickCount64`.
++ */
++typedef ULONGLONG (WINAPI *FuncGetTickCount64) (VOID);
++
++#ifdef RUNTIME_CHECKS
++/**
++ * Functions which are looked up at runtime.
++ */
++typedef struct TimeApi {
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_51
++  /**
++   * Function `GetSystemTimeAsFileTime` is available since Windows NT 3.51.
++   */
++  FuncGetSystemTimeAsFileTime PtrGetSystemTimeAsFileTime;
++#endif
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_WIN8
++  /**
++   * Function `GetSystemTimePreciseAsFileTime` is available since Windows 8.
++   */
++  FuncGetSystemTimeAsFileTime PtrGetSystemTimePreciseAsFileTime;
++#endif
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_5
++  /**
++   * Function `GetSystemTimeAdjustment` is available since Windows NT 3.5.
++   */
++  FuncGetSystemTimeAdjustment PtrGetSystemTimeAdjustment;
++#endif
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_VISTA
++  /**
++   * Function `GetTickCount64` is available since Windows Vista.
++   */
++  FuncGetTickCount64 PtrGetTickCount64;
++#endif
++} TimeApi;
++
++static TimeApi WinpthreadsTimeApi;
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_5
++#define GetSystemTimeAdjustment WinpthreadsTimeApi.PtrGetSystemTimeAdjustment
++#endif
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_51
++#define GetSystemTimeAsFileTime WinpthreadsTimeApi.PtrGetSystemTimeAsFileTime
++#endif
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_VISTA
++#define GetTickCount64 WinpthreadsTimeApi.PtrGetTickCount64
++#endif
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_WIN8
++#define GetSystemTimePreciseAsFileTime WinpthreadsTimeApi.PtrGetSystemTimePreciseAsFileTime
++#endif
++#endif /* RUNTIME_CHECKS */
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_51
++/**
++ * Replacement for `GetSystemTimeAsFileTime`;
++ * a wrapper around `GetSystemTime` and `SystemTimeToFileTime`
++ */
++static VOID WINAPI WinpthreadsGetSystemTimeAsFileTime (FILETIME *fileTime) {
++  SYSTEMTIME systemTime;
++
++  GetSystemTime (&systemTime);
++
++  /**
++   * If call to `SystemTimeToFileTime` fails, store Unix epoch in `fileTime`.
++   */
++  if (unlikely (!SystemTimeToFileTime (&systemTime, fileTime))) {
++    fileTime->dwHighDateTime = (ULARGE_INTEGER) {.QuadPart = DELTA_EPOCH_IN_100NS}.HighPart;
++    fileTime->dwLowDateTime  = (ULARGE_INTEGER) {.QuadPart = DELTA_EPOCH_IN_100NS}.LowPart;
++  }
++}
++#endif
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_5
++/**
++ * Replacement for `GetSystemTimeAdjustment`;
++ * a simple stab that always fails.
++ */
++static BOOL WINAPI WinpthreadsGetSystemTimeAdjustment (DWORD *adjustment, DWORD *increment, BOOL *disable) {
++  SetLastError (ERROR_CALL_NOT_IMPLEMENTED);
++  return FALSE;
++  UNREFERENCED_PARAMETER (adjustment);
++  UNREFERENCED_PARAMETER (increment);
++  UNREFERENCED_PARAMETER (disable);
++}
++#endif
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_VISTA
++/**
++ * Replacement for `GetTickCount64`;
++ * a simple wrapper around `GetTickCount`.
++ */
++static ULONGLONG WINAPI WinpthreadsGetTickCount64 (VOID) {
++  return GetTickCount ();
++}
++#endif
++
++/**
++ * Function type for internal implementation of `clock_gettime` and
++ * `clock_getres` for a specific clock (`clockid_t`) type.
++ *
++ * The first argument, if non-NULL, recieves the time.
++ * The second argument, if non-NULL, recieves the clock resolution.
++ *
++ * Returns zero on success and an error-code on failure.
++ */
++typedef int (* FuncWinpthreadsTimeImpl) (struct _timespec64 *, struct _timespec64 *);
++
++/**
++ * Implementation for `CLOCK_REALTIME` using `GetSystemTimeAsFileTime`.
++ *
++ * This function always succeeds.
++ */
++static int WinpthreadsTimeImplRealtime (struct _timespec64 *, struct _timespec64 *);
++
++/**
++ * Implementation for `CLOCK_REALTIME` using `GetSystemTimePreciseAsFileTime`.
++ *
++ * This function always succeeds.
++ */
++static int WinpthreadsTimeImplRealtimePrecise (struct _timespec64 *, struct _timespec64 *);
++
++/**
++ * Implementation for `CLOCK_MONOTONIC` using `GetTickCount*`.
++ *
++ * This function always succeeds.
++ */
++static int WinpthreadsTimeImplMonotonicFromTickCount (struct _timespec64 *, struct _timespec64 *);
++
++/**
++ * Implementation for `CLOCK_MONOTONIC` using `QueryPerformanceCounter`.
++ *
++ * This function always succeeds.
++ *
++ * In an unlikely case when call to `QueryPerformanceCounter` fails,
++ * this function simply forwards to `WinpthreadsTimeImplMonotonicFromTickCount`.
++ */
++static int WinpthreadsTimeImplMonotonicFromPerformanceCounter (struct _timespec64 *, struct _timespec64 *);
++
++/**
++ * Implementation for `CLOCK_PROCESS_CPUTIME_ID`.
++ *
++ * This function always fails on Win9x systems.
++ */
++static int WinpthreadsTimeImplProcessCpuTime (struct _timespec64 *time, struct _timespec64 *res);
++
++/**
++ * Implementation for `CLOCK_THREAD_CPUTIME_ID`.
++ *
++ * This function always fails on Win9x systems.
++ */
++static int WinpthreadsTimeImplThreadCpuTime (struct _timespec64 *time, struct _timespec64 *res);
++
++/**
++ * Time-related data.
++ */
++typedef struct TimeImpl {
++/**
++ * If set, then `GetSystemTimePreciseAsFileTime` is available.
++ */
++#define HIGH_RESOLUTION_SYSTEM_TIME 0x01
++/**
++ * If set, then the performance counter is supported.
++ */
++#define HIGH_RESOLUTION_WINDOWS_TIME 0x02
++  int Flags;
++  /**
++   * Data related to the system clock.
++   */
++  struct {
++    /**
++     * Resolution of the system clock, in nanoseconds.
++     *
++     * System clock resolution is set at boot time, which means we can obtain
++     * this value once and then treat it as a constant at runtime.
++     */
++    long Resolution;
++  } SystemClock;
++  /**
++   * Data related to the performance counter.
++   */
++  struct {
++    /**
++     * Frequency of the performance counter as returned by
++     * `QueryPerformanceFrequency`.
++     *
++     * This value is set once at boot time, which means we can obtain
++     * this value once and then treat it as a constant at runtime.
++     */
++    __int64 Frequency;
++    /**
++     * Resolution of the performance counter , in nanoseconds.
++     */
++    long Resolution;
++  } PerformanceCounter;
++  /**
++   * Implementation for `CLOCK_REALTIME`.
++   *
++   * 1. Implementation using `GetSystemTimePreciseAsFileTime`.
++   *
++   *  This is the preferred implementation; it is used when both
++   *  `GetSystemTimePreciseAsFileTime` is available and the performance counter
++   *  is supported.
++   *
++   *  This implementation provides <1us resolution.
++   *
++   * 2. Implementation using `GetSystemTimeAsFileTime`.
++   *
++   *  This implementation is used when either `GetSystemTimePreciseAsFileTime`
++   *  is not available or the performance counter is not supported.
++   *
++   *  This implementation provides the same resolution as the system clock.
++   */
++  FuncWinpthreadsTimeImpl TimeImplRealtime;
++  /**
++   * Implementation for `CLOCK_MONOTONIC`.
++   *
++   * 1. Implementation using `QueryPerformanceCounter`.
++   *
++   *  This is the preferred implementation and is always used when
++   *  the performance counter is supported.
++   *
++   *  This implementation provides <1us resolution.
++   *
++   * 2. Implementation using `GetTickCount*`.
++   *
++   *  This implementation is only used when the performance counter
++   *  is not supported.
++   *
++   *  This implementation provides the same resolution as the system clock.
++   *
++   *  On pre-Vista systems, where `GetTickCount64` is not available,
++   *  we use `GetTickCount`, which wraps around to zero after ~49 days.
++   *
++   * The issues resulting from using `GetTickCount*` shall not affect modern
++   * systems since the performance counter is always supported starting
++   * with Windows XP.
++   */
++  FuncWinpthreadsTimeImpl TimeImplMonotonic;
++} TimeImpl;
++
++#if WINPTHREADS_WINNT >= WINPTHREADS_WINNT_WIN8
++#define WINPTHREADS_DEFAULT_TIME_API_FLAGS (HIGH_RESOLUTION_SYSTEM_TIME)
++#else
++#define WINPTHREADS_DEFAULT_TIME_API_FLAGS (0)
++#endif
++
++static TimeImpl WinpthreadsTimeImpl = {
++  .Flags = WINPTHREADS_DEFAULT_TIME_API_FLAGS,
++  .SystemClock.Resolution = 0,
++  .PerformanceCounter.Frequency = 0,
++  .PerformanceCounter.Resolution = 0,
++  .TimeImplRealtime = WinpthreadsTimeImplRealtime,
++  .TimeImplMonotonic = WinpthreadsTimeImplMonotonicFromTickCount,
++};
++
++/**
++ * Check if `bit` is set in `WinpthreadsTimeImpl.Flags`
++ */
++#define WINPTHREADS_TIME_HAVE(bit) (WinpthreadsTimeImpl.Flags & (bit))
++
++#if defined(__GNUC__) || defined(__clang__)
++#if __GNUC__ >= 9 && !defined(__clang__)
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wprio-ctor-dtor"
++#endif
++__attribute__ ((constructor (0)))
++#endif
++static void winpthreads_time_init (void) {
++#ifdef RUNTIME_CHECKS
++  HMODULE kernel32   = GetModuleHandleA ("kernel32.dll");
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_51
++  FuncGetSystemTimeAsFileTime ptrGetSystemTimeAsFileTime = NULL;
++#endif
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_WIN8
++  FuncGetSystemTimeAsFileTime ptrGetSystemTimePreciseAsFileTime = NULL;
++#endif
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_5
++  FuncGetSystemTimeAdjustment ptrGetSystemTimeAdjustment = NULL;
++#endif
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_VISTA
++  FuncGetTickCount64 ptrGetTickCount64 = NULL;
++#endif
++
++  if (kernel32 != NULL) {
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_51
++    ptrGetSystemTimeAsFileTime = (FuncGetSystemTimeAsFileTime) (UINT_PTR) GetProcAddress (kernel32, "GetSystemTimeAsFileTime");
++#endif
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_WIN8
++    ptrGetSystemTimePreciseAsFileTime = (FuncGetSystemTimeAsFileTime) (UINT_PTR) GetProcAddress (kernel32, "GetSystemTimePreciseAsFileTime");
++#endif
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_5
++    ptrGetSystemTimeAdjustment = (FuncGetSystemTimeAdjustment) (UINT_PTR) GetProcAddress (kernel32, "GetSystemTimeAdjustment");
++#endif
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_VISTA
++    ptrGetTickCount64 = (FuncGetTickCount64) (UINT_PTR) GetProcAddress (kernel32, "GetTickCount64");
++#endif
++  }
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_51
++  if (ptrGetSystemTimeAsFileTime != NULL) {
++    WinpthreadsTimeApi.PtrGetSystemTimeAsFileTime = ptrGetSystemTimeAsFileTime;
++  } else {
++    WinpthreadsTimeApi.PtrGetSystemTimeAsFileTime = WinpthreadsGetSystemTimeAsFileTime;
++  }
++#endif
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_WIN8
++  if (ptrGetSystemTimePreciseAsFileTime != NULL) {
++    WinpthreadsTimeImpl.Flags                           |= HIGH_RESOLUTION_SYSTEM_TIME;
++    WinpthreadsTimeApi.PtrGetSystemTimePreciseAsFileTime = ptrGetSystemTimePreciseAsFileTime;
++  } else {
++    WinpthreadsTimeApi.PtrGetSystemTimePreciseAsFileTime = GetSystemTimeAsFileTime;
++  }
++#endif
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_NT_3_5
++  if (ptrGetSystemTimeAdjustment != NULL) {
++    WinpthreadsTimeApi.PtrGetSystemTimeAdjustment = ptrGetSystemTimeAdjustment;
++  } else {
++    WinpthreadsTimeApi.PtrGetSystemTimeAdjustment = WinpthreadsGetSystemTimeAdjustment;
++  }
++#endif
++
++#if WINPTHREADS_WINNT < WINPTHREADS_WINNT_VISTA
++  if (ptrGetTickCount64 != NULL) {
++    WinpthreadsTimeApi.PtrGetTickCount64 = ptrGetTickCount64;
++  } else {
++    WinpthreadsTimeApi.PtrGetTickCount64 = WinpthreadsGetTickCount64;
++  }
++#endif
++#endif /* RUNTIME_CHECKS */
++
++  /**
++   * Obtain resolution of the system clock.
++   *
++   * Function `GetSystemTimeAdjustment` is not available on NT 3.1;
++   * this function is available on Win9x, but it always fails with
++   * `ERROR_CALL_NOT_IMPLEMENTED`.
++   *
++   * In order to gracefully handle above cases, we default to 16ms;
++   * the resolution of the system clock on Windows is 10~16ms.
++   *
++   * NOTE: we do not use `GetSystemTimeAdjustmentPrecise` as it appears to
++   *  return meaningless values when `isTimeAdjustmentDisabled` is `TRUE`.
++   */
++  DWORD timeAdjustment;
++  DWORD timeIncrement;
++  BOOL  isTimeAdjustmentDisabled;
++
++  if (GetSystemTimeAdjustment (&timeAdjustment, &timeIncrement, &isTimeAdjustmentDisabled)) {
++    WinpthreadsTimeImpl.SystemClock.Resolution = (long) (timeIncrement * 100);
++  } else {
++    WinpthreadsTimeImpl.SystemClock.Resolution = 16L * POW10_6;
++  }
++
++  /**
++   * Obtain frequency and resolution of the performance counter.
++   *
++   * If we succeed, then the performance counter is supported;
++   * set `HIGH_RESOLUTION_WINDOWS_TIME` bit in `WinpthreadsTimeImpl.Flags`.
++   *
++   * Otherwise, the performance counter is not supported.
++   *
++   * Starting with Windows XP, functions `QueryPerformanceFrequency` and
++   * `QueryPerformanceCounter` always succeed.
++   */
++  LARGE_INTEGER performanceFrequency;
++
++  if (QueryPerformanceFrequency (&performanceFrequency)) {
++    WinpthreadsTimeImpl.PerformanceCounter.Frequency = performanceFrequency.QuadPart;
++
++    /**
++     * Check if the performance counter supports sub-nanosecond resolution.
++     */
++    if (WinpthreadsTimeImpl.PerformanceCounter.Frequency / POW10_9 > 0) {
++      WinpthreadsTimeImpl.PerformanceCounter.Resolution = 1L;
++    } else {
++      WinpthreadsTimeImpl.PerformanceCounter.Resolution =
++        (long) (POW10_9 / WinpthreadsTimeImpl.PerformanceCounter.Frequency);
++    }
++
++    WinpthreadsTimeImpl.Flags            |= HIGH_RESOLUTION_WINDOWS_TIME;
++    WinpthreadsTimeImpl.TimeImplMonotonic = WinpthreadsTimeImplMonotonicFromPerformanceCounter;
++
++    /**
++     * Even though `GetSystemTimePreciseAsFileTime` is available since
++     * Windows 8, which should imply that the performance counter is supported,
++     * we want to be sure that `GetSystemTimePreciseAsFileTime` is used only
++     * when the performance counter is also supported.
++     */
++    if (WINPTHREADS_TIME_HAVE (HIGH_RESOLUTION_SYSTEM_TIME)) {
++      WinpthreadsTimeImpl.TimeImplRealtime = WinpthreadsTimeImplRealtimePrecise;
++    }
++  }
++}
++
++/**
++ * Store resolution of the system clock in `ts`.
++ */
++static void WinpthreadsGetSystemClockResolution (struct _timespec64 *ts) {
++  ts->tv_sec  = WinpthreadsTimeImpl.SystemClock.Resolution / POW10_9;
++  ts->tv_nsec = WinpthreadsTimeImpl.SystemClock.Resolution % POW10_9;
++}
++
++/**
++ * Store resolution of the performance counter in `ts`.
++ */
++static void WinpthreadsGetPerformanceCounterResolution (struct _timespec64 *ts) {
++  ts->tv_sec  = WinpthreadsTimeImpl.PerformanceCounter.Resolution / POW10_9;
++  ts->tv_nsec = WinpthreadsTimeImpl.PerformanceCounter.Resolution % POW10_9;
++}
++
++/**
++ * Call `getSystemTimeAsFileTime` to obtain current system time as a `FILETIME`
++ * value and then store it in `struct _timespec64` structure pointed by `ts`.
++ */
++static void WinpthreadsGetSystemTime (struct _timespec64 *ts, FuncGetSystemTimeAsFileTime getSystemTimeAsFileTime) {
++  FILETIME fileTime;
++
++  getSystemTimeAsFileTime (&fileTime);
++
++  ULARGE_INTEGER value = {
++    .HighPart = fileTime.dwHighDateTime,
++    .LowPart  = fileTime.dwLowDateTime
++  };
++  value.QuadPart -= DELTA_EPOCH_IN_100NS;
++
++  ts->tv_sec  = (__time64_t) (value.QuadPart / POW10_7);
++  ts->tv_nsec = (long) ((value.QuadPart % POW10_7) * 100);
++}
++
++/**
++ * Call `getTimes` on `handle`, then convert and store obtained time values
++ * in `struct _timespec64` structure pointed by `ts`.
++ */
++static int WinpthreadsGetCpuTime (struct _timespec64 *ts, FuncGetTimes getTimes, void *handle) {
++  FILETIME creationTime;
++  FILETIME exitTime;
++  FILETIME kernelTime;
++  FILETIME userTime;
++
++  /**
++   * Functions `GetProcessTimes` and `GetThreadTimes` are available on
++   * Win9x systems, but they always fail with `ERROR_CALL_NOT_IMPLEMENTED`.
++   *
++   * `ENOTSUP` is the most fitting error code, although this error
++   * condition is not specified by POSIX.
++   */
++  if (!getTimes (handle, &creationTime, &exitTime, &kernelTime, &userTime)) {
++    return ENOTSUP;
++  }
++
++  ULARGE_INTEGER kernelValue = {
++    .HighPart = kernelTime.dwHighDateTime,
++    .LowPart  = kernelTime.dwLowDateTime
++  };
++  ULARGE_INTEGER userValue = {
++    .HighPart = userTime.dwHighDateTime,
++    .LowPart  = userTime.dwLowDateTime
++  };
++  ULONGLONG value = kernelValue.QuadPart + userValue.QuadPart;
++
++  ts->tv_sec  = (__time64_t) (value / POW10_7);
++  ts->tv_nsec = (long) ((value % POW10_7) * 100);
++
++  return 0;
++}
++
++static int WinpthreadsTimeImplRealtime (struct _timespec64 *time, struct _timespec64 *res) {
++  if (time != NULL) {
++    WinpthreadsGetSystemTime (time, GetSystemTimeAsFileTime);
++  }
++
++  if (res != NULL) {
++    WinpthreadsGetSystemClockResolution (res);
++  }
++
++  return 0;
++}
++
++static int WinpthreadsTimeImplRealtimePrecise (struct _timespec64 *time, struct _timespec64 *res) {
++  if (time != NULL) {
++    WinpthreadsGetSystemTime (time, GetSystemTimePreciseAsFileTime);
++  }
++
++  if (res != NULL) {
++    WinpthreadsGetPerformanceCounterResolution (res);
++  }
++
++  return 0;
++}
++
++static int WinpthreadsTimeImplMonotonicFromTickCount (struct _timespec64 *time, struct _timespec64 *res) {
++  if (time != NULL) {
++    /**
++     * Functions `GetTickCount*` have the same resolution as the system clock
++     * but return time in milliseconds.
++     *
++     * In order to return more precise time, round up returned time value
++     * to the resolution of the system clock.
++     */
++    unsigned __int64 tickCountAsFileTime   = GetTickCount64 () * POW10_4;
++    unsigned __int64 systemClockResolution = WinpthreadsTimeImpl.SystemClock.Resolution / 100;
++
++    if ((tickCountAsFileTime % systemClockResolution) != 0) {
++      tickCountAsFileTime -= (tickCountAsFileTime % systemClockResolution);
++      tickCountAsFileTime += systemClockResolution;
++    }
++
++    time->tv_sec  = (__time64_t) (tickCountAsFileTime / POW10_7);
++    time->tv_nsec = (long) ((tickCountAsFileTime % POW10_7) * 100);
++  }
++
++  if (res != NULL) {
++    WinpthreadsGetSystemClockResolution (res);
++  }
++
++  return 0;
++}
++
++static int WinpthreadsTimeImplMonotonicFromPerformanceCounter (struct _timespec64 *time, struct _timespec64 *res) {
++  LARGE_INTEGER performanceCounter;
++
++  /**
++   * If call to `QueryPerformanceCounter` fails,
++   * forward to `WinpthreadsTimeImplMonotonicFromTickCount`.
++   */
++  if (unlikely (!QueryPerformanceCounter (&performanceCounter))) {
++    return WinpthreadsTimeImplMonotonicFromTickCount (time, res);
++  }
++
++  const __int64 performanceFrequency = WinpthreadsTimeImpl.PerformanceCounter.Frequency;
++
++  if (time != NULL) {
++    time->tv_sec  = (__time64_t) (performanceCounter.QuadPart / performanceFrequency);
++    time->tv_nsec = (long) (((performanceCounter.QuadPart % performanceFrequency) * POW10_9) / performanceFrequency);
++  }
++
++  if (res != NULL) {
++    WinpthreadsGetPerformanceCounterResolution (res);
++  }
++
++  return 0;
++}
++
++static int WinpthreadsTimeImplProcessCpuTime (struct _timespec64 *time, struct _timespec64 *res) {
++  struct _timespec64 ts;
++
++  /**
++   * Win9x: we want both `clock_getres` and `clock_gettime` to fail
++   *  if CPU clocks are not supported.
++   */
++  int error_code = WinpthreadsGetCpuTime (&ts, GetProcessTimes, GetCurrentProcess ());
++
++  if (error_code != 0) {
++    return error_code;
++  }
++
++  if (time != NULL) {
++    *time = ts;
++  }
++
++  if (res != NULL) {
++    WinpthreadsGetSystemClockResolution (res);
++  }
++
++  return 0;
++}
++
++static int WinpthreadsTimeImplThreadCpuTime (struct _timespec64 *time, struct _timespec64 *res) {
++  struct _timespec64 ts;
++
++  /**
++   * Win9x: we want both `clock_getres` and `clock_gettime` to fail
++   *  if CPU clocks are not supported.
++   */
++  int error_code = WinpthreadsGetCpuTime (&ts, GetThreadTimes, GetCurrentThread ());
++
++  if (error_code != 0) {
++    return error_code;
++  }
++
++  if (time != NULL) {
++    *time = ts;
++  }
++
++  if (res != NULL) {
++    WinpthreadsGetSystemClockResolution (res);
++  }
++
++  return 0;
++}
++
++/*******************************************************************************
++ * Private Functions.
++ */
++
++unsigned __int64 winpthreads_system_time_ms (void)
++{
++  FILETIME fileTime;
++
++  GetSystemTimePreciseAsFileTime (&fileTime);
++
++  ULARGE_INTEGER value = {
++    .HighPart = fileTime.dwHighDateTime,
++    .LowPart  = fileTime.dwLowDateTime
++  };
++
++  return (value.QuadPart - DELTA_EPOCH_IN_100NS) / POW10_4;
++}
++
++unsigned __int64 winpthreads_timespec_ms (const struct _timespec64 *ts)
++{
++  unsigned __int64 msFromSec  = ts->tv_sec;
++  unsigned __int64 msFromNsec = (ts->tv_nsec + POW10_6 - 1) / POW10_6;
++
++  /**
++   * Check for overflow.
++   */
++  if (unlikely (msFromSec > (_UI64_MAX / POW10_3))) {
++    return _UI64_MAX;
++  }
++
++  msFromSec *= POW10_3;
++
++  /**
++   * Check for overflow.
++   */
++  if (unlikely (msFromNsec > _UI64_MAX - msFromSec)) {
++    return _UI64_MAX;
++  }
++
++  return msFromSec + msFromNsec;
++}
++
++unsigned winpthreads_wait_time_ms (const struct _timespec64 *ts)
++{
++  unsigned __int64 msCurrent  = winpthreads_system_time_ms ();
++  unsigned __int64 msAbsolute = winpthreads_timespec_ms (ts);
++
++  /**
++   * Check for underflow.
++   */
++  if (msAbsolute <= msCurrent) {
++    return 0;
++  }
++
++  unsigned __int64 diff = msAbsolute - msCurrent;
++
++  if (diff >= INFINITE) {
++    return INFINITE;
++  }
++
++  return (unsigned) diff;
++}
++
++unsigned __int64 winpthreads_windows_time_ms (void)
++{
++  struct _timespec64 ts;
++
++  WinpthreadsTimeImpl.TimeImplMonotonic (&ts, NULL);
++
++  unsigned __int64 msFromSec  = ts.tv_sec;
++  unsigned __int64 msFromNsec = ts.tv_nsec / POW10_6;
++
++  /**
++   * Check for overflow.
++   */
++  if (unlikely (msFromSec > (_UI64_MAX / POW10_3))) {
++    return _UI64_MAX;
++  }
++
++  msFromSec *= POW10_3;
++
++  /**
++   * Check for overflow.
++   */
++  if (unlikely (msFromNsec > (_UI64_MAX - msFromSec))) {
++    return _UI64_MAX;
++  }
++
++  return msFromSec + msFromNsec;
++}
++
++int winpthreads_timespec_diff (const struct _timespec64 *ts1, const struct _timespec64 *ts2) {
++  if (ts1->tv_sec > ts2->tv_sec) {
++    return 1;
++  }
++
++  if (ts1->tv_sec < ts2->tv_sec) {
++    return -1;
++  }
++
++  return ts1->tv_nsec - ts2->tv_nsec;
++}
++
++void winpthreads_timespec_add (const struct _timespec64 *ts1, const struct _timespec64 *ts2, struct _timespec64 *out) {
++  /**
++   * Check for overflow.
++   */
++  if (unlikely (ts1->tv_sec > _I64_MAX - ts2->tv_sec)) {
++    out->tv_sec  = _I64_MAX;
++    out->tv_nsec = POW10_9 - 1;
++    return;
++  }
++
++  out->tv_sec  = ts1->tv_sec + ts2->tv_sec;
++  out->tv_nsec = ts1->tv_nsec + ts2->tv_nsec;
++
++  if (out->tv_nsec >= POW10_9) {
++    /**
++     * Prevent overflow in `out->tv_sec`.
++     */
++    if (out->tv_sec == _I64_MAX) {
++      out->tv_nsec = POW10_9 - 1;
++    } else {
++      out->tv_sec  += 1;
++      out->tv_nsec -= POW10_9;
++    }
++  }
++}
++
++void winpthreads_timespec_sub (const struct _timespec64 *ts1, const struct _timespec64 *ts2, struct _timespec64 *out) {
++  /**
++   * Check for underflow.
++   */
++  if (ts2->tv_sec > ts1->tv_sec) {
++    out->tv_sec  = 0;
++    out->tv_nsec = 0;
++    return;
++  }
++
++  out->tv_sec  = ts1->tv_sec - ts2->tv_sec;
++  out->tv_nsec = ts1->tv_nsec - ts2->tv_nsec;
++
++  if (out->tv_nsec < 0) {
++    /**
++     * Prevent underflow in `out->tv_sec`.
++     */
++    if (out->tv_sec == 0) {
++      out->tv_nsec = 0;
++    } else {
++      out->tv_sec  -= 1;
++      out->tv_nsec += POW10_9;
++    }
++  }
++}
++
++/*******************************************************************************
++ * Public Functions.
++ */
++
++/**
++ * Common implementation for `nanosleep` and `clock_nanosleep`.
++ *
++ * Returns zero on success and an error-code on failure.
++ */
++static int WinpthreadsSleep (FuncWinpthreadsTimeImpl timeImpl, int flags, const struct _timespec64 *request, struct _timespec64 *remain) {
++  struct _timespec64 startTime;
++  struct _timespec64 endTime;
++  struct _timespec64 sleepUntil;
++  struct _timespec64 sleepFor;
++
++  timeImpl (&startTime, NULL);
++
++  if (flags & TIMER_ABSTIME) {
++    sleepUntil = *request;
++    winpthreads_timespec_sub (&sleepUntil, &startTime, &sleepFor);
++  } else {
++    sleepFor = *request;
++    winpthreads_timespec_add (&startTime, &sleepFor, &sleepUntil);
++  }
++
++  /**
++   * Timeout already expired.
++   */
++  if (winpthreads_timespec_diff (&startTime, &sleepUntil) >= 0) {
++    return 0;
++  }
++
++  /**
++   * Total sleep time in milliseconds.
++   */
++  unsigned __int64 totalSleepTime = winpthreads_timespec_ms (&sleepFor);
++  int error_code;
++
++  do {
++    /**
++     * We can sleep for at most `INFINITE - 1` milliseconds at a time.
++     */
++    unsigned sleepTime;
++
++    if (unlikely (totalSleepTime >= MAX_SLEEP_IN_MS)) {
++      sleepTime = MAX_SLEEP_IN_MS;
++    } else {
++      sleepTime = (unsigned) totalSleepTime;
++    }
++
++    totalSleepTime -= sleepTime;
++    error_code      = _pthread_delay_np_ms (sleepTime);
++  } while (totalSleepTime > 0 && likely (error_code == 0));
++
++  /**
++   * Currently, function `_pthread_delay_np_ms` always returns zero.
++   */
++  if (unlikely (error_code != 0)) {
++    error_code = EINTR;
++
++    /**
++     * FIXME:
++     *
++     * For `CLOCK_REALTIME`, it is possible that the system time has been
++     * changed while we were sleeping, which means `ramain` will be calculated
++     * relative to the new system time.
++     *
++     * In order to fix this we would need to re-write waiting routines,
++     * and allow them return total time spent sleeping.
++     */
++    if ((flags & TIMER_ABSTIME) == 0 && remain != NULL) {
++      timeImpl (&endTime, NULL);
++      winpthreads_timespec_sub (&sleepUntil, &endTime, remain);
++    }
++  }
++
++  return error_code;
++}
++
++int nanosleep64 (const struct _timespec64 *request, struct _timespec64 *remain)
++{
++  /**
++   * The nanosleep() function shall fail if:
++   *
++   * [EINVAL]
++   *   The request argument specified a nanosecond value less than zero or
++   *   greater than or equal to 1000 million.
++   */
++  if (request->tv_sec < 0 || request->tv_nsec < 0 || request->tv_nsec >= POW10_9) {
++    _set_errno (EINVAL);
++    return -1;
++  }
++
++  int error_code = WinpthreadsSleep (WinpthreadsTimeImpl.TimeImplRealtime, 0, request, remain);
++
++  if (error_code != 0) {
++    _set_errno (error_code);
++    return -1;
++  }
++
++  return error_code;
++}
++
++int nanosleep32 (const struct _timespec32 *request, struct _timespec32 *remain)
++{
++  struct _timespec64 request64 = {
++    .tv_sec  = request->tv_sec,
++    .tv_nsec = request->tv_nsec
++  };
++  struct _timespec64 remain64 = {0};
++
++  int error_code = nanosleep64 (&request64, &remain64);
++
++  if (error_code == -1) {
++    if (unlikely (errno == EINTR) && remain != NULL) {
++      assert (remain64.tv_sec >= 0 && remain64.tv_sec <= INT_MAX);
++      remain->tv_sec = (__time32_t) remain64.tv_sec;
++      assert (remain64.tv_nsec >= 0 && remain64.tv_nsec < POW10_9);
++      remain->tv_nsec = remain64.tv_nsec;
++    }
++  }
++
++  return error_code;
++}
++
++int clock_getres64 (clockid_t clock_id, struct _timespec64 *res)
++{
++  int error_code = 0;
++
++  switch (clock_id) {
++    case CLOCK_REALTIME: {
++      WinpthreadsTimeImpl.TimeImplRealtime (NULL, res);
++      break;
++    }
++
++    case CLOCK_REALTIME_COARSE: {
++      WinpthreadsTimeImplRealtime (NULL, res);
++      break;
++    }
++
++    case CLOCK_MONOTONIC: {
++      WinpthreadsTimeImpl.TimeImplMonotonic (NULL, res);
++      break;
++    }
++
++    case CLOCK_PROCESS_CPUTIME_ID: {
++      error_code = WinpthreadsTimeImplProcessCpuTime (NULL, res);
++      break;
++    }
++
++    case CLOCK_THREAD_CPUTIME_ID: {
++      error_code = WinpthreadsTimeImplThreadCpuTime (NULL, res);
++      break;
++    }
++
++    default: {
++      error_code = EINVAL;
++      break;
++    }
++  }
++
++  if (error_code != 0) {
++    _set_errno (error_code);
++    return -1;
++  }
++
++  return 0;
++}
++
++int clock_getres32 (clockid_t clock_id, struct _timespec32 *res)
++{
++  struct _timespec64 res64;
++
++  int error_code = clock_getres64 (clock_id, &res64);
++
++  if (error_code == 0) {
++    res->tv_sec  = (__time32_t) res64.tv_sec;
++    res->tv_nsec = res64.tv_nsec;
++  }
++
++  return error_code;
++}
++
++int clock_gettime64 (clockid_t clock_id, struct _timespec64 *tp)
++{
++  int error_code = 0;
++
++  switch (clock_id) {
++    case CLOCK_REALTIME: {
++      WinpthreadsTimeImpl.TimeImplRealtime (tp, NULL);
++      break;
++    }
++
++    case CLOCK_REALTIME_COARSE: {
++      WinpthreadsTimeImplRealtime (tp, NULL);
++      break;
++    }
++
++    case CLOCK_MONOTONIC: {
++      WinpthreadsTimeImpl.TimeImplMonotonic (tp, NULL);
++      break;
++    }
++
++    case CLOCK_PROCESS_CPUTIME_ID: {
++      error_code = WinpthreadsTimeImplProcessCpuTime (tp, NULL);
++      break;
++    }
++
++    case CLOCK_THREAD_CPUTIME_ID: {
++      error_code = WinpthreadsTimeImplThreadCpuTime (tp, NULL);
++      break;
++    }
++
++    default: {
++      error_code = EINVAL;
++      break;
++    }
++  }
++
++  if (error_code != 0) {
++    _set_errno (error_code);
++    return -1;
++  }
++
++  return 0;
++}
++
++int clock_gettime32 (clockid_t clock_id, struct _timespec32 *tp)
++{
++  struct _timespec64 tp64;
++
++  int error_code = clock_gettime64 (clock_id, &tp64);
++
++  if (error_code == 0) {
++    if (tp64.tv_sec > INT_MAX) {
++      _set_errno (EOVERFLOW);
++      return -1;
++    }
++
++    tp->tv_sec  = (__time32_t) tp64.tv_sec;
++    tp->tv_nsec = tp64.tv_nsec;
++  }
++
++  return error_code;
++}
++
++int clock_settime64 (clockid_t clock_id, const struct _timespec64 *tp)
++{
++  /**
++   * The clock_settime() function shall fail if:
++   *
++   * [EINVAL]
++   *   The tp argument specified a nanosecond value less than zero or
++   *   greater than or equal to 1000 million.
++   */
++  if (tp->tv_sec < 0 || tp->tv_nsec < 0 || tp->tv_nsec >= POW10_9) {
++    _set_errno (EINVAL);
++    return -1;
++  }
++
++  FuncWinpthreadsTimeImpl timeImpl;
++
++  switch (clock_id) {
++    case CLOCK_REALTIME:
++      timeImpl = WinpthreadsTimeImpl.TimeImplRealtime;
++      break;
++    case CLOCK_REALTIME_COARSE:
++      timeImpl = WinpthreadsTimeImplRealtime;
++      break;
++    /**
++     * Setting CPU clocks is not supported.
++     *
++     * Fail with `ENOTSUP`; while this error condition is not specified
++     * by POSIX, it is better than overly generic `EINVAL`.
++     */
++    case CLOCK_PROCESS_CPUTIME_ID:
++    case CLOCK_THREAD_CPUTIME_ID:
++      _set_errno (ENOTSUP);
++      return -1;
++    /**
++     * The clock_settime() function shall fail if:
++     *
++     * [EINVAL]
++     *   The value of the clock_id argument is CLOCK_MONOTONIC.
++     */
++    case CLOCK_MONOTONIC:
++    /**
++     * The clock_settime() function shall fail if:
++     *
++     * [EINVAL]
++     *   The clock_id argument does not specify a known clock.
++     */
++    default:
++      _set_errno(EINVAL);
++      return -1;
++  }
++
++  /**
++   * Obtain resolution of `clock_id` as a `FILETIME` value.
++   */
++  struct _timespec64 resAsTimeSpec;
++  unsigned __int64   resAsFileTime;
++
++  timeImpl (NULL, &resAsTimeSpec);
++  resAsFileTime = resAsTimeSpec.tv_sec * POW10_7 + resAsTimeSpec.tv_nsec / 100;
++
++  /**
++   * The maximum `FILETIME` value that can be passed to `FileTimeToSystemTime`
++   * is defined as `FILETIME_TO_SYSTEMTIME_MAX`. However, since we will round
++   * it down to `resAsFileTime`, we may allow values slighty larger than that.
++   */
++  unsigned __int64 fileTimeMax = FILETIME_TO_SYSTEMTIME_MAX;
++
++  if (likely (resAsFileTime != 0) && (fileTimeMax % resAsFileTime) != 0) {
++    fileTimeMax -= (fileTimeMax % resAsFileTime);
++    fileTimeMax += resAsFileTime - 1;
++  }
++
++  /**
++   * Convert `tp` to `FILEITME` value.
++   * The converted value shall not exceed `fileTimeMax`.
++   *
++   * The clock_settime() function shall fail if:
++   *
++   * [EINVAL]
++   *   The tp argument to clock_settime() is outside the range for
++   *   the given clock ID.
++   */
++  ULARGE_INTEGER value = {
++    .QuadPart = DELTA_EPOCH_IN_100NS
++  };
++
++  unsigned __int64 fileTimeFromSec  = (unsigned __int64) tp->tv_sec;
++  unsigned __int64 fileTimeFromNsec = (unsigned __int64) (tp->tv_nsec / 100);
++
++  if (unlikely (fileTimeFromSec > ((fileTimeMax - value.QuadPart) / POW10_7))) {
++    _set_errno (EINVAL);
++    return -1;
++  }
++
++  value.QuadPart += (fileTimeFromSec * POW10_7);
++
++  if (unlikely (fileTimeFromNsec > (fileTimeMax - value.QuadPart))) {
++    _set_errno (EINVAL);
++    return -1;
++  }
++
++  value.QuadPart += fileTimeFromNsec;
++  /**
++   * Round `value` down to `resAsFileTime`.
++   */
++  if (likely (resAsFileTime != 0)) {
++    value.QuadPart -= (value.QuadPart % resAsFileTime);
++  }
++
++  /**
++   * Convert `value` to `FILETIME`, and then to `SYSTEMTIME`.
++   */
++  FILETIME fileTime = {
++    .dwHighDateTime = value.HighPart,
++    .dwLowDateTime  = value.LowPart
++  };
++  SYSTEMTIME systemTime;
++
++  if (!FileTimeToSystemTime (&fileTime, &systemTime)) {
++    _set_errno (EINVAL);
++    return -1;
++  }
++
++  /**
++   * The clock_settime() function shall fail if:
++   *
++   * [EPERM]
++   *   The requesting process does not have appropriate privileges
++   *   to set the specified clock.
++   */
++  if (!SetSystemTime (&systemTime)) {
++    _set_errno (EPERM);
++    return -1;
++  }
++
++  return 0;
++}
++
++int clock_settime32 (clockid_t clock_id, const struct _timespec32 *tp)
++{
++  struct _timespec64 tp64 = {.tv_sec = tp->tv_sec, .tv_nsec = tp->tv_nsec};
++  return clock_settime64 (clock_id, &tp64);
++}
++
++int clock_nanosleep64 (clockid_t clock_id, int flags, const struct _timespec64 *request, struct _timespec64 *remain)
++{
++  /**
++   * The clock_nanosleep() function shall fail if:
++   *
++   * [EINVAL]
++   *   The request argument specified a nanosecond value less than zero or
++   *   greater than or equal to 1000 million.
++   */
++  if (request->tv_sec < 0 || request->tv_nsec < 0 || request->tv_nsec >= POW10_9) {
++    return EINVAL;
++  }
++
++  FuncWinpthreadsTimeImpl timeImpl;
++
++  switch (clock_id) {
++    case CLOCK_REALTIME:
++      timeImpl = WinpthreadsTimeImpl.TimeImplRealtime;
++      break;
++    case CLOCK_REALTIME_COARSE:
++      timeImpl = WinpthreadsTimeImplRealtime;
++      break;
++    case CLOCK_MONOTONIC:
++      timeImpl = WinpthreadsTimeImpl.TimeImplMonotonic;
++      break;
++    /**
++     * The clock_nanosleep() function shall fail if:
++     *
++     * [EINVAL]
++     *   the clock_id argument does not specify a known clock,
++     *   or specifies the CPU-time clock of the calling thread.
++     */
++    case CLOCK_PROCESS_CPUTIME_ID:
++    case CLOCK_THREAD_CPUTIME_ID:
++    default:
++      return EINVAL;
++  }
++
++  return WinpthreadsSleep (timeImpl, flags, request, remain);
++}
++
++int clock_nanosleep32 (clockid_t clock_id, int flags, const struct _timespec32 *request, struct _timespec32 *remain)
++{
++  struct _timespec64 request64 = {
++    .tv_sec  = request->tv_sec,
++    .tv_nsec = request->tv_nsec
++  };
++  struct _timespec64 remain64;
++
++  int error_code = clock_nanosleep64 (clock_id, flags, &request64, &remain64);
++
++  if (!(flags & TIMER_ABSTIME) && unlikely (error_code == EINTR) && remain != NULL) {
++    assert (remain64.tv_sec >= 0 && remain64.tv_sec <= INT_MAX);
++    remain->tv_sec = (__time32_t) remain64.tv_sec;
++    assert (remain64.tv_nsec >= 0 && remain64.tv_nsec < POW10_9);
++    remain->tv_nsec = remain64.tv_nsec;
++  }
++
++  return error_code;
++}
+diff --git a/mingw-w64-crt/time/winpthreads-time.h b/mingw-w64-crt/time/winpthreads-time.h
+new file mode 100644
+index 000000000..fc4820375
+--- /dev/null
++++ b/mingw-w64-crt/time/winpthreads-time.h
+@@ -0,0 +1,72 @@
++/*
++   Copyright (c) 2026 mingw-w64 project
++
++   Permission is hereby granted, free of charge, to any person obtaining a
++   copy of this software and associated documentation files (the "Software"),
++   to deal in the Software without restriction, including without limitation
++   the rights to use, copy, modify, merge, publish, distribute, sublicense,
++   and/or sell copies of the Software, and to permit persons to whom the
++   Software is furnished to do so, subject to the following conditions:
++
++   The above copyright notice and this permission notice shall be included in
++   all copies or substantial portions of the Software.
++
++   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++   DEALINGS IN THE SOFTWARE.
++*/
++
++#ifndef WINPTHREADS_TIME_H
++#define WINPTHREADS_TIME_H
++
++/* public header files */
++#include "pthread_time.h"
++/* internal header files */
++#include "misc.h"
++
++/**
++ * Get current system time, in milliseconds.
++ */
++unsigned __int64 winpthreads_system_time_ms (void);
++
++/**
++ * Get absolute time from `ts`, in millseconds.
++ */
++unsigned __int64 winpthreads_timespec_ms (const struct _timespec64 *ts);
++
++/**
++ * Get difference between current system time and absolute time `ts`,
++ * in milliseconds.
++ *
++ * The value is returned as an `unsigned`; it is expected to be used with
++ * functions such as `WaitFor*` and `Sleep`, which take `DWORD` values.
++ */
++unsigned winpthreads_wait_time_ms (const struct _timespec64 *ts);
++
++/**
++ * Get current time using some monotonic clock, in milliseconds.
++ */
++unsigned __int64 winpthreads_windows_time_ms (void);
++
++/**
++ * Compare `ts1` and `ts2`.
++ *
++ * Return value follows `strcmp` convention.
++ */
++int winpthreads_timespec_diff (const struct _timespec64 *ts1, const struct _timespec64 *ts2);
++
++/**
++ * Add `ts2` to `ts1` and store result in `out`.
++ */
++void winpthreads_timespec_add (const struct _timespec64 *ts1, const struct _timespec64 *ts2, struct _timespec64 *out);
++
++/**
++ * Substract `ts2` from `ts1` and store result in `out`.
++ */
++void winpthreads_timespec_sub (const struct _timespec64 *ts1, const struct _timespec64 *ts2, struct _timespec64 *out);
++
++#endif /* WINPTHREADS_TIME_H */
+diff --git a/mingw-w64-headers/crt/pthread_compat.h b/mingw-w64-headers/crt/pthread_compat.h
+new file mode 100644
+index 000000000..063e34de3
+--- /dev/null
++++ b/mingw-w64-headers/crt/pthread_compat.h
+@@ -0,0 +1,178 @@
++/*
++   Copyright (c) 2011-2016  mingw-w64 project
++
++   Permission is hereby granted, free of charge, to any person obtaining a
++   copy of this software and associated documentation files (the "Software"),
++   to deal in the Software without restriction, including without limitation
++   the rights to use, copy, modify, merge, publish, distribute, sublicense,
++   and/or sell copies of the Software, and to permit persons to whom the
++   Software is furnished to do so, subject to the following conditions:
++
++   The above copyright notice and this permission notice shall be included in
++   all copies or substantial portions of the Software.
++
++   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++   DEALINGS IN THE SOFTWARE.
++*/
++
++/*
++ * Parts of this library are derived by:
++ *
++ * Posix Threads library for Microsoft Windows
++ *
++ * Use at own risk, there is no implied warranty to this code.
++ * It uses undocumented features of Microsoft Windows that can change
++ * at any time in the future.
++ *
++ * (C) 2010 Lockless Inc.
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ *
++ *  * Redistributions of source code must retain the above copyright notice,
++ *    this list of conditions and the following disclaimer.
++ *  * Redistributions in binary form must reproduce the above copyright notice,
++ *    this list of conditions and the following disclaimer in the documentation
++ *    and/or other materials provided with the distribution.
++ *  * Neither the name of Lockless Inc. nor the names of its contributors may be
++ *    used to endorse or promote products derived from this software without
++ *    specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AN
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
++ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
++ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
++ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
++ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
++ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
++ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
++ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
++ * OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef WIN_PTHREADS_PTHREAD_COMPAT_H
++#define WIN_PTHREADS_PTHREAD_COMPAT_H
++
++#if defined(__cplusplus) && __cplusplus >= 201103L
++#define WINPTHREADS_STATIC_ASSERT(expr, msg) static_assert ((expr), msg)
++#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
++#define WINPTHREADS_STATIC_ASSERT(expr, msg) static_assert ((expr), msg)
++#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
++#define WINPTHREADS_STATIC_ASSERT(expr, msg) _Static_assert ((expr), msg)
++#else
++#define WINPTHREADS_STATIC_ASSERT(expr, msg) extern int winpthreads_static_assert[((expr) ? 1 : -1)]
++#endif
++
++#if defined(_USE_32BIT_TIME_T)
++#define WINPTHREADS_TIME_BITS 32
++#else
++#define WINPTHREADS_TIME_BITS 64
++#endif
++
++#ifndef WINPTHREAD_API
++  /**
++   * Allow `WINPTHREAD_STATIC` to override `WINPTHREADS_USE_DLLIMPORT`.
++   */
++# if defined(WINPTHREADS_USE_DLLIMPORT) && !defined(WINPTHREAD_STATIC)
++#  define WINPTHREAD_API  __declspec(dllimport)
++# else
++#  define WINPTHREAD_API
++# endif
++#endif
++
++#ifndef __clockid_t_defined
++typedef int clockid_t;
++#define __clockid_t_defined 1
++#endif  /* __clockid_t_defined */
++
++#ifndef _MODE_T_
++#define	_MODE_T_
++typedef unsigned short mode_t;
++#endif
++
++/* Error-codes.  */
++#ifndef ETIMEDOUT
++#define ETIMEDOUT	138
++#endif
++#ifndef ENOTSUP
++#define ENOTSUP		129
++#endif
++#ifndef EWOULDBLOCK
++#define EWOULDBLOCK	140
++#endif
++
++#ifdef __GNUC__
++
++#define WINPTHREADS_INLINE __inline__
++#define WINPTHREADS_ALWAYS_INLINE __inline__ __attribute__((__always_inline__))
++#define WINPTHREADS_ATTRIBUTE(X) __attribute__(X)
++#define WINPTHREADS_SECTION(X) __section__(X)
++
++#elif _MSC_VER
++
++/**
++ * If package which includes this header file is using autoconf and calls
++ * AC_TYPE_PID_T macro, the check for pid_t will fail and it will define pid_t
++ * as a macro in config.h - this eventually results in compilation error.
++ *
++ * Luckily, it defines it to the same base type, so we can simply undefine it.
++ */
++#ifdef _WIN64
++#ifdef pid_t
++WINPTHREADS_STATIC_ASSERT (sizeof (pid_t) == sizeof(__int64), "pid_t is defined as a macro with mismatching base type");
++#undef pid_t
++#endif
++typedef __int64 pid_t;
++#else
++#ifdef pid_t
++WINPTHREADS_STATIC_ASSERT (sizeof (pid_t) == sizeof(int), "pid_t is defined as a macro with mismatching base type");
++#undef pid_t
++#endif
++typedef int     pid_t;
++#endif
++
++#define WINPTHREADS_INLINE __inline
++#define WINPTHREADS_ALWAYS_INLINE __inline __forceinline
++#define WINPTHREADS_ATTRIBUTE(X) __declspec X
++#define WINPTHREADS_SECTION(X) allocate(X)
++
++#endif
++
++#ifdef __cplusplus
++#define WINPTHREAD_TIME_BITS_DECL WINPTHREADS_ALWAYS_INLINE
++#else
++#define WINPTHREAD_TIME_BITS_DECL static WINPTHREADS_ALWAYS_INLINE
++#endif
++
++#ifndef WINPTHREAD_COND_DECL
++#define WINPTHREAD_COND_DECL WINPTHREAD_TIME_BITS_DECL
++#endif
++
++#ifndef WINPTHREAD_MUTEX_DECL
++#define WINPTHREAD_MUTEX_DECL WINPTHREAD_TIME_BITS_DECL
++#endif
++
++#ifndef WINPTHREAD_RWLOCK_DECL
++#define WINPTHREAD_RWLOCK_DECL WINPTHREAD_TIME_BITS_DECL
++#endif
++
++#ifndef WINPTHREAD_SEM_DECL
++#define WINPTHREAD_SEM_DECL WINPTHREAD_TIME_BITS_DECL
++#endif
++
++#ifndef WINPTHREAD_TIME_DECL
++#define WINPTHREAD_TIME_DECL WINPTHREAD_TIME_BITS_DECL
++#endif
++
++#ifndef WINPTHREAD_THREAD_DECL
++#define WINPTHREAD_THREAD_DECL WINPTHREAD_TIME_BITS_DECL
++#endif
++
++#endif
+diff --git a/mingw-w64-headers/crt/pthread_time.h b/mingw-w64-headers/crt/pthread_time.h
+index e740b43e4..3262d26d6 100644
+--- a/mingw-w64-headers/crt/pthread_time.h
++++ b/mingw-w64-headers/crt/pthread_time.h
+@@ -1 +1,132 @@
+-/* Dummy header, which gets overridden, if winpthread library gets installed.  */
++/*
++   Copyright (c) 2011-2016, 2026 mingw-w64 project
++
++   Permission is hereby granted, free of charge, to any person obtaining a
++   copy of this software and associated documentation files (the "Software"),
++   to deal in the Software without restriction, including without limitation
++   the rights to use, copy, modify, merge, publish, distribute, sublicense,
++   and/or sell copies of the Software, and to permit persons to whom the
++   Software is furnished to do so, subject to the following conditions:
++
++   The above copyright notice and this permission notice shall be included in
++   all copies or substantial portions of the Software.
++
++   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++   DEALINGS IN THE SOFTWARE.
++*/
++
++#ifndef WIN_PTHREADS_TIME_H
++#define WIN_PTHREADS_TIME_H
++
++#include <sys/timeb.h>
++#include "pthread_compat.h"
++
++/* `CLOCK_MONOTONIC` is supported.  */
++#ifndef _POSIX_MONOTONIC_CLOCK
++#define _POSIX_MONOTONIC_CLOCK 200809L
++#endif
++
++/* `CLOCK_PROCESS_CPUTIME_ID` is supported.  */
++#ifndef _POSIX_CPUTIME
++/**
++ * Only supported on Windows NT; not supported on Win9x.
++ */
++#define _POSIX_CPUTIME 0
++#endif
++
++/* `CLOCK_THREAD_CPUTIME_ID` is supported.  */
++#ifndef _POSIX_THREAD_CPUTIME
++/**
++ * Only supported on Windows NT; not supported on Win9x.
++ */
++#define _POSIX_THREAD_CPUTIME 0
++#endif
++
++/* POSIX timers are not supported. */
++#ifdef _POSIX_TIMERS
++#undef _POSIX_TIMERS
++#endif
++
++#define CLOCK_REALTIME           0
++#define CLOCK_MONOTONIC          1
++#define CLOCK_PROCESS_CPUTIME_ID 2
++#define CLOCK_THREAD_CPUTIME_ID  3
++/**
++ * Not POSIX.
++ *
++ * Same as `CLOCK_REALTIME`, except it always uses the same resolution as
++ * the system clock (10~16ms).
++ */
++#define CLOCK_REALTIME_COARSE    4
++
++#define TIMER_ABSTIME 1
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++WINPTHREAD_API int __cdecl nanosleep32(const struct _timespec32 *, struct _timespec32 *);
++WINPTHREAD_API int __cdecl nanosleep64(const struct _timespec64 *, struct _timespec64 *);
++WINPTHREAD_TIME_DECL int __cdecl nanosleep(const struct timespec *_T1, struct timespec *_T2)
++{
++#if WINPTHREADS_TIME_BITS == 32
++  return nanosleep32((const struct _timespec32 *)_T1, (struct _timespec32 *)_T2);
++#else
++  return nanosleep64((const struct _timespec64 *)_T1, (struct _timespec64 *)_T2);
++#endif
++}
++
++WINPTHREAD_API int __cdecl clock_getres32(clockid_t, struct _timespec32 *);
++WINPTHREAD_API int __cdecl clock_getres64(clockid_t, struct _timespec64 *);
++WINPTHREAD_TIME_DECL int __cdecl clock_getres(clockid_t _C, struct timespec *_T)
++{
++#if WINPTHREADS_TIME_BITS == 32
++  return clock_getres32(_C, (struct _timespec32 *)_T);
++#else
++  return clock_getres64(_C, (struct _timespec64 *)_T);
++#endif
++}
++
++WINPTHREAD_API int __cdecl clock_gettime32(clockid_t, struct _timespec32 *);
++WINPTHREAD_API int __cdecl clock_gettime64(clockid_t, struct _timespec64 *);
++WINPTHREAD_TIME_DECL int __cdecl clock_gettime(clockid_t _C, struct timespec *_T)
++{
++#if WINPTHREADS_TIME_BITS == 32
++  return clock_gettime32(_C, (struct _timespec32 *)_T);
++#else
++  return clock_gettime64(_C, (struct _timespec64 *)_T);
++#endif
++}
++
++WINPTHREAD_API int __cdecl clock_settime32(clockid_t, const struct _timespec32 *);
++WINPTHREAD_API int __cdecl clock_settime64(clockid_t, const struct _timespec64 *);
++WINPTHREAD_TIME_DECL int __cdecl clock_settime(clockid_t _C, const struct timespec *_T)
++{
++#if WINPTHREADS_TIME_BITS == 32
++  return clock_settime32(_C, (const struct _timespec32 *)_T);
++#else
++  return clock_settime64(_C, (const struct _timespec64 *)_T);
++#endif
++}
++
++WINPTHREAD_API int __cdecl clock_nanosleep32(clockid_t, int, const struct _timespec32 *, struct _timespec32 *);
++WINPTHREAD_API int __cdecl clock_nanosleep64(clockid_t, int, const struct _timespec64 *, struct _timespec64 *);
++WINPTHREAD_TIME_DECL int __cdecl clock_nanosleep(clockid_t _C, int _F, const struct timespec *_T1, struct timespec *_T2)
++{
++#if WINPTHREADS_TIME_BITS == 32
++  return clock_nanosleep32(_C, _F, (const struct _timespec32 *)_T1, (struct _timespec32 *)_T2);
++#else
++  return clock_nanosleep64(_C, _F, (const struct _timespec64 *)_T1, (struct _timespec64 *)_T2);
++#endif
++}
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* WIN_PTHREADS_TIME_H */
+-- 
+2.56.0
+
