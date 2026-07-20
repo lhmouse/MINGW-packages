@@ -1,4 +1,4 @@
-From 61fa742ca33177773a867dc0e99018cec51f5c77 Mon Sep 17 00:00:00 2001
+From c58e85a8f5a2c2b46b5353cf91d3e74598b3d7f9 Mon Sep 17 00:00:00 2001
 From: LIU Hao <lh_mouse@126.com>
 Date: Mon, 9 Feb 2026 13:18:21 +0800
 Subject: [PATCH] Revert "Restore old behaviour of windres so that options
@@ -11,10 +11,10 @@ This reverts commit 749c700282097cf679ff019a9674d7c762f48619.
  2 files changed, 29 insertions(+), 4 deletions(-)
 
 diff --git a/binutils/doc/binutils.texi b/binutils/doc/binutils.texi
-index e52ec69616a..e26b22f033e 100644
+index 198ae8244ef..567b7b0be04 100644
 --- a/binutils/doc/binutils.texi
 +++ b/binutils/doc/binutils.texi
-@@ -4566,7 +4566,8 @@ format, which is the first one listed by the @option{--help} option.
+@@ -4610,7 +4610,8 @@ format, which is the first one listed by the @option{--help} option.
  @item --preprocessor @var{program}
  When @command{windres} reads an @code{rc} file, it runs it through the C
  preprocessor first.  This option may be used to specify the preprocessor
@@ -24,7 +24,7 @@ index e52ec69616a..e26b22f033e 100644
  
  @item --preprocessor-arg @var{option}
  When @command{windres} reads an @code{rc} file, it runs it through
-@@ -4577,8 +4578,8 @@ preprocessor command line.
+@@ -4621,8 +4622,8 @@ preprocessor command line.
  If the @option{--preprocessor} option has not been specified then a
  default set of preprocessor arguments will be used, with any
  @option{--preprocessor-arg} options being placed after them on the
@@ -79,5 +79,5 @@ index 11cf3d5652c..c4fe83df078 100644
    return buf;
  }
 -- 
-2.53.0
+2.55.0
 
