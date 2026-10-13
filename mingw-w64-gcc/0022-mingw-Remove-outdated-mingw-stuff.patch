@@ -1,7 +1,7 @@
-From cdd7e6fce243780245cd13cfa85aed7d5cf6e22d Mon Sep 17 00:00:00 2001
+From 9b83541321da23a770eba26f34a6640c94385869 Mon Sep 17 00:00:00 2001
 From: Zhongteng Gui <dragon-archer@outlook.com>
 Date: Thu, 30 Jul 2026 18:46:38 +0800
-Subject: [PATCH v2] mingw: Remove outdated /mingw stuff
+Subject: [PATCH] mingw: Remove outdated /mingw stuff
 
 /mingw is only used by MSYS 1, which has been obsolete for a long time.
 The current users of target *-w64-mingw32 either uses their own prefix
@@ -47,32 +47,16 @@ gcc/ChangeLog:
 
 Signed-off-by: Zhongteng Gui <dragon-archer@outlook.com>
 ---
- configure.ac               |  4 +---
  gcc/config.gcc             |  2 --
  gcc/config/i386/x-mingw32  |  4 ----
  gcc/config/mingw/mingw32.h | 12 ++----------
- 4 files changed, 3 insertions(+), 19 deletions(-)
+ 3 files changed, 2 insertions(+), 16 deletions(-)
 
-diff --git a/configure.ac b/configure.ac
-index c5de225b0ac..c81755ebbb6 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -3948,9 +3948,7 @@ esac
- 
- case "$target" in
-   x86_64-*mingw* | *-w64-mingw*)
--  # MinGW-w64 does not use newlib, nor does it use winsup. It may,
--  # however, use a symlink named 'mingw' in ${prefix} .
--    FLAGS_FOR_TARGET=$FLAGS_FOR_TARGET' -L${prefix}/${target}/lib -L${prefix}/mingw/lib -isystem ${prefix}/${target}/include -isystem ${prefix}/mingw/include'
-+  # MinGW-w64 does not use newlib, nor does it use winsup. No special flags needed.
-     ;;
-   *-mingw*)
-   # MinGW can't be handled as Cygwin above since it does not use newlib.
 diff --git a/gcc/config.gcc b/gcc/config.gcc
-index 8fe99616f82..55339363c6c 100644
+index 328c49ac3839..3c6bba6491af 100644
 --- a/gcc/config.gcc
 +++ b/gcc/config.gcc
-@@ -1331,7 +1331,6 @@ aarch64-*-mingw*)
+@@ -1342,7 +1342,6 @@ aarch64-*-mingw*)
  	tm_file="${tm_file} mingw/winnt-dll.h"
  	tmake_file="${tmake_file} aarch64/t-aarch64"
  	tmake_file="${tmake_file} aarch64/t-aarch64-mingw"
@@ -80,7 +64,7 @@ index 8fe99616f82..55339363c6c 100644
  	target_gtfiles="$target_gtfiles \$(srcdir)/config/mingw/winnt.cc"
  	target_gtfiles="$target_gtfiles \$(srcdir)/config/mingw/winnt-dll.cc"
  	extra_options="${extra_options} mingw/cygming.opt mingw/mingw.opt"
-@@ -2339,7 +2338,6 @@ i[34567]86-*-mingw* | x86_64-*-mingw*)
+@@ -2323,7 +2322,6 @@ i[34567]86-*-mingw* | x86_64-*-mingw*)
  			tmake_file="${tmake_file} i386/t-mingw-w32"
  			;;
  	esac
@@ -89,7 +73,7 @@ index 8fe99616f82..55339363c6c 100644
  	target_gtfiles="$target_gtfiles \$(srcdir)/config/mingw/winnt-dll.cc"
  	extra_options="${extra_options} mingw/cygming.opt mingw/mingw.opt"
 diff --git a/gcc/config/i386/x-mingw32 b/gcc/config/i386/x-mingw32
-index 3ac2ba57631..5a0d8b8ec4a 100644
+index 3ac2ba57631c..5a0d8b8ec4a6 100644
 --- a/gcc/config/i386/x-mingw32
 +++ b/gcc/config/i386/x-mingw32
 @@ -16,10 +16,6 @@
@@ -104,7 +88,7 @@ index 3ac2ba57631..5a0d8b8ec4a 100644
  # Add Windows socket library.
  LIBS += -lws2_32
 diff --git a/gcc/config/mingw/mingw32.h b/gcc/config/mingw/mingw32.h
-index 1d319b77bf8..3afbee65974 100644
+index 1d319b77bf83..3afbee659741 100644
 --- a/gcc/config/mingw/mingw32.h
 +++ b/gcc/config/mingw/mingw32.h
 @@ -231,17 +231,9 @@ along with GCC; see the file COPYING3.  If not see
@@ -128,5 +112,5 @@ index 1d319b77bf8..3afbee65974 100644
  /* Output STRING, a string representing a filename, to FILE.
     We canonicalize it to be in Unix format (backslashes are replaced
 -- 
-2.55.0.windows.3
+2.56.0
 

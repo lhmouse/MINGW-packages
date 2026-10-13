@@ -37,8 +37,8 @@ pkgname=(
   "${MINGW_PACKAGE_PREFIX}-libstdc++"
   $([[ "$_enable_lto" == "yes" ]] && echo "${MINGW_PACKAGE_PREFIX}-lto-dump")
 )
-pkgver=16.2.1+20261008
-_branch=releases/gcc-16
+pkgver=17.0.0+20261012
+_branch=master
 _sourcedir=gcc
 _libdir=lib/gcc/${CHOST}/${pkgver%%+*}
 pkgrel=1
@@ -75,7 +75,6 @@ makedepends=(
 options=('!emptydirs')
 source=(${_sourcedir}::"git+https://sourceware.org/git/gcc.git#branch=${_branch}"
         "gdbinit"
-        0002-i386-Keep-SEH-enabled-for-Win64-sysv_abi-functions.patch
         0003-Windows-Follow-Posix-dir-exists-semantics-more-close.patch
         0007-Build-EXTRA_GNATTOOLS-for-Ada.patch
         0008-Prettify-linking-no-undefined.patch
@@ -92,21 +91,14 @@ source=(${_sourcedir}::"git+https://sourceware.org/git/gcc.git#branch=${_branch}
         3001-fix-codeview-crashes.patch
         9000-gcc-Make-stupid-AT-T-syntax-not-default.patch
         9001-Prevent-recursive-LoadLibrary-in-libgcc-DLL.patch
-        9100-function-honour-over-alignment-in-assign_stack_local.patch
-        9102-x86-Increase-generic-tune-branch-misprediction-cost.patch
-        9103-Fwd-PATCH-v2-PE-COFF-Implement-visibility-attribute-.patch
-        9104-gcc-mingw32-Do-not-export-HOST_EXTRA_OBJS_SYMBOL.patch
-        9105-toplevel-do-not-make-libstdc-configure-wait-for-libg.patch
-        9106-libstdc-build-the-source-directories-in-parallel.patch
         9107-gcc-mingw32-Add-initializer-to-HOST_EXTRA_OBJS_SYMBO.patch
         9202-libgomp-mingw32-Increase-precision-of-omp_get_wtime-.patch
         9203-libgomp-mingw32-Fix-plugin-suffix.patch
         9204-libgomp-mingw32-Implement-cpu_relax-and-doacross_spi.patch
         9205-libgomp-win32-Add-win32-implementation.patch
-        9206-libfortran-Allow-building-libcaf_shmem-without-pthre.patch)
+        9208-libgomp-Don-t-use-an-unavailable-GFORTRAN-for-FC.patch)
 sha256sums=('SKIP'
             '073a62609f2b62ce14d8a2c06f5f386d5ae600f98ea490e69cff80bd6dc4b84d'
-            'fdf4e90a56fc195a8f9a969af39335f158a29f29d42d33c00d908fc47cf5ad24'
             '3fc35067823f87e48dd3bfd265e7593000dc110fa9ad5f16c81b896765fc897a'
             '90d5cb570083f9dea4ac0f0f87e3e8d2230f5052e6f9b946061a20a224a9d195'
             '8d2d53ae26b777d90189240494de1b895c5efa1ebdcdfbf5774f29fc742499d9'
@@ -114,7 +106,7 @@ sha256sums=('SKIP'
             'e98805ead7d78ee2a92f237894c4b2b7ddc1688e1b517d8c04f28d440202e40f'
             'fd9bdecb2bbc4796bbc9f00b708dac42ef9e3464a06d6d27e5475cee117de5be'
             '76455c46eec4df95a80bbf7e5bcd2d165f300976c79c1baf0bf7ed20f000cdd4'
-            'ec05f8f26698dae4e0e0b58189cbf509185ad6d40b4950b33e28b638bf70c7ae'
+            '602e5735078f3ed1c664e86932f316db62840208a68062fed6492f834d2c6edf'
             '395dd4df29c295f917aa4a136a0aa72af34eee6320ecc2d92ee717397578398d'
             '976d14f803a211b19d9bf0169c08d4fde05af5cc18073f2fc8efc9a3cb17890a'
             'f591efc820a2c72aefb83179f7cbd3f4654231b68700486bd04ee32e2db61de5'
@@ -123,18 +115,12 @@ sha256sums=('SKIP'
             'f21f9ab731e9cab8fd4ca8c289497f859ef7004e6fa0507877dc2559ac2071c3'
             'efa3f727c9419f988d9be5d748c6f15474fcfaa4d50c30abe41ca0920841f8d4'
             'b723f8301e0f73f1d678677db616c488b6cce9b40034bbe4ceeae0a8d7c21cc0'
-            '100d072aeefdebb9480e7023d1ac6d5c173e3de4779bee59b4c97eff71db85f9'
-            '074d6dbb3b011348dbe26aa6798dfe0259db1532e7d339b098fb6c496efb076f'
-            'bd728564e5d5e6879540ddeee8fd8dba99686adc3f0744c386fbe8d72676ce7e'
-            '6e25b0a7b82be5f3ef19de0b5ed9f1749feade49edc6436660e052f949fbf129'
-            '7279e14a769cc9563b520f13537333212f6e58f9ea90ac0f0916647068052be7'
-            'a8f11dc000c330611ec5e84977593e0e2dbd3d31bf865ad593148cfb6619ea2a'
             'bb5fa0d23cc2403f5b8449d70cbeb42e9da03050d8fb54c9a13e6e7230f4b6f6'
             '49d2a64fe77afc639d4733f9528c038c046d07a472d73bde3b3f9bb8e454354b'
             'e5e9f3f6053e0e6e3b120444df30d06187ab98835fc3c2413a44c5ed7b63d1c5'
             'd07528911456e38f34923637eb4354c72f0a9d70c4f6c3387b4e34655da7172f'
             '509bc489560a1ff56ba2b856e3c08402540815869d11820d2e8322eff87e49bd'
-            '22f511d7d123793ab5af50b29e8ef7eca6db2e2799d0579dfbb463b5ae1e4de2')
+            'c1be5aad9d7796d1451c525d628af4a05b7d9a2d31d201f3559c9c75f0d1a17a')
 validpgpkeys=(F3691687D867B81B51CE07D9BBE43771487328A9  # bpiotrowski@archlinux.org
               86CFFCA918CF3AF47147588051E8B148A9999C34  # evangelos@foutrelis.com
               13975A70E63C361C73AE69EF6EEB81F8981C74C7  # richard.guenther@gmail.com
@@ -192,18 +178,10 @@ prepare() {
   apply_patch_with_msg \
     3001-fix-codeview-crashes.patch
 
-  # GCC 17
+  # TODO: Pending
   apply_patch_with_msg \
-    0002-i386-Keep-SEH-enabled-for-Win64-sysv_abi-functions.patch \
     0022-mingw-Remove-outdated-mingw-stuff.patch \
-    9100-function-honour-over-alignment-in-assign_stack_local.patch \
-    9102-x86-Increase-generic-tune-branch-misprediction-cost.patch \
-    9103-Fwd-PATCH-v2-PE-COFF-Implement-visibility-attribute-.patch \
-    9104-gcc-mingw32-Do-not-export-HOST_EXTRA_OBJS_SYMBOL.patch \
-    9107-gcc-mingw32-Add-initializer-to-HOST_EXTRA_OBJS_SYMBO.patch \
-    9105-toplevel-do-not-make-libstdc-configure-wait-for-libg.patch \
-    9106-libstdc-build-the-source-directories-in-parallel.patch \
-    9206-libfortran-Allow-building-libcaf_shmem-without-pthre.patch
+    9107-gcc-mingw32-Add-initializer-to-HOST_EXTRA_OBJS_SYMBO.patch
 
   # GCC with the MCF thread model
   apply_patch_with_msg \
@@ -212,7 +190,8 @@ prepare() {
     9202-libgomp-mingw32-Increase-precision-of-omp_get_wtime-.patch \
     9203-libgomp-mingw32-Fix-plugin-suffix.patch \
     9204-libgomp-mingw32-Implement-cpu_relax-and-doacross_spi.patch \
-    9205-libgomp-win32-Add-win32-implementation.patch
+    9205-libgomp-win32-Add-win32-implementation.patch \
+    9208-libgomp-Don-t-use-an-unavailable-GFORTRAN-for-FC.patch
 
   autoreconf -fiv
 }

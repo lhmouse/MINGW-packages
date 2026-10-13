@@ -1,0 +1,93 @@
+From bfc7788657f3be770c43a3271a790deb658be3a3 Mon Sep 17 00:00:00 2001
+From: LIU Hao <lh_mouse@126.com>
+Date: Tue, 13 Oct 2026 18:23:24 +0800
+Subject: [PATCH 9206/9206] libgomp: Don't use an unavailable 'GFORTRAN' for
+ 'FC'
+
+During a bootstrap build, stage 1 by default only builds the languages
+selected by '--enable-stage1-languages' ('c,c++'), so the '$GFORTRAN' that
+the top-level build system passes to the libgomp build does not exist yet.
+With such a non-functional '$FC', libtool configures its Fortran language
+tag, and the per-host library naming of that tag then overwrites the one
+established for the C language tag: on Windows hosts, 'library_names_spec'
+becomes '${libname}${release}${versuffix}${shared_ext} $libname.lib' (the
+naming used for MSVC) and 'libext' becomes 'lib'.  The libgomp link then
+creates a 'libgomp.lib' copy of the DLL, and subsequently fails when trying
+to create the static archive of the same name:
+
+    .../x86_64-w64-mingw32/bin/ar.exe: .libs/libgomp.lib: file format not recognized
+
+This is a regression from commit e5efa9eff99d ("libgomp: Revise
+libgomp/Fortran support conditionals"), which assumed that with
+'--enable-languages=fortran' in effect '$GFORTRAN' is functional.
+
+libgomp/ChangeLog:
+
+	* configure.ac (FC): Set to 'no' in case '--enable-languages=fortran'
+	is not in effect -- as during a bootstrap build's stage 1, where by
+	default only 'c,c++' is built, so that '$GFORTRAN' refers to a
+	compiler that is not available yet -- to keep libtool's Fortran
+	language tag disabled; otherwise, the per-host library naming
+	established for the C language tag is overwritten (with names for
+	MSVC on Windows hosts).
+	* configure: Regenerate.
+---
+ libgomp/configure    | 15 ++++++++++++++-
+ libgomp/configure.ac | 15 ++++++++++++++-
+ 2 files changed, 28 insertions(+), 2 deletions(-)
+
+diff --git a/libgomp/configure b/libgomp/configure
+index 56bf4e9..b66def1 100644
+--- a/libgomp/configure
++++ b/libgomp/configure
+@@ -12311,7 +12311,20 @@ FCFLAGS="$FCFLAGS -L."
+ # We need gfortran to compile parts of the library
+ # We can't use AC_PROG_FC because it expects a fully working gfortran.
+ #AC_PROG_FC(gfortran)
+-FC="$GFORTRAN"
++# 'GFORTRAN' may refer to a compiler that is not available yet: during a
++# bootstrap build, stage 1 by default only builds 'c,c++' (see
++# '--enable-stage1-languages').  Set 'FC' to 'no' then, to keep libtool's
++# Fortran language tag disabled; it would otherwise be configured with a
++# non-working compiler, overwriting the per-host library naming established
++# for the C language tag (with MSVC-style names on Windows hosts).
++case ,${enable_languages}, in
++  *,fortran,* )
++   FC="$GFORTRAN"
++   ;;
++  * )
++   FC=no
++   ;;
++esac
+ ac_ext=${ac_fc_srcext-f}
+ ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+diff --git a/libgomp/configure.ac b/libgomp/configure.ac
+index d8ab719..765b6e8 100644
+--- a/libgomp/configure.ac
++++ b/libgomp/configure.ac
+@@ -159,7 +159,20 @@ FCFLAGS="$FCFLAGS -L."
+ # We need gfortran to compile parts of the library
+ # We can't use AC_PROG_FC because it expects a fully working gfortran.
+ #AC_PROG_FC(gfortran)
+-FC="$GFORTRAN"
++# 'GFORTRAN' may refer to a compiler that is not available yet: during a
++# bootstrap build, stage 1 by default only builds 'c,c++' (see
++# '--enable-stage1-languages').  Set 'FC' to 'no' then, to keep libtool's
++# Fortran language tag disabled; it would otherwise be configured with a
++# non-working compiler, overwriting the per-host library naming established
++# for the C language tag (with MSVC-style names on Windows hosts).
++case ,${enable_languages}, in
++  *,fortran,* )
++   FC="$GFORTRAN"
++   ;;
++  * )
++   FC=no
++   ;;
++esac
+ AC_PROG_FC(gfortran)
+ FCFLAGS="$FCFLAGS -Wall -L../libgfortran"
+ 
+-- 
+2.56.0
+
