@@ -98,6 +98,7 @@ source=(${_sourcedir}::"git+https://sourceware.org/git/gcc.git#branch=${_branch}
         9104-gcc-mingw32-Do-not-export-HOST_EXTRA_OBJS_SYMBOL.patch
         9105-toplevel-do-not-make-libstdc-configure-wait-for-libg.patch
         9106-libstdc-build-the-source-directories-in-parallel.patch
+        9107-gcc-mingw32-Add-initializer-to-HOST_EXTRA_OBJS_SYMBO.patch
         9202-libgomp-mingw32-Increase-precision-of-omp_get_wtime-.patch
         9203-libgomp-mingw32-Fix-plugin-suffix.patch
         9204-libgomp-mingw32-Implement-cpu_relax-and-doacross_spi.patch
@@ -128,6 +129,7 @@ sha256sums=('SKIP'
             '6e25b0a7b82be5f3ef19de0b5ed9f1749feade49edc6436660e052f949fbf129'
             '7279e14a769cc9563b520f13537333212f6e58f9ea90ac0f0916647068052be7'
             'a8f11dc000c330611ec5e84977593e0e2dbd3d31bf865ad593148cfb6619ea2a'
+            'bb5fa0d23cc2403f5b8449d70cbeb42e9da03050d8fb54c9a13e6e7230f4b6f6'
             '49d2a64fe77afc639d4733f9528c038c046d07a472d73bde3b3f9bb8e454354b'
             'e5e9f3f6053e0e6e3b120444df30d06187ab98835fc3c2413a44c5ed7b63d1c5'
             'd07528911456e38f34923637eb4354c72f0a9d70c4f6c3387b4e34655da7172f'
@@ -176,8 +178,7 @@ prepare() {
   # Make GCC fully relocatable.
   # See https://github.com/msys2/MINGW-packages/pull/29280 for details.
   apply_patch_with_msg \
-    0021-bootstrap-gnattools-Pass-target-sysroot-flags-to-boo.patch \
-    0022-mingw-Remove-outdated-mingw-stuff.patch
+    0021-bootstrap-gnattools-Pass-target-sysroot-flags-to-boo.patch
 
   # Enable diagnostic color under mintty
   # based on https://github.com/BurntSushi/ripgrep/issues/94#issuecomment-261761687
@@ -194,10 +195,12 @@ prepare() {
   # GCC 17
   apply_patch_with_msg \
     0002-i386-Keep-SEH-enabled-for-Win64-sysv_abi-functions.patch \
+    0022-mingw-Remove-outdated-mingw-stuff.patch \
     9100-function-honour-over-alignment-in-assign_stack_local.patch \
     9102-x86-Increase-generic-tune-branch-misprediction-cost.patch \
     9103-Fwd-PATCH-v2-PE-COFF-Implement-visibility-attribute-.patch \
     9104-gcc-mingw32-Do-not-export-HOST_EXTRA_OBJS_SYMBOL.patch \
+    9107-gcc-mingw32-Add-initializer-to-HOST_EXTRA_OBJS_SYMBO.patch \
     9105-toplevel-do-not-make-libstdc-configure-wait-for-libg.patch \
     9106-libstdc-build-the-source-directories-in-parallel.patch \
     9206-libfortran-Allow-building-libcaf_shmem-without-pthre.patch
