@@ -22,9 +22,11 @@ conflicts=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 replaces=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 options=('!emptydirs')
 source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#commit=$_commit"
-        0001-remove-ireference-boolean.patch)
+        0001-remove-ireference-boolean.patch
+        long_double_arm64ec_mingw-w64.patch)
 sha256sums=('4e0f6b12ac68e6f128866e5f9d75e71d4c30eee15957e5c8d81f7076e0e64c3b'
-            'cad48616325b5e70afa4e02424021fc8d54e17dcbf86eae3df990d3500080236')
+            'cad48616325b5e70afa4e02424021fc8d54e17dcbf86eae3df990d3500080236'
+            '452371ad4c6b840fb8c75ae3100af0205202df9188dfa061cccbfd0b0170d8db')
 
 pkgver() {
   cd mingw-w64
@@ -34,6 +36,7 @@ pkgver() {
 prepare() {
   cd mingw-w64
   git apply "${srcdir}/0001-remove-ireference-boolean.patch"
+  git apply "${srcdir}/long_double_arm64ec_mingw-w64.patch"
 }
 
 build() {

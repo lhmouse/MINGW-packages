@@ -1,0 +1,1543 @@
+diff --git a/mingw-w64-crt/Makefile.am b/mingw-w64-crt/Makefile.am
+index c51640a36..199b3295b 100644
+--- a/mingw-w64-crt/Makefile.am
++++ b/mingw-w64-crt/Makefile.am
+@@ -1387,12 +1387,37 @@ src_libmingwexarm64=\
+   math/sincos.c \
+   math/sincosf.c \
+   math/arm-common/sincosl.c \
+-  math/arm64/rint.c         math/arm64/rintf.c \
+-  math/arm-common/ldexpl.c
++  math/arm64/rint.c         math/arm64/rintf.c
++
++# ARM64EC has no x87 FPU but keeps the 80-bit `long double` of x86_64, so the
++# long double arithmetic functions convert to `double` (math/arm64ec/*.c) and
++# the ones that must be exact work on the 80-bit image with integer
++# instructions only.
++src_libmingwexarm64_arm64ec=\
++  math/arm64ec/acoshl.c math/arm64ec/acosl.c math/arm64ec/asinhl.c \
++  math/arm64ec/asinl.c math/arm64ec/atan2l.c math/arm64ec/atanhl.c \
++  math/arm64ec/atanl.c math/arm64ec/cbrtl.c math/arm64ec/ceill.c \
++  math/arm64ec/copysignl.c math/arm64ec/coshl.c math/arm64ec/cosl.c \
++  math/arm64ec/erfl.c math/arm64ec/exp2l.c math/arm64ec/expl.c \
++  math/arm64ec/expm1l.c math/arm64ec/fdiml.c math/arm64ec/floorl.c \
++  math/arm64ec/fmal.c math/arm64ec/fmaxl.c math/arm64ec/fminl.c \
++  math/arm64ec/fmodl.c math/arm64ec/hypotl.c math/arm64ec/ldexpl.c \
++  math/arm64ec/lgammal.c math/arm64ec/llrintl.c math/arm64ec/llroundl.c \
++  math/arm64ec/log10l.c math/arm64ec/log1pl.c math/arm64ec/log2l.c \
++  math/arm64ec/logbl.c math/arm64ec/logl.c math/arm64ec/lrintl.c \
++  math/arm64ec/lroundl.c math/arm64ec/nearbyintl.c math/arm64ec/nextafterl.c \
++  math/arm64ec/powl.c math/arm64ec/remainderl.c math/arm64ec/remquol.c \
++  math/arm64ec/rintl.c math/arm64ec/roundl.c math/arm64ec/scalbnl.c \
++  math/arm64ec/sinhl.c math/arm64ec/sinl.c math/arm64ec/sqrtl.c \
++  math/arm64ec/tanhl.c math/arm64ec/tanl.c math/arm64ec/tgammal.c \
++  math/arm64ec/truncl.c \
+ 
+ if ARM64EC
++src_libmingwexarm64+= $(src_libmingwexarm64_arm64ec)
+ src_libmingwexarm64+=crt/chpe.S
+ src_libmingwexarm64_x64=libarm64/cfguard/guard_dispatch.x86_64.o
++else
++src_libmingwexarm64+=math/arm-common/ldexpl.c
+ endif
+ 
+ # These intrinsics are target independent:
+diff --git a/mingw-w64-crt/math/arm64ec/acoshl.c b/mingw-w64-crt/math/arm64ec/acoshl.c
+new file mode 100644
+index 000000000..ceca61429
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/acoshl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double acoshl (long double x)
++{
++  return acosh ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/acosl.c b/mingw-w64-crt/math/arm64ec/acosl.c
+new file mode 100644
+index 000000000..e1ee2a345
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/acosl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double acosl (long double x)
++{
++  return acos ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/asinhl.c b/mingw-w64-crt/math/arm64ec/asinhl.c
+new file mode 100644
+index 000000000..71fcfa7cf
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/asinhl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double asinhl (long double x)
++{
++  return asinh ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/asinl.c b/mingw-w64-crt/math/arm64ec/asinl.c
+new file mode 100644
+index 000000000..8dca1e84c
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/asinl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double asinl (long double x)
++{
++  return asin ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/atan2l.c b/mingw-w64-crt/math/arm64ec/atan2l.c
+new file mode 100644
+index 000000000..3bf6269f5
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/atan2l.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double atan2l (long double x, long double y)
++{
++  return atan2 ((double)x, (double)y);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/atanhl.c b/mingw-w64-crt/math/arm64ec/atanhl.c
+new file mode 100644
+index 000000000..0a6b53ab7
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/atanhl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double atanhl (long double x)
++{
++  return atanh ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/atanl.c b/mingw-w64-crt/math/arm64ec/atanl.c
+new file mode 100644
+index 000000000..37e375d4c
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/atanl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double atanl (long double x)
++{
++  return atan ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/cbrtl.c b/mingw-w64-crt/math/arm64ec/cbrtl.c
+new file mode 100644
+index 000000000..020cebfb7
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/cbrtl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double cbrtl (long double x)
++{
++  return cbrt ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/ceill.c b/mingw-w64-crt/math/arm64ec/ceill.c
+new file mode 100644
+index 000000000..2fe4412de
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/ceill.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double ceill (long double x)
++{
++  return ceil ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/copysignl.c b/mingw-w64-crt/math/arm64ec/copysignl.c
+new file mode 100644
+index 000000000..0eb6bf2a9
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/copysignl.c
+@@ -0,0 +1,21 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: copy the sign of `y` onto `x` without touching any other bit, using
++ * integer instructions only.
++ */
++#include <math.h>
++#include "x87ld.h"
++
++long double copysignl (long double x, long double y)
++{
++  __mingw_ldbl_type_t sx, sy;
++  sx.x = x;
++  sy.x = y;
++  sx.lh.sign_exponent =
++      (short)(((unsigned int)sx.lh.sign_exponent & 0x7fff) |
++              ((unsigned int)sy.lh.sign_exponent & 0x8000));
++  return sx.x;
++}
+diff --git a/mingw-w64-crt/math/arm64ec/coshl.c b/mingw-w64-crt/math/arm64ec/coshl.c
+new file mode 100644
+index 000000000..c96a53a40
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/coshl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double coshl (long double x)
++{
++  return cosh ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/cosl.c b/mingw-w64-crt/math/arm64ec/cosl.c
+new file mode 100644
+index 000000000..19a5c91fa
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/cosl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double cosl (long double x)
++{
++  return cos ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/erfl.c b/mingw-w64-crt/math/arm64ec/erfl.c
+new file mode 100644
+index 000000000..344d226db
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/erfl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double erfl (long double x)
++{
++  return erf ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/exp2l.c b/mingw-w64-crt/math/arm64ec/exp2l.c
+new file mode 100644
+index 000000000..1f1a668ed
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/exp2l.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double exp2l (long double x)
++{
++  return exp2 ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/expl.c b/mingw-w64-crt/math/arm64ec/expl.c
+new file mode 100644
+index 000000000..d2e59bf70
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/expl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double expl (long double x)
++{
++  return exp ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/expm1l.c b/mingw-w64-crt/math/arm64ec/expm1l.c
+new file mode 100644
+index 000000000..6a8baa270
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/expm1l.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double expm1l (long double x)
++{
++  return expm1 ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/fdiml.c b/mingw-w64-crt/math/arm64ec/fdiml.c
+new file mode 100644
+index 000000000..7a922b43a
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/fdiml.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double fdiml (long double x, long double y)
++{
++  return fdim ((double)x, (double)y);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/floorl.c b/mingw-w64-crt/math/arm64ec/floorl.c
+new file mode 100644
+index 000000000..5f629a448
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/floorl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double floorl (long double x)
++{
++  return floor ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/fmal.c b/mingw-w64-crt/math/arm64ec/fmal.c
+new file mode 100644
+index 000000000..3c98a80e5
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/fmal.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double fmal (long double x, long double y, long double z)
++{
++  return fma ((double)x, (double)y, (double)z);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/fmaxl.c b/mingw-w64-crt/math/arm64ec/fmaxl.c
+new file mode 100644
+index 000000000..8db8cfdfc
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/fmaxl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double fmaxl (long double x, long double y)
++{
++  return fmax ((double)x, (double)y);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/fminl.c b/mingw-w64-crt/math/arm64ec/fminl.c
+new file mode 100644
+index 000000000..2fc3d68fb
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/fminl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double fminl (long double x, long double y)
++{
++  return fmin ((double)x, (double)y);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/fmodl.c b/mingw-w64-crt/math/arm64ec/fmodl.c
+new file mode 100644
+index 000000000..bff3a7011
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/fmodl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double fmodl (long double x, long double y)
++{
++  return fmod ((double)x, (double)y);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/hypotl.c b/mingw-w64-crt/math/arm64ec/hypotl.c
+new file mode 100644
+index 000000000..9d980b6ae
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/hypotl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double hypotl (long double x, long double y)
++{
++  return hypot ((double)x, (double)y);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/ldexpl.c b/mingw-w64-crt/math/arm64ec/ldexpl.c
+new file mode 100644
+index 000000000..4511b4833
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/ldexpl.c
+@@ -0,0 +1,108 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: scale by a power of two with integer instructions only, so that the
++ * 64-bit significand of the x87 extended format is preserved exactly.  The
++ * underflow path performs gradual underflow with round-to-nearest-even.
++ */
++#include <math.h>
++#include <errno.h>
++#include "x87ld.h"
++
++long double ldexpl (long double value, int expn)
++{
++  __mingw_ldbl_type_t in, out;
++  uint64_t m;
++  unsigned int e;
++  int ne;
++
++  in.x = value;
++  m = __x87ld_mantissa (&in);
++  e = __x87ld_exponent (&in);
++
++  if (e == 0x7fff) /* infinity or NaN */
++    return value;
++  if (m == 0) /* zero, including the sign */
++    return value;
++
++  if (e == 0)
++    {
++      /* Denormal or pseudo-denormal: normalize first.  A pseudo-denormal
++         already has the explicit integer bit set and is a normal number. */
++      if ((m >> 63) == 0)
++        {
++          int lz = __builtin_clzll (m);
++          m <<= lz;
++          e = 1 - (unsigned int)lz;
++        }
++      else
++        e = 1;
++    }
++
++  ne = (int)e + expn;
++  if (ne >= 0x7fff)
++    {
++      /* Overflow to infinity, as the x87 does when the exponent wraps. */
++      errno = ERANGE;
++      return __x87ld_signed_inf (&in);
++    }
++
++  if (ne >= 1)
++    {
++      out = in;
++      __x87ld_set_mantissa (&out, m);
++      __x87ld_set_exponent (&out, (unsigned int)ne);
++      return out.x;
++    }
++
++  /* Result is a denormal: shift the significand right by (1 - ne) bits. */
++  {
++    unsigned int d = (unsigned int)(1 - ne);
++    uint64_t q, rem, half;
++
++    if (d > 64)
++      {
++        errno = ERANGE;
++        return __x87ld_signed_zero (&in);
++      }
++    if (d == 64)
++      {
++        /* value in [2^63, 2^64) shifted by 64: at most one unit. */
++        if (m > 0x8000000000000000ULL)
++          {
++            out = in;
++            __x87ld_set_mantissa (&out, 1);
++            __x87ld_set_exponent (&out, 0);
++            return out.x;
++          }
++        errno = ERANGE;
++        return __x87ld_signed_zero (&in);
++      }
++    q = m >> d;
++    rem = m & ((1ULL << d) - 1);
++    half = 1ULL << (d - 1);
++    if (rem > half || (rem == half && (q & 1)))
++      q++;
++    if (q == 0)
++      {
++        errno = ERANGE;
++        return __x87ld_signed_zero (&in);
++      }
++    out = in;
++    if (q >> 63)
++      {
++        /* rounded up to the smallest normal number */
++        __x87ld_set_mantissa (&out, 0x8000000000000000ULL);
++        __x87ld_set_exponent (&out, 1);
++      }
++    else
++      {
++        __x87ld_set_mantissa (&out, q);
++        __x87ld_set_exponent (&out, 0);
++      }
++    errno = ERANGE;
++    return out.x;
++  }
++}
+diff --git a/mingw-w64-crt/math/arm64ec/lgammal.c b/mingw-w64-crt/math/arm64ec/lgammal.c
+new file mode 100644
+index 000000000..95610eb87
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/lgammal.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double lgammal (long double x)
++{
++  return lgamma ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/llrintl.c b/mingw-w64-crt/math/arm64ec/llrintl.c
+new file mode 100644
+index 000000000..74b1777d8
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/llrintl.c
+@@ -0,0 +1,14 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long long llrintl (long double x) { return llrint ((double)x); }
+diff --git a/mingw-w64-crt/math/arm64ec/llroundl.c b/mingw-w64-crt/math/arm64ec/llroundl.c
+new file mode 100644
+index 000000000..b17ca80e1
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/llroundl.c
+@@ -0,0 +1,14 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long long llroundl (long double x) { return llround ((double)x); }
+diff --git a/mingw-w64-crt/math/arm64ec/log10l.c b/mingw-w64-crt/math/arm64ec/log10l.c
+new file mode 100644
+index 000000000..a7444aad0
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/log10l.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double log10l (long double x)
++{
++  return log10 ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/log1pl.c b/mingw-w64-crt/math/arm64ec/log1pl.c
+new file mode 100644
+index 000000000..b9ea3be7b
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/log1pl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double log1pl (long double x)
++{
++  return log1p ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/log2l.c b/mingw-w64-crt/math/arm64ec/log2l.c
+new file mode 100644
+index 000000000..6c1ced70a
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/log2l.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double log2l (long double x)
++{
++  return log2 ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/logbl.c b/mingw-w64-crt/math/arm64ec/logbl.c
+new file mode 100644
+index 000000000..2748e2998
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/logbl.c
+@@ -0,0 +1,51 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the binary exponent of an x87 extended-precision value is read from
++ * the image with integer instructions, so values whose exponent lies outside
++ * the range of `double` are still handled correctly.
++ */
++#include <math.h>
++#include <limits.h>
++#include "x87ld.h"
++
++int ilogbl (long double x)
++{
++  __mingw_ldbl_type_t in;
++  uint64_t m;
++  unsigned int e;
++
++  in.x = x;
++  e = __x87ld_exponent (&in);
++  m = __x87ld_mantissa (&in);
++
++  if (e == 0x7fff)
++    return m == 0x8000000000000000ULL ? INT_MAX : FP_ILOGBNAN;
++  if (m == 0)
++    return FP_ILOGB0;
++  if (e == 0)
++    {
++      /* denormal or pseudo-denormal: value = mantissa * 2^-16445 */
++      return 63 - (int)__builtin_clzll (m) - 16445;
++    }
++  return (int)e - 16383;
++}
++
++long double logbl (long double x)
++{
++  __mingw_ldbl_type_t in;
++  uint64_t m;
++  unsigned int e;
++
++  in.x = x;
++  e = __x87ld_exponent (&in);
++  m = __x87ld_mantissa (&in);
++
++  if (e == 0x7fff)
++    return x; /* +-infinity or NaN */
++  if (m == 0)
++    return __x87ld_signed_inf (&in);
++  return (long double)ilogbl (x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/logl.c b/mingw-w64-crt/math/arm64ec/logl.c
+new file mode 100644
+index 000000000..a273c62bf
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/logl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double logl (long double x)
++{
++  return log ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/lrintl.c b/mingw-w64-crt/math/arm64ec/lrintl.c
+new file mode 100644
+index 000000000..e989efb1a
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/lrintl.c
+@@ -0,0 +1,14 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long lrintl (long double x) { return lrint ((double)x); }
+diff --git a/mingw-w64-crt/math/arm64ec/lroundl.c b/mingw-w64-crt/math/arm64ec/lroundl.c
+new file mode 100644
+index 000000000..2e89a20f8
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/lroundl.c
+@@ -0,0 +1,14 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long lroundl (long double x) { return lround ((double)x); }
+diff --git a/mingw-w64-crt/math/arm64ec/nearbyintl.c b/mingw-w64-crt/math/arm64ec/nearbyintl.c
+new file mode 100644
+index 000000000..eb1988f44
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/nearbyintl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double nearbyintl (long double x)
++{
++  return nearbyint ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/nextafterl.c b/mingw-w64-crt/math/arm64ec/nextafterl.c
+new file mode 100644
+index 000000000..3660f2cde
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/nextafterl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double nextafterl (long double x, long double y)
++{
++  return nextafter ((double)x, (double)y);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/powl.c b/mingw-w64-crt/math/arm64ec/powl.c
+new file mode 100644
+index 000000000..f5ba54e11
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/powl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double powl (long double x, long double y)
++{
++  return pow ((double)x, (double)y);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/remainderl.c b/mingw-w64-crt/math/arm64ec/remainderl.c
+new file mode 100644
+index 000000000..e559ed803
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/remainderl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double remainderl (long double x, long double y)
++{
++  return remainder ((double)x, (double)y);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/remquol.c b/mingw-w64-crt/math/arm64ec/remquol.c
+new file mode 100644
+index 000000000..dd455edcc
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/remquol.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double remquol (long double x, long double y, int *p)
++{
++  return remquo ((double)x, (double)y, p);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/rintl.c b/mingw-w64-crt/math/arm64ec/rintl.c
+new file mode 100644
+index 000000000..3d75c8437
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/rintl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double rintl (long double x)
++{
++  return rint ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/roundl.c b/mingw-w64-crt/math/arm64ec/roundl.c
+new file mode 100644
+index 000000000..d335deb34
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/roundl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double roundl (long double x)
++{
++  return round ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/scalbnl.c b/mingw-w64-crt/math/arm64ec/scalbnl.c
+new file mode 100644
+index 000000000..63ad86d8c
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/scalbnl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double scalbnl (long double x, int n)
++{
++  return scalbn ((double)x, n);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/sinhl.c b/mingw-w64-crt/math/arm64ec/sinhl.c
+new file mode 100644
+index 000000000..459e8841b
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/sinhl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double sinhl (long double x)
++{
++  return sinh ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/sinl.c b/mingw-w64-crt/math/arm64ec/sinl.c
+new file mode 100644
+index 000000000..0a9d53cbe
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/sinl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double sinl (long double x)
++{
++  return sin ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/sqrtl.c b/mingw-w64-crt/math/arm64ec/sqrtl.c
+new file mode 100644
+index 000000000..d786e6589
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/sqrtl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double sqrtl (long double x)
++{
++  return sqrt ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/tanhl.c b/mingw-w64-crt/math/arm64ec/tanhl.c
+new file mode 100644
+index 000000000..4c89bff90
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/tanhl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double tanhl (long double x)
++{
++  return tanh ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/tanl.c b/mingw-w64-crt/math/arm64ec/tanl.c
+new file mode 100644
+index 000000000..e246d78a3
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/tanl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double tanl (long double x)
++{
++  return tan ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/tgammal.c b/mingw-w64-crt/math/arm64ec/tgammal.c
+new file mode 100644
+index 000000000..5a0621d5b
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/tgammal.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double tgammal (long double x)
++{
++  return tgamma ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/truncl.c b/mingw-w64-crt/math/arm64ec/truncl.c
+new file mode 100644
+index 000000000..f3a339a2d
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/truncl.c
+@@ -0,0 +1,17 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC: the arithmetic functions convert to `double`, evaluate there and
++ * convert back, which is exactly what the C library does for its own long
++ * double entry points.  Functions that must not lose a single bit have
++ * dedicated integer implementations instead (fabsl, signbitl, copysignl,
++ * fpclassify, frexpl, ldexpl, modfl, logbl, ilogbl).
++ */
++#include <math.h>
++
++long double truncl (long double x)
++{
++  return trunc ((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/x87ld.h b/mingw-w64-crt/math/arm64ec/x87ld.h
+new file mode 100644
+index 000000000..b0059c35b
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/x87ld.h
+@@ -0,0 +1,82 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ *
++ * ARM64EC has no x87 FPU: `long double` is the x87 80-bit extended format
++ * stored in a 16-byte slot, and every operation on it has to be carried out
++ * either with integer instructions on the memory image (for the functions that
++ * must not lose a single bit) or by converting to `double` first (for the
++ * arithmetic functions, matching what the C library does internally).
++ *
++ * The helpers here only touch the 16-byte image; `__mingw_ldbl_type_t` from
++ * <math.h> provides the field layout.
++ */
++#ifndef _MINGW_ARM64EC_X87LD_H
++#define _MINGW_ARM64EC_X87LD_H
++
++#include <stdint.h>
++#include <math.h>
++
++static __inline__ uint64_t __x87ld_mantissa (const __mingw_ldbl_type_t *p)
++{
++  return ((uint64_t)(uint32_t)p->lh.high << 32) | (uint32_t)p->lh.low;
++}
++
++static __inline__ void __x87ld_set_mantissa (__mingw_ldbl_type_t *p, uint64_t m)
++{
++  p->lh.low = (uint32_t)m;
++  p->lh.high = (uint32_t)(m >> 32);
++}
++
++/* Biased exponent field, 0x7FFF for infinity/NaN and 0 for zero/denormal. */
++static __inline__ unsigned int __x87ld_exponent (const __mingw_ldbl_type_t *p)
++{
++  return (unsigned int)p->lh.sign_exponent & 0x7fff;
++}
++
++static __inline__ unsigned int __x87ld_sign (const __mingw_ldbl_type_t *p)
++{
++  return ((unsigned int)p->lh.sign_exponent & 0x8000) >> 15;
++}
++
++static __inline__ void __x87ld_set_exponent (__mingw_ldbl_type_t *p,
++                                             unsigned int e)
++{
++  p->lh.sign_exponent =
++      (short)(((unsigned int)p->lh.sign_exponent & 0x8000) | (e & 0x7fff));
++}
++
++/* A signed zero with the sign of the given image. */
++static __inline__ long double __x87ld_signed_zero (const __mingw_ldbl_type_t *p)
++{
++  __mingw_ldbl_type_t z;
++  z.x = 0.0L;
++  z.lh.sign_exponent = (short)((unsigned int)p->lh.sign_exponent & 0x8000);
++  return z.x;
++}
++
++/* A signed infinity with the sign of the given image. */
++static __inline__ long double __x87ld_signed_inf (const __mingw_ldbl_type_t *p)
++{
++  __mingw_ldbl_type_t i;
++  i.x = 0.0L;
++  i.lh.low = 0;
++  i.lh.high = (int)0x80000000U;
++  i.lh.sign_exponent = (short)(((unsigned int)p->lh.sign_exponent & 0x8000) | 0x7fff);
++  return i.x;
++}
++
++/* Whether the image is an invalid encoding that the x87 would reject: a
++   "unnormal" (explicit integer bit clear on a non-zero exponent) or a
++   pseudo-NaN/pseudo-infinity (integer bit clear on the maximum exponent). */
++static __inline__ int __x87ld_is_unnormal (const __mingw_ldbl_type_t *p)
++{
++  uint64_t m = __x87ld_mantissa (p);
++  unsigned int e = __x87ld_exponent (p);
++  if (m == 0)
++    return 0;
++  return (m >> 63) == 0 && e != 0;
++}
++
++#endif /* _MINGW_ARM64EC_X87LD_H */
+diff --git a/mingw-w64-crt/math/fabsl.c b/mingw-w64-crt/math/fabsl.c
+index ed97ed017..22889092e 100644
+--- a/mingw-w64-crt/math/fabsl.c
++++ b/mingw-w64-crt/math/fabsl.c
+@@ -3,6 +3,8 @@
+  * This file is part of the mingw-w64 runtime package.
+  * No warranty is given; refer to the file DISCLAIMER.PD within this package.
+  */
++#include <math.h>
++
+ long double fabsl (long double x);
+ 
+ long double
+@@ -10,6 +12,12 @@ fabsl (long double x)
+ {
+ #if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+   return __builtin_fabsl (x);
++#elif defined(__arm64ec__) || defined(_ARM64EC_)
++  /* No x87 FPU: clear the sign bit of the 80-bit image with integer ops. */
++  __mingw_ldbl_type_t ld;
++  ld.x = x;
++  ld.lh.sign_exponent = (short)((unsigned int)ld.lh.sign_exponent & 0x7fff);
++  return ld.x;
+ #elif defined(__x86_64__) || defined(_AMD64_) || defined(__i386__) || defined(_X86_)
+   long double res = 0.0L;
+   asm volatile ("fabs;" : "=t" (res) : "0" (x));
+diff --git a/mingw-w64-crt/math/fpclassifyl.c b/mingw-w64-crt/math/fpclassifyl.c
+index 0c057bd1c..361f70463 100644
+--- a/mingw-w64-crt/math/fpclassifyl.c
++++ b/mingw-w64-crt/math/fpclassifyl.c
+@@ -8,7 +8,7 @@
+ int __fpclassifyl (long double _x){
+ #if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+     return __fpclassify(_x);
+-#elif defined(_AMD64_) || defined(__x86_64__)
++#elif defined(_AMD64_) || defined(__x86_64__) || defined(__arm64ec__) || defined(_ARM64EC_)
+     __mingw_ldbl_type_t hlp;
+     unsigned int e;
+     hlp.x = _x;
+diff --git a/mingw-w64-crt/math/frexpl.c b/mingw-w64-crt/math/frexpl.c
+index f60b68bcd..541b37470 100644
+--- a/mingw-w64-crt/math/frexpl.c
++++ b/mingw-w64-crt/math/frexpl.c
+@@ -15,7 +15,7 @@ long double frexpl(long double value, int* exp)
+   return frexp(value, exp);
+ }
+ 
+-#elif defined(_AMD64_) || defined(__x86_64__) || defined(_X86_) || defined(__i386__)
++#elif defined(_AMD64_) || defined(__x86_64__) || defined(_X86_) || defined(__i386__) || defined(__arm64ec__) || defined(_ARM64EC_)
+ 
+ #include <stdint.h>
+ 
+diff --git a/mingw-w64-crt/math/modfl.c b/mingw-w64-crt/math/modfl.c
+index 60b9b81b9..3020bfdc7 100644
+--- a/mingw-w64-crt/math/modfl.c
++++ b/mingw-w64-crt/math/modfl.c
+@@ -6,6 +6,7 @@
+ #include <fenv.h>
+ #include <math.h>
+ #include <errno.h>
++#include <stdint.h>
+ 
+ long double
+ modfl (long double value, long double* iptr)
+@@ -32,6 +33,70 @@ modfl (long double value, long double* iptr)
+     "frndint\n"
+     "fldcw 4(%%esp)\n"
+     "addl $8, %%esp\n\tpop %%eax\n" : "=t" (int_part) : "0" (value) : "eax"); /* round */
++#elif defined(__arm64ec__) || defined(_ARM64EC_)
++  /* No x87 FPU: truncate by masking off the fractional significand bits. */
++  {
++    __mingw_ldbl_type_t in, ip, fp;
++    uint64_t m, mask;
++    unsigned int e, shift;
++
++    in.x = value;
++    e = (unsigned int)in.lh.sign_exponent & 0x7fff;
++    m = ((uint64_t)(uint32_t)in.lh.high << 32) | (uint32_t)in.lh.low;
++
++    if (e == 0x7fff)
++      {
++        /* infinity or NaN */
++        __mingw_ldbl_type_t z;
++        int_part = value;
++        z.x = 0.0L;
++        z.lh.sign_exponent = (short)((unsigned int)in.lh.sign_exponent & 0x8000);
++        if (iptr)
++          *iptr = int_part;
++        /* The fractional part of an infinity is a signed zero; that of a NaN
++           is a NaN. */
++        return m == 0x8000000000000000ULL ? z.x : (value - value);
++      }
++    if (e < 16383)
++      {
++        /* |value| < 1 */
++        __mingw_ldbl_type_t z;
++        z.x = 0.0L;
++        z.lh.sign_exponent = (short)((unsigned int)in.lh.sign_exponent & 0x8000);
++        if (iptr)
++          *iptr = z.x;
++        return value;
++      }
++    shift = e - 16383;
++    if (shift >= 63)
++      {
++        /* already integral */
++        __mingw_ldbl_type_t z;
++        z.x = 0.0L;
++        z.lh.sign_exponent = (short)((unsigned int)in.lh.sign_exponent & 0x8000);
++        if (iptr)
++          *iptr = value;
++        return z.x;
++      }
++    mask = ~((1ULL << (63 - shift)) - 1);
++    ip = in;
++    fp = in;
++    ip.lh.low = (unsigned int)(m & mask);
++    ip.lh.high = (int)(uint32_t)((m & mask) >> 32);
++    if ((m & ~mask) == 0)
++      {
++        fp.x = 0.0L;
++        fp.lh.sign_exponent = (short)((unsigned int)in.lh.sign_exponent & 0x8000);
++      }
++    else
++      {
++        fp.lh.low = (unsigned int)(m & ~mask);
++        fp.lh.high = (int)(uint32_t)((m & ~mask) >> 32);
++      }
++    if (iptr)
++      *iptr = ip.x;
++    return fp.x;
++  }
+ #else
+   int_part = truncl(value);
+ #endif
+diff --git a/mingw-w64-crt/math/signbitl.c b/mingw-w64-crt/math/signbitl.c
+index b4dba713b..5c4a487ce 100644
+--- a/mingw-w64-crt/math/signbitl.c
++++ b/mingw-w64-crt/math/signbitl.c
+@@ -13,7 +13,12 @@ int __signbitl (long double x) {
+     __mingw_ldbl_type_t ld;
+     ld.x = x;
+     return ((ld.lh.sign_exponent & 0x8000) != 0);
+-#elif defined(__arm__) || defined(_ARM_) || defined(__aarch64__) || defined(_ARM64_) || defined(__arm64ec__) || defined(_ARM64EC_)
++#elif defined(__arm64ec__) || defined(_ARM64EC_)
++    /* No x87 FPU: read the sign bit of the 80-bit image with integer ops. */
++    __mingw_ldbl_type_t ld;
++    ld.x = x;
++    return ((ld.lh.sign_exponent & 0x8000) != 0);
++#elif defined(__arm__) || defined(_ARM_) || defined(__aarch64__) || defined(_ARM64_)
+     return __signbit(x);
+ #elif defined(__i386__) || defined(_X86_)
+   unsigned short sw;
+diff --git a/mingw-w64-headers/crt/math.h b/mingw-w64-headers/crt/math.h
+index dc064a08d..3b8c7a777 100644
+--- a/mingw-w64-headers/crt/math.h
++++ b/mingw-w64-headers/crt/math.h
+@@ -210,6 +210,9 @@ _CRT_BEGIN_C_HEADER
+   {
+ #if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+     return __builtin_fabsl (x);
++#elif defined(__arm64ec__) || defined(_ARM64EC_)
++    /* No x87 FPU: __builtin_fabsl clears the sign bit with integer ops. */
++    return __builtin_fabsl (x);
+ #else
+     long double res = 0.0l;
+     __asm__ __volatile__ ("fabs;" : "=t" (res) : "0" (x));

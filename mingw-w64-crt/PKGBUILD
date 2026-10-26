@@ -23,11 +23,15 @@ provides=("${MINGW_PACKAGE_PREFIX}-${_realname}-git=${pkgver}")
 conflicts=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 replaces=("${MINGW_PACKAGE_PREFIX}-${_realname}-git")
 options=('!strip' '!emptydirs')
-source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#commit=$_commit")
-sha256sums=('4e0f6b12ac68e6f128866e5f9d75e71d4c30eee15957e5c8d81f7076e0e64c3b')
+source=("mingw-w64"::"git+https://git.code.sf.net/p/mingw-w64/mingw-w64#commit=$_commit"
+        long_double_arm64ec_mingw-w64.patch)
+sha256sums=('4e0f6b12ac68e6f128866e5f9d75e71d4c30eee15957e5c8d81f7076e0e64c3b'
+            '452371ad4c6b840fb8c75ae3100af0205202df9188dfa061cccbfd0b0170d8db')
 
 pkgver() {
   cd mingw-w64
+  git apply "${srcdir}/long_double_arm64ec_mingw-w64.patch"
+  (cd mingw-w64-crt && autoreconf)
   git describe --long ${_commit} | sed 's/\([^-]*-g\)/r\1/;s/-/./g;s/^v//g'
 }
 
