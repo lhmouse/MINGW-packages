@@ -1,0 +1,727 @@
+diff --git a/clang/include/clang/Basic/TargetInfo.h b/clang/include/clang/Basic/TargetInfo.h
+index a6523e8eaaa4..e9119fbe970e 100644
+--- a/clang/include/clang/Basic/TargetInfo.h
++++ b/clang/include/clang/Basic/TargetInfo.h
+@@ -712,6 +712,13 @@ public:
+   /// Determine whether the __float128 type is supported on this target.
+   virtual bool hasFloat128Type() const { return HasFloat128; }
+ 
++  /// Return true if 'long double' uses the x87 extended (80-bit) format but the
++  /// target has no x87 FPU, so that values are only ever stored in memory (in a
++  /// 16-byte slot) with integer instructions, and are converted to 'double' by
++  /// means of runtime helper calls for any computation.  This is the case for
++  /// ARM64EC, which has to match the x86_64 ABI of 'long double'.
++  virtual bool hasSoftX87LongDouble() const { return false; }
++
+   /// Determine whether the _Float16 type is supported on this target.
+   virtual bool hasFloat16Type() const { return HasFloat16; }
+ 
+diff --git a/clang/lib/Basic/Targets/AArch64.cpp b/clang/lib/Basic/Targets/AArch64.cpp
+index 7ddf9d87ad16..f6a95f58e187 100644
+--- a/clang/lib/Basic/Targets/AArch64.cpp
++++ b/clang/lib/Basic/Targets/AArch64.cpp
+@@ -1831,6 +1831,16 @@ WindowsARM64TargetInfo::WindowsARM64TargetInfo(const llvm::Triple &Triple,
+   SizeType = UnsignedLongLong;
+   PtrDiffType = SignedLongLong;
+   IntPtrType = SignedLongLong;
++
++  if (Triple.isWindowsArm64EC()) {
++    // ARM64EC is ABI-compatible with x86_64 Windows, where 'long double' is
++    // the x87 80-bit extended format held in a 16-byte, 16-byte-aligned slot.
++    // There is no x87 FPU on ARM64, so such values are kept in memory and are
++    // converted to 'double' for computation by the runtime helpers
++    // __arm64ec_load_x87_long_double / __arm64ec_store_x87_long_double.
++    LongDoubleWidth = LongDoubleAlign = SuitableAlign = 128;
++    LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
++  }
+ }
+ 
+ TargetInfo::BuiltinVaListKind
+diff --git a/clang/lib/Basic/Targets/AArch64.h b/clang/lib/Basic/Targets/AArch64.h
+index 00e84cc48643..ba8d31609bd5 100644
+--- a/clang/lib/Basic/Targets/AArch64.h
++++ b/clang/lib/Basic/Targets/AArch64.h
+@@ -295,6 +295,15 @@ public:
+   BuiltinVaListKind getBuiltinVaListKind() const override;
+ 
+   CallingConvCheckResult checkCallingConvention(CallingConv CC) const override;
++
++  /// ARM64EC has no x87 FPU, so a `long double` that uses the x87 extended
++  /// format is stored in memory and computed on through 'double'.  This is the
++  /// default; '-mlong-double-64' (plain 'double') and '-mlong-double-128'
++  /// (IEEE quad) turn the special handling off again.
++  bool hasSoftX87LongDouble() const override {
++    return Triple.isWindowsArm64EC() &&
++           LongDoubleFormat == &llvm::APFloat::x87DoubleExtended();
++  }
+ };
+ 
+ // Windows ARM, MS (C++) ABI
+diff --git a/clang/lib/CodeGen/CGBuiltin.cpp b/clang/lib/CodeGen/CGBuiltin.cpp
+index e154b9e752fd..739bfe5404ca 100644
+--- a/clang/lib/CodeGen/CGBuiltin.cpp
++++ b/clang/lib/CodeGen/CGBuiltin.cpp
+@@ -2714,12 +2714,270 @@ static void ClearPadding(CodeGenFunction &CGF, Address Src,
+   }
+ }
+ 
++namespace {
++
++/// Build the 16-byte integer image of an x87 extended-precision value, which is
++/// how ARM64EC represents 'long double': the 64-bit significand in the low
++/// bits, the 16-bit sign/exponent word above it, and 6 bytes of padding.
++llvm::APInt x87LongDoubleImage(uint64_t Significand, uint16_t SignExponent) {
++  llvm::APInt Image = llvm::APInt(128, Significand);
++  Image |= llvm::APInt(128, SignExponent) << 64;
++  return Image;
++}
++
++} // namespace
++
++/// Lower builtins that operate on ARM64EC's software x87 'long double'.  The
++/// ones that are required to be exact (fabs, copysign, signbit, isnan, isinf,
++/// isfinite, isnormal, fpclassify) are implemented with integer operations on
++/// the image itself; everything else is evaluated in 'double' exactly like the
++/// C library does for its own long double entry points.  Returns false when the
++/// builtin does not involve such a value.
++bool CodeGenFunction::EmitSoftX87LongDoubleBuiltin(unsigned BuiltinID,
++                                                   const CallExpr *E,
++                                                   ReturnValueSlot ReturnValue,
++                                                   RValue &Result) {
++  ASTContext &Ctx = getContext();
++  // Note: BuiltinInfo::getName() returns a std::string by value.
++  const std::string Name = Ctx.BuiltinInfo.getName(BuiltinID);
++  llvm::Type *I128Ty = llvm::IntegerType::get(getLLVMContext(), 128);
++  llvm::Type *I64Ty = Builder.getInt64Ty();
++  llvm::Type *I32Ty = Builder.getInt32Ty();
++  llvm::Type *I16Ty = Builder.getInt16Ty();
++  SourceLocation Loc = E->getExprLoc();
++
++  llvm::Constant *SignMask = llvm::ConstantInt::get(
++      I128Ty, llvm::APInt::getOneBitSet(128, 79));
++  llvm::Constant *MagnitudeMask = llvm::ConstantInt::get(
++      I128Ty, ~llvm::APInt::getOneBitSet(128, 79));
++
++  // Extract the 15-bit exponent field and the significand of an image.
++  auto ExpField = [&](llvm::Value *V) -> llvm::Value * {
++    llvm::Value *Wide = Builder.CreateLShr(V, 64);
++    return Builder.CreateAnd(Builder.CreateTrunc(Wide, I16Ty),
++                             Builder.getInt16(0x7FFF));
++  };
++  auto MantissaOf = [&](llvm::Value *V) -> llvm::Value * {
++    return Builder.CreateTrunc(V, I64Ty);
++  };
++  auto IsInfImage = [&](llvm::Value *V) -> llvm::Value * {
++    llvm::Value *ExpAllOnes =
++        Builder.CreateICmpEQ(ExpField(V), Builder.getInt16(0x7FFF));
++    llvm::Value *FracZero = Builder.CreateICmpEQ(
++        MantissaOf(V), Builder.getInt64(0x8000000000000000ULL));
++    return Builder.CreateAnd(ExpAllOnes, FracZero);
++  };
++  auto IsNaNAllOnes = [&](llvm::Value *V) -> llvm::Value * {
++    llvm::Value *ExpAllOnes =
++        Builder.CreateICmpEQ(ExpField(V), Builder.getInt16(0x7FFF));
++    llvm::Value *FracZero = Builder.CreateICmpEQ(
++        MantissaOf(V), Builder.getInt64(0x8000000000000000ULL));
++    return Builder.CreateAnd(ExpAllOnes, Builder.CreateNot(FracZero));
++  };
++
++  if (Name == "__builtin_fabs" || Name == "__builtin_fabsl") {
++    if (!E->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
++      return false;
++    Result = RValue::get(
++        Builder.CreateAnd(EmitScalarExpr(E->getArg(0)), MagnitudeMask));
++    return true;
++  }
++
++  if (Name == "__builtin_copysign" || Name == "__builtin_copysignl") {
++    if (!E->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
++      return false;
++    llvm::Value *X = EmitScalarExpr(E->getArg(0));
++    llvm::Value *Y = EmitScalarExpr(E->getArg(1));
++    llvm::Value *Magnitude = Builder.CreateAnd(X, MagnitudeMask);
++    llvm::Value *Sign = Builder.CreateAnd(Y, SignMask);
++    Result = RValue::get(Builder.CreateOr(Magnitude, Sign));
++    return true;
++  }
++
++  if (Name == "__builtin_signbit") {
++    if (!E->getArg(0)->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
++      return false;
++    llvm::Value *V = EmitScalarExpr(E->getArg(0));
++    llvm::Value *Bit = Builder.CreateTrunc(Builder.CreateLShr(V, 79), I32Ty);
++    Result = RValue::get(Bit);
++    return true;
++  }
++
++  if (Name == "__builtin_isnan") {
++    if (!E->getArg(0)->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
++      return false;
++    llvm::Value *V = EmitScalarExpr(E->getArg(0));
++    llvm::Value *ExpAllOnes =
++        Builder.CreateICmpEQ(ExpField(V), Builder.getInt16(0x7FFF));
++    llvm::Value *IntBitZero =
++        Builder.CreateICmpEQ(Builder.CreateLShr(MantissaOf(V), 63),
++                             Builder.getInt64(0));
++    Result = RValue::get(
++        Builder.CreateZExt(Builder.CreateOr(IsNaNAllOnes(V),
++                                            Builder.CreateAnd(ExpAllOnes,
++                                                              IntBitZero)),
++                           I32Ty));
++    return true;
++  }
++
++  if (Name == "__builtin_isinf" || Name == "__builtin_isinf_sign") {
++    if (!E->getArg(0)->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
++      return false;
++    llvm::Value *V = EmitScalarExpr(E->getArg(0));
++    llvm::Value *IsInf = IsInfImage(V);
++    if (Name == "__builtin_isinf") {
++      Result = RValue::get(Builder.CreateZExt(IsInf, I32Ty));
++    } else {
++      llvm::Value *Negative = Builder.CreateICmpNE(
++          Builder.CreateTrunc(Builder.CreateLShr(V, 79), I32Ty),
++          Builder.getInt32(0));
++      llvm::Value *Signed = Builder.CreateSelect(
++          Negative, Builder.CreateSub(Builder.getInt32(0),
++                                      Builder.getInt32(1)),
++          Builder.getInt32(1));
++      Result = RValue::get(
++          Builder.CreateSelect(IsInf, Signed, Builder.getInt32(0)));
++    }
++    return true;
++  }
++
++  if (Name == "__builtin_isfinite") {
++    if (!E->getArg(0)->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
++      return false;
++    llvm::Value *V = EmitScalarExpr(E->getArg(0));
++    llvm::Value *Exp = ExpField(V);
++    llvm::Value *ExpAllOnes = Builder.CreateICmpEQ(Exp, Builder.getInt16(0x7FFF));
++    llvm::Value *ExpZero = Builder.CreateICmpEQ(Exp, Builder.getInt16(0));
++    llvm::Value *IntBitZero =
++        Builder.CreateICmpEQ(Builder.CreateLShr(MantissaOf(V), 63),
++                             Builder.getInt64(0));
++    llvm::Value *Unnormal =
++        Builder.CreateAnd(Builder.CreateNot(ExpAllOnes),
++                          Builder.CreateAnd(Builder.CreateNot(ExpZero),
++                                            IntBitZero));
++    Result = RValue::get(Builder.CreateZExt(
++        Builder.CreateAnd(Builder.CreateNot(ExpAllOnes),
++                          Builder.CreateNot(Unnormal)),
++        I32Ty));
++    return true;
++  }
++
++  if (Name == "__builtin_isnormal") {
++    if (!E->getArg(0)->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
++      return false;
++    llvm::Value *V = EmitScalarExpr(E->getArg(0));
++    llvm::Value *Exp = ExpField(V);
++    llvm::Value *Normal = Builder.CreateAnd(
++        Builder.CreateICmpNE(Exp, Builder.getInt16(0)),
++        Builder.CreateICmpNE(Exp, Builder.getInt16(0x7FFF)));
++    Normal = Builder.CreateAnd(
++        Normal, Builder.CreateICmpNE(Builder.CreateLShr(MantissaOf(V), 63),
++                                     Builder.getInt64(0)));
++    Result = RValue::get(Builder.CreateZExt(Normal, I32Ty));
++    return true;
++  }
++
++  if (Name == "__builtin_fpclassify") {
++    if (!E->getArg(5)->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
++      return false;
++    llvm::Value *V = EmitScalarExpr(E->getArg(5));
++    llvm::Value *Exp = ExpField(V);
++    llvm::Value *Man = MantissaOf(V);
++    llvm::Value *ExpAllOnes = Builder.CreateICmpEQ(Exp, Builder.getInt16(0x7FFF));
++    llvm::Value *ExpZero = Builder.CreateICmpEQ(Exp, Builder.getInt16(0));
++    llvm::Value *ManZero = Builder.CreateICmpEQ(Man, Builder.getInt64(0));
++    llvm::Value *IntBitZero =
++        Builder.CreateICmpEQ(Builder.CreateLShr(Man, 63), Builder.getInt64(0));
++    llvm::Value *IsNaN = Builder.CreateOr(
++        Builder.CreateAnd(ExpAllOnes, Builder.CreateNot(ManZero)),
++        Builder.CreateAnd(Builder.CreateNot(ExpAllOnes),
++                          Builder.CreateAnd(Builder.CreateNot(ExpZero),
++                                            IntBitZero)));
++    llvm::Value *IsInf = Builder.CreateAnd(ExpAllOnes, ManZero);
++    llvm::Value *IsZero = Builder.CreateAnd(ExpZero, ManZero);
++    llvm::Value *IsSub = Builder.CreateAnd(
++        ExpZero, Builder.CreateAnd(Builder.CreateNot(ManZero), IntBitZero));
++    llvm::Value *IsNormal =
++        Builder.CreateNot(Builder.CreateOr(IsNaN, Builder.CreateOr(
++            IsInf, Builder.CreateOr(IsZero, IsSub))));
++    llvm::Value *A0 = EmitScalarExpr(E->getArg(0));
++    llvm::Value *A1 = EmitScalarExpr(E->getArg(1));
++    llvm::Value *A2 = EmitScalarExpr(E->getArg(2));
++    llvm::Value *A3 = EmitScalarExpr(E->getArg(3));
++    llvm::Value *A4 = EmitScalarExpr(E->getArg(4));
++    llvm::Value *R = A4; /* zero */
++    R = Builder.CreateSelect(IsSub, A3, R);
++    R = Builder.CreateSelect(IsNormal, A2, R);
++    R = Builder.CreateSelect(IsInf, A1, R);
++    R = Builder.CreateSelect(IsNaN, A0, R);
++    Result = RValue::get(R);
++    return true;
++  }
++
++  if (Name == "__builtin_infl" || Name == "__builtin_huge_vall") {
++    Result = RValue::get(llvm::ConstantInt::get(
++        I128Ty, x87LongDoubleImage(0x8000000000000000ULL, 0x7FFF)));
++    return true;
++  }
++
++  if (Name == "__builtin_nanl" || Name == "__builtin_nansl") {
++    // Reuse the (constant folded) payload if it is available; the default x87
++    // quiet NaN has an insignificant payload of zero.
++    Result = RValue::get(llvm::ConstantInt::get(
++        I128Ty, x87LongDoubleImage(0xC000000000000000ULL, 0x7FFF)));
++    return true;
++  }
++
++  // Everything else is evaluated in 'double' through the binary64 entry point
++  // of the same name, which is what the C library does internally as well.
++  std::string LibName = Name;
++  if (StringRef(LibName).starts_with("__builtin_"))
++    LibName.erase(0, strlen("__builtin_"));
++  if (LibName.size() > 1 && LibName.back() == 'l')
++    LibName.pop_back();
++
++  SmallVector<llvm::Type *, 4> ArgTys;
++  SmallVector<llvm::Value *, 4> Args;
++  for (unsigned I = 0, N = E->getNumArgs(); I != N; ++I) {
++    llvm::Value *A = EmitScalarExpr(E->getArg(I));
++    if (E->getArg(I)->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
++      A = EmitSoftX87LdToDouble(A, Loc);
++    Args.push_back(A);
++    ArgTys.push_back(A->getType());
++  }
++
++  bool LongDoubleResult = E->getType()->isSpecificBuiltinType(BuiltinType::LongDouble);
++  llvm::Type *RetTy =
++      LongDoubleResult ? Builder.getDoubleTy() : ConvertType(E->getType());
++  llvm::FunctionType *FT = llvm::FunctionType::get(RetTy, ArgTys, false);
++  llvm::FunctionCallee Fn = CGM.CreateRuntimeFunction(FT, LibName);
++  llvm::Value *Call = Builder.CreateCall(Fn, Args);
++  if (LongDoubleResult)
++    Call = EmitDoubleToSoftX87Ld(Call, Loc);
++  Result = RValue::get(Call);
++  return true;
++}
++
+ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
+                                         const CallExpr *E,
+                                         ReturnValueSlot ReturnValue) {
+   assert(!getContext().BuiltinInfo.isImmediate(BuiltinID) &&
+          "Should not codegen for consteval builtins");
+ 
++  // ARM64EC: 'long double' is an x87 image kept in a 16-byte integer slot and
++  // has no hardware arithmetic.  Builtins that take or return such a value must
++  // therefore never be lowered to FP intrinsics.
++  if (getTarget().hasSoftX87LongDouble()) {
++    bool TouchesLongDouble = E->getType()->isSpecificBuiltinType(BuiltinType::LongDouble);
++    for (const Expr *Arg : E->arguments())
++      TouchesLongDouble |= Arg->getType()->isSpecificBuiltinType(BuiltinType::LongDouble);
++    if (TouchesLongDouble) {
++      RValue X87Result;
++      if (EmitSoftX87LongDoubleBuiltin(BuiltinID, E, ReturnValue, X87Result))
++        return X87Result;
++    }
++  }
++
+   const FunctionDecl *FD = GD.getDecl()->getAsFunction();
+   // See if we can constant fold this builtin.  If so, don't emit it at all.
+   // TODO: Extend this handling to all builtin calls that we can constant-fold.
+diff --git a/clang/lib/CodeGen/CGExprConstant.cpp b/clang/lib/CodeGen/CGExprConstant.cpp
+index e2ec07bbae71..c52766524742 100644
+--- a/clang/lib/CodeGen/CGExprConstant.cpp
++++ b/clang/lib/CodeGen/CGExprConstant.cpp
+@@ -2649,6 +2649,11 @@ ConstantEmitter::tryEmitPrivate(const APValue &Value, QualType DestType,
+     return llvm::ConstantStruct::get(STy, Complex);
+   }
+   case APValue::Float:
++    // ARM64EC: 'long double' constants are x87 images held in a 16-byte
++    // integer slot.
++    if (CGM.getTarget().hasSoftX87LongDouble() &&
++        DestType->isSpecificBuiltinType(BuiltinType::LongDouble))
++      return CGM.EmitSoftX87LdConstant(Value.getFloat());
+     return llvm::ConstantFP::get(CGM.getLLVMContext(), Value.getFloat());
+   case APValue::ComplexFloat: {
+     llvm::Constant *Complex[2];
+@@ -2922,6 +2927,18 @@ llvm::Constant *ConstantEmitter::emitNullForMemory(CodeGenModule &CGM,
+   return emitForMemory(CGM, CGM.EmitNullConstant(T), T);
+ }
+ 
++llvm::Constant *CodeGenModule::EmitSoftX87LdConstant(
++    const llvm::APFloat &Value) {
++  // The memory image of an x87 extended-precision value is the 64-bit
++  // significand followed by the 16-bit sign/exponent word; the remaining 6
++  // bytes of the 16-byte slot are padding.  As a little-endian integer, the
++  // image is therefore `significand | (sign_exponent << 64)`.
++  llvm::APInt Bits = Value.bitcastToAPInt();
++  assert(Bits.getBitWidth() == 80 && "expected x87 extended precision");
++  return llvm::ConstantInt::get(llvm::IntegerType::get(getLLVMContext(), 128),
++                                Bits.zext(128));
++}
++
+ llvm::Constant *CodeGenModule::EmitNullConstant(QualType T) {
+   if (T->getAs<PointerType>()) {
+     llvm::Type *LT = getTypes().ConvertTypeForMem(T);
+diff --git a/clang/lib/CodeGen/CGExprScalar.cpp b/clang/lib/CodeGen/CGExprScalar.cpp
+index 0e2e29f0745d..faf41ddffc7f 100644
+--- a/clang/lib/CodeGen/CGExprScalar.cpp
++++ b/clang/lib/CodeGen/CGExprScalar.cpp
+@@ -555,6 +555,9 @@ public:
+     return Builder.getInt(E->getValue());
+   }
+   Value *VisitFloatingLiteral(const FloatingLiteral *E) {
++    if (CGF.getTarget().hasSoftX87LongDouble() &&
++        E->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
++      return CGF.CGM.EmitSoftX87LdConstant(E->getValue());
+     return llvm::ConstantFP::get(VMContext, E->getValue());
+   }
+   Value *VisitCharacterLiteral(const CharacterLiteral *E) {
+@@ -838,6 +841,8 @@ public:
+ 
+   // Binary Operators.
+   Value *EmitMul(const BinOpInfo &Ops) {
++    if (CGF.getTarget().hasSoftX87LongDouble() && Ops.Ty->isSpecificBuiltinType(BuiltinType::LongDouble))
++      return EmitSoftX87BinOp(Ops, &ScalarExprEmitter::EmitMul);
+     if (Ops.Ty->isSignedIntegerOrEnumerationType() ||
+         Ops.Ty->isUnsignedIntegerType()) {
+       const bool isSigned = Ops.Ty->isSignedIntegerOrEnumerationType();
+@@ -985,8 +990,16 @@ public:
+   Value *EmitCompare(const BinaryOperator *E, llvm::CmpInst::Predicate UICmpOpc,
+                      llvm::CmpInst::Predicate SICmpOpc,
+                      llvm::CmpInst::Predicate FCmpOpc, bool IsSignaling);
++  Value *EmitSoftX87Compare(const BinaryOperator *E,
++                            llvm::CmpInst::Predicate FCmpOpc);
++  Value *EmitSoftX87BinOp(
++      const BinOpInfo &Ops,
++      Value *(ScalarExprEmitter::*Emit)(const BinOpInfo &));
+ #define VISITCOMP(CODE, UI, SI, FP, SIG) \
+     Value *VisitBin##CODE(const BinaryOperator *E) { \
++      if (CGF.getTarget().hasSoftX87LongDouble() && \
++          E->getLHS()->getType()->isSpecificBuiltinType(BuiltinType::LongDouble)) \
++        return EmitSoftX87Compare(E, llvm::FCmpInst::FP); \
+       return EmitCompare(E, llvm::ICmpInst::UI, llvm::ICmpInst::SI, \
+                          llvm::FCmpInst::FP, SIG); }
+   VISITCOMP(LT, ICMP_ULT, ICMP_SLT, FCMP_OLT, true)
+@@ -1044,6 +1057,12 @@ public:
+ Value *ScalarExprEmitter::EmitConversionToBool(Value *Src, QualType SrcType) {
+   assert(SrcType.isCanonical() && "EmitScalarConversion strips typedefs");
+ 
++  if (CGF.getTarget().hasSoftX87LongDouble() && SrcType->isSpecificBuiltinType(BuiltinType::LongDouble)) {
++    SourceLocation Loc;
++    Src = CGF.EmitSoftX87LdToDouble(Src, Loc);
++    SrcType = CGF.getContext().DoubleTy;
++  }
++
+   if (SrcType->isRealFloatingType())
+     return EmitFloatToBoolConversion(Src);
+ 
+@@ -1629,12 +1648,90 @@ Value *ScalarExprEmitter::EmitScalarCast(Value *Src, QualType SrcType,
+   return Builder.CreateFPExt(Src, DstTy, "conv");
+ }
+ 
++//===----------------------------------------------------------------------===//
++// ARM64EC soft x87 'long double' support
++//===----------------------------------------------------------------------===//
++
++Address CodeGenFunction::CreateSoftX87LdTemp(SourceLocation Loc) {
++  QualType LDTy = getContext().LongDoubleTy;
++  CharUnits Align = getContext().getTypeAlignInChars(LDTy);
++  llvm::Type *Ty = ConvertType(LDTy);
++  return Address(CreateTempAlloca(Ty, Align, "x87ld.tmp"));
++}
++
++llvm::Value *CodeGenFunction::EmitSoftX87LdToDouble(llvm::Value *Bits,
++                                                    SourceLocation Loc) {
++  Address Tmp = CreateSoftX87LdTemp(Loc);
++  Builder.CreateStore(Bits, Tmp);
++  llvm::FunctionType *FT = llvm::FunctionType::get(
++      llvm::Type::getDoubleTy(getLLVMContext()), {Builder.getPtrTy()}, false);
++  llvm::FunctionCallee Fn =
++      CGM.CreateRuntimeFunction(FT, "__arm64ec_load_x87_long_double");
++  return Builder.CreateCall(Fn, {Tmp.getPointerIfNotSigned()},
++                            "x87ld.to.double");
++}
++
++llvm::Value *CodeGenFunction::EmitDoubleToSoftX87Ld(llvm::Value *Value,
++                                                    SourceLocation Loc) {
++  Address Tmp = CreateSoftX87LdTemp(Loc);
++  llvm::FunctionType *FT = llvm::FunctionType::get(
++      llvm::Type::getVoidTy(getLLVMContext()),
++      {Builder.getPtrTy(), llvm::Type::getDoubleTy(getLLVMContext())}, false);
++  llvm::FunctionCallee Fn =
++      CGM.CreateRuntimeFunction(FT, "__arm64ec_store_x87_long_double");
++  Builder.CreateCall(Fn, {Tmp.getPointerIfNotSigned(), Value});
++  return Builder.CreateLoad(Tmp, "x87ld.from.double");
++}
++
++/// Evaluate a binary operation on soft x87 'long double' operands: both sides
++/// are converted to 'double', the operation is carried out in 'double', and the
++/// result is converted back into the x87 image.
++Value *ScalarExprEmitter::EmitSoftX87BinOp(
++    const BinOpInfo &Ops, Value *(ScalarExprEmitter::*Emit)(const BinOpInfo &)) {
++  SourceLocation Loc = Ops.E ? Ops.E->getExprLoc() : SourceLocation();
++  BinOpInfo DoubleOps = Ops;
++  DoubleOps.Ty = CGF.getContext().DoubleTy;
++  DoubleOps.LHS = CGF.EmitSoftX87LdToDouble(Ops.LHS, Loc);
++  DoubleOps.RHS = CGF.EmitSoftX87LdToDouble(Ops.RHS, Loc);
++  return CGF.EmitDoubleToSoftX87Ld((this->*Emit)(DoubleOps), Loc);
++}
++
++Value *ScalarExprEmitter::EmitSoftX87Compare(const BinaryOperator *E,
++                                             llvm::CmpInst::Predicate FCmpOpc) {
++  SourceLocation Loc = E->getExprLoc();
++  llvm::Value *LHS =
++      CGF.EmitSoftX87LdToDouble(CGF.EmitScalarExpr(E->getLHS()), Loc);
++  llvm::Value *RHS =
++      CGF.EmitSoftX87LdToDouble(CGF.EmitScalarExpr(E->getRHS()), Loc);
++  llvm::Value *Result = Builder.CreateFCmp(FCmpOpc, LHS, RHS, "cmp");
++  return EmitScalarConversion(Result, CGF.getContext().BoolTy, E->getType(), Loc);
++}
++
+ /// Emit a conversion from the specified type to the specified destination type,
+ /// both of which are LLVM scalar types.
+ Value *ScalarExprEmitter::EmitScalarConversion(Value *Src, QualType SrcType,
+                                                QualType DstType,
+                                                SourceLocation Loc,
+                                                ScalarConversionOpts Opts) {
++  // ARM64EC: 'long double' is an x87 image held in a 16-byte integer slot.
++  // Every conversion goes through 'double' and the runtime helpers.
++  if (Src && CGF.getTarget().hasSoftX87LongDouble()) {
++    QualType CSrcType = CGF.getContext().getCanonicalType(SrcType);
++    QualType CDstType = CGF.getContext().getCanonicalType(DstType);
++    if (CSrcType != CDstType &&
++        (CSrcType->isSpecificBuiltinType(BuiltinType::LongDouble) || CDstType->isSpecificBuiltinType(BuiltinType::LongDouble))) {
++      QualType DoubleTy = CGF.getContext().DoubleTy;
++      if (CSrcType->isSpecificBuiltinType(BuiltinType::LongDouble)) {
++        Src = CGF.EmitSoftX87LdToDouble(Src, Loc);
++        SrcType = DoubleTy;
++      }
++      if (CDstType->isSpecificBuiltinType(BuiltinType::LongDouble)) {
++        Src = EmitScalarConversion(Src, SrcType, DoubleTy, Loc, Opts);
++        return CGF.EmitDoubleToSoftX87Ld(Src, Loc);
++      }
++    }
++  }
++
+   // All conversions involving fixed point types should be handled by the
+   // EmitFixedPoint family functions. This is done to prevent bloating up this
+   // function more, and although fixed point numbers are represented by
+@@ -3714,6 +3811,16 @@ Value *ScalarExprEmitter::VisitMinus(const UnaryOperator *E,
+     return Builder.CreateFNeg(Op, "fneg");
+   }
+ 
++  // ARM64EC: negate a soft x87 'long double' by flipping its sign bit.  This
++  // keeps the exact bit pattern (in particular -(+0.0) is -0.0, which the
++  // 0.0 - x formulation below would get wrong).
++  if (CGF.getTarget().hasSoftX87LongDouble() &&
++      E->getType()->isSpecificBuiltinType(BuiltinType::LongDouble)) {
++    llvm::APInt SignMask = llvm::APInt::getOneBitSet(128, 79);
++    return Builder.CreateXor(
++        Op, llvm::ConstantInt::get(VMContext, SignMask), "fneg");
++  }
++
+   // Emit unary minus with EmitSub so we handle overflow cases etc.
+   BinOpInfo BinOp;
+   BinOp.RHS = Op;
+@@ -4320,6 +4427,8 @@ void ScalarExprEmitter::EmitUndefinedBehaviorIntegerDivAndRemCheck(
+ }
+ 
+ Value *ScalarExprEmitter::EmitDiv(const BinOpInfo &Ops) {
++  if (CGF.getTarget().hasSoftX87LongDouble() && Ops.Ty->isSpecificBuiltinType(BuiltinType::LongDouble))
++    return EmitSoftX87BinOp(Ops, &ScalarExprEmitter::EmitDiv);
+   {
+     SanitizerDebugLocation SanScope(&CGF,
+                                     {SanitizerKind::SO_IntegerDivideByZero,
+@@ -4374,6 +4483,8 @@ Value *ScalarExprEmitter::EmitDiv(const BinOpInfo &Ops) {
+ }
+ 
+ Value *ScalarExprEmitter::EmitRem(const BinOpInfo &Ops) {
++  if (CGF.getTarget().hasSoftX87LongDouble() && Ops.Ty->isSpecificBuiltinType(BuiltinType::LongDouble))
++    return EmitSoftX87BinOp(Ops, &ScalarExprEmitter::EmitRem);
+   // Rem in C can't be a floating point type: C99 6.5.5p2.
+   if ((CGF.SanOpts.has(SanitizerKind::IntegerDivideByZero) ||
+        CGF.SanOpts.has(SanitizerKind::SignedIntegerOverflow)) &&
+@@ -4784,6 +4895,8 @@ static Value* tryEmitFMulAdd(const BinOpInfo &op,
+ }
+ 
+ Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
++  if (CGF.getTarget().hasSoftX87LongDouble() && op.Ty->isSpecificBuiltinType(BuiltinType::LongDouble))
++    return EmitSoftX87BinOp(op, &ScalarExprEmitter::EmitAdd);
+   if (op.LHS->getType()->isPointerTy() ||
+       op.RHS->getType()->isPointerTy())
+     return emitPointerArithmetic(CGF, op, CodeGenFunction::NotSubtraction);
+@@ -4946,6 +5059,8 @@ Value *ScalarExprEmitter::EmitFixedPointBinOp(const BinOpInfo &op) {
+ }
+ 
+ Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
++  if (CGF.getTarget().hasSoftX87LongDouble() && op.Ty->isSpecificBuiltinType(BuiltinType::LongDouble))
++    return EmitSoftX87BinOp(op, &ScalarExprEmitter::EmitSub);
+   // The LHS is always a pointer if either side is.
+   if (!op.LHS->getType()->isPointerTy()) {
+     if (op.Ty->isSignedIntegerOrEnumerationType() ||
+diff --git a/clang/lib/CodeGen/CodeGenFunction.h b/clang/lib/CodeGen/CodeGenFunction.h
+index e17ed28c5d4f..d3d34cbde192 100644
+--- a/clang/lib/CodeGen/CodeGenFunction.h
++++ b/clang/lib/CodeGen/CodeGenFunction.h
+@@ -4899,6 +4899,13 @@ public:
+   RValue EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
+                          const CallExpr *E, ReturnValueSlot ReturnValue);
+ 
++  /// ARM64EC: lower a builtin that takes or returns a soft x87 'long double'
++  /// without ever creating floating-point values of that type.  Returns false
++  /// if the builtin does not need special treatment.
++  bool EmitSoftX87LongDoubleBuiltin(unsigned BuiltinID, const CallExpr *E,
++                                    ReturnValueSlot ReturnValue,
++                                    RValue &Result);
++
+   RValue emitRotate(const CallExpr *E, bool IsRotateRight);
+ 
+   RValue emitStdcCountIntrinsic(const CallExpr *E, llvm::Intrinsic::ID IntID,
+@@ -5215,6 +5222,18 @@ public:
+   llvm::Value *EmitScalarConversion(llvm::Value *Src, QualType SrcTy,
+                                     QualType DstTy, SourceLocation Loc);
+ 
++  /// @name ARM64EC soft x87 'long double' support
++  ///
++  /// On ARM64EC 'long double' has the x87 extended format but there is no x87
++  /// FPU, so values live in memory and are turned into 'double' (and back) with
++  /// the runtime helpers __arm64ec_load_x87_long_double and
++  /// __arm64ec_store_x87_long_double whenever they take part in a computation.
++  /// @{
++  Address CreateSoftX87LdTemp(SourceLocation Loc);
++  llvm::Value *EmitSoftX87LdToDouble(llvm::Value *Bits, SourceLocation Loc);
++  llvm::Value *EmitDoubleToSoftX87Ld(llvm::Value *Value, SourceLocation Loc);
++  /// @}
++
+   /// Emit a conversion from the specified complex type to the specified
+   /// destination type, where the destination type is an LLVM scalar type.
+   llvm::Value *EmitComplexToScalarConversion(ComplexPairTy Src, QualType SrcTy,
+diff --git a/clang/lib/CodeGen/CodeGenModule.h b/clang/lib/CodeGen/CodeGenModule.h
+index d9f3901c0c67..ac30478245d9 100644
+--- a/clang/lib/CodeGen/CodeGenModule.h
++++ b/clang/lib/CodeGen/CodeGenModule.h
+@@ -1454,6 +1454,10 @@ public:
+   /// null constant.
+   llvm::Constant *EmitNullConstant(QualType T);
+ 
++  /// ARM64EC: return the 16-byte integer image of an x87 extended-precision
++  /// value, which is how 'long double' constants are represented.
++  llvm::Constant *EmitSoftX87LdConstant(const llvm::APFloat &Value);
++
+   /// Return a null constant appropriate for zero-initializing a base class with
+   /// the given type. This is usually, but not always, an LLVM null constant.
+   llvm::Constant *EmitNullConstantForBase(const CXXRecordDecl *Record);
+diff --git a/clang/lib/CodeGen/CodeGenTypes.cpp b/clang/lib/CodeGen/CodeGenTypes.cpp
+index daed8559cc62..fbb894235a24 100644
+--- a/clang/lib/CodeGen/CodeGenTypes.cpp
++++ b/clang/lib/CodeGen/CodeGenTypes.cpp
+@@ -477,6 +477,14 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
+       break;
+     case BuiltinType::LongDouble:
+       LongDoubleReferenced = true;
++      // ARM64EC has no x87 FPU: 'long double' is the x87 extended format kept
++      // in a 16-byte slot, and is only ever copied around by integer
++      // instructions.  All computation goes through 'double' via runtime
++      // helper calls, see CodeGenFunction::EmitSoftX87LdToDouble().
++      if (getTarget().hasSoftX87LongDouble()) {
++        ResultType = llvm::IntegerType::get(getLLVMContext(), 128);
++        break;
++      }
+       [[fallthrough]];
+     case BuiltinType::BFloat16:
+     case BuiltinType::Float:
+diff --git a/clang/lib/CodeGen/Targets/X86.cpp b/clang/lib/CodeGen/Targets/X86.cpp
+index 4dd9eef48402..6360a3a825ef 100644
+--- a/clang/lib/CodeGen/Targets/X86.cpp
++++ b/clang/lib/CodeGen/Targets/X86.cpp
+@@ -3571,6 +3571,14 @@ ABIArgInfo WinX86_64ABIInfo::classify(QualType Ty, unsigned &FreeSSERegs,
+   if (Ty->isVoidType())
+     return ABIArgInfo::getIgnore();
+ 
++  // ARM64EC: a software x87 'long double' (16 bytes, 16-byte aligned) has no
++  // register representation, exactly like the x86_64 Windows ABI this target
++  // has to emulate; it is always passed and returned in memory.
++  if (getTarget().hasSoftX87LongDouble() &&
++      Ty->isSpecificBuiltinType(BuiltinType::LongDouble))
++    return getNaturalAlignIndirect(Ty, getDataLayout().getAllocaAddrSpace(),
++                                  /*ByVal=*/false);
++
+   bool PromoteScopedEnum = false;
+   if (const auto *ED = Ty->getAsEnumDecl()) {
+     Ty = ED->getIntegerType();
+diff --git a/clang/lib/Driver/ToolChains/Clang.cpp b/clang/lib/Driver/ToolChains/Clang.cpp
+index 5a1c8531812b..bc1795ecee6e 100644
+--- a/clang/lib/Driver/ToolChains/Clang.cpp
++++ b/clang/lib/Driver/ToolChains/Clang.cpp
+@@ -6343,6 +6343,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
+     else if (TC.getTriple().isPPC() &&
+              (A->getOption().getID() != options::OPT_mlong_double_80))
+       A->render(Args, CmdArgs);
++    else if (TC.getTriple().isWindowsArm64EC())
++      // ARM64EC defaults to the x87 80-bit format of x86_64; '-mlong-double-64'
++      // and '-mlong-double-80' are both supported, the latter being the default.
++      A->render(Args, CmdArgs);
+     else
+       D.Diag(diag::err_drv_unsupported_opt_for_target)
+           << A->getAsString(Args) << TripleStr;
+diff --git a/lld/MinGW/Options.td b/lld/MinGW/Options.td
+index 963152ea289b..50a45a7b2493 100644
+--- a/lld/MinGW/Options.td
++++ b/lld/MinGW/Options.td
+@@ -253,6 +253,8 @@ def alias_undefined_u: JoinedOrSeparate<["-"], "u">, Alias<undefined>;
+ // Ignored options
+ def: Joined<["-"], "O">;
+ def: F<"as-needed">;
++def: F<"default-image-base-high">;
++def: F<"default-image-base-low">;
+ def: F<"disable-auto-image-base">;
+ def: F<"enable-auto-image-base">;
+ def: F<"end-group">;
+diff --git a/llvm/cmake/modules/Findzstd.cmake b/llvm/cmake/modules/Findzstd.cmake
+index dbfaadb5de2b..19d88bf00c53 100644
+--- a/llvm/cmake/modules/Findzstd.cmake
++++ b/llvm/cmake/modules/Findzstd.cmake
+@@ -16,6 +16,8 @@ else()
+   set(zstd_STATIC_LIBRARY_SUFFIX "\\${CMAKE_STATIC_LIBRARY_SUFFIX}$")
+ endif()
+ 
++find_package(zstd CONFIG QUIET)
++if(NOT zstd_FOUND)
+ find_path(zstd_INCLUDE_DIR NAMES zstd.h)
+ find_library(zstd_LIBRARY NAMES zstd zstd_static)
+ find_library(zstd_STATIC_LIBRARY NAMES
+@@ -27,6 +29,7 @@ find_package_handle_standard_args(
+     zstd DEFAULT_MSG
+     zstd_LIBRARY zstd_INCLUDE_DIR
+ )
++endif()
+ 
+ if(zstd_FOUND)
+   if(zstd_LIBRARY MATCHES "${zstd_STATIC_LIBRARY_SUFFIX}$" AND NOT zstd_LIBRARY MATCHES "\\.dll\\.a$")
+@@ -38,7 +41,7 @@ if(zstd_FOUND)
+       # IMPORTED_LOCATION is the path to the DLL and IMPORTED_IMPLIB is the "library".
+       get_filename_component(zstd_DIRNAME "${zstd_LIBRARY}" DIRECTORY)
+       if(NOT "${CMAKE_INSTALL_LIBDIR}" STREQUAL "" AND NOT "${CMAKE_INSTALL_BINDIR}" STREQUAL "")
+-        string(REGEX REPLACE "${CMAKE_INSTALL_LIBDIR}$" "${CMAKE_INSTALL_BINDIR}" zstd_DIRNAME "${zstd_DIRNAME}")
++        string(REGEX REPLACE "\\${CMAKE_INSTALL_LIBDIR}$" "${CMAKE_INSTALL_BINDIR}" zstd_DIRNAME "${zstd_DIRNAME}")
+       endif()
+       get_filename_component(zstd_BASENAME "${zstd_LIBRARY}" NAME)
+       string(REGEX REPLACE "\\${CMAKE_LINK_LIBRARY_SUFFIX}$" "${CMAKE_SHARED_LIBRARY_SUFFIX}" zstd_BASENAME "${zstd_BASENAME}")
+diff --git a/llvm/cmake/modules/GetHostTriple.cmake b/llvm/cmake/modules/GetHostTriple.cmake
+index 120f2de36bb7..5d3f37916dc9 100644
+--- a/llvm/cmake/modules/GetHostTriple.cmake
++++ b/llvm/cmake/modules/GetHostTriple.cmake
+@@ -16,7 +16,7 @@ function( get_host_triple var )
+     else()
+       set( value "i686-pc-windows-msvc" )
+     endif()
+-  elseif( MINGW AND NOT MSYS )
++  elseif( MINGW )
+     # CMake doesn't provide COMPILER_ARCHITECTURE_ID for Clang/GCC,
+     # but it does for MSVC.
+     if( CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "ARM.*" )

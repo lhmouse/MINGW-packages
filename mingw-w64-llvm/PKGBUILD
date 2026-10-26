@@ -70,13 +70,15 @@ source=(llvm-project::"git+https://github.com/llvm/llvm-project.git#branch=${_br
         "0303-ignore-new-bfd-options.patch"
         # 0401-0499 -> clang-tools-extra
         # 0901-0999 -> whole tree
+        long_double_arm64ec_llvm.patch
         )
 sha256sums=('SKIP'
             'eb03df53671df6627768141b3aaa76abe176a14e5e47911c97bec544387c4aff'
             'd77d47e37e4948f5c01ae8bc05fb4e879b6516132c5a60c7bc820c9cbbb39668'
             'fc07b8d63ae52a31aa6cb6bcb439ebd6097249ebfe1eac0aabed26d674abb397'
             '715cb8862753854b2d9256e0b70003e2d1f57083d83eaeaf5a095fc72b8a4e26'
-            'fd0253879cc5e31857f57307e6105e56493358e35d7c4540e0b476be607ab94e')
+            'fd0253879cc5e31857f57307e6105e56493358e35d7c4540e0b476be607ab94e'
+            '27a9e1b64a7e159203a4267c2b9a327ef54b5d80b0785d992672a6c69bc3258c')
 validpgpkeys=('B6C8F98282B944E3B0D5C2530FC3042E345AD05D'  # Hans Wennborg, Google.
               '474E22316ABF4785A88C6E8EA2C794A986419D8A'  # Tom Stellard
               '71046D1E9C6656BDD61171873E83BABF4A4F9E85'  # Cullen Rhodes
@@ -92,6 +94,9 @@ apply_patch_with_msg() {
 }
 
 prepare() {
+  cd "${srcdir}"/${_pkgfn}
+  apply_patch_with_msg long_double_arm64ec_llvm.patch
+
   # Patch llvm
   cd "${srcdir}"/${_pkgfn}/llvm
   apply_patch_with_msg \
