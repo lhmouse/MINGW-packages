@@ -416,6 +416,101 @@ libm**，超出 binary64 范围的值就饱和为 inf/NaN——x64 模拟层同�
 
 两个标记都附有注释说明：同样的断言在 WoA 的 x64 模拟层上逐位同样失败，因此这是平台属性，
 不是本实现引入的问题；若日后 CRT 补上纯整数的 80 位 `sqrtl`，把标记删掉即可恢复验证。
+
+### 6.2 x64 模拟层的 `frexpl` / `ldexpl` / `modfl` 精度
+
+这三个函数在 ARM64EC 上被放进 `Exact` 集合（用 CRT 的整数镜像实现，一个 bit 都不许丢）。
+那么**模拟层上的 x86-64 版本**是否精确？用 `logs/ldrange/ldsplit.c` 实测（`CLANG64` 编译，
+输入用显式 16 字节镜像构造，输出也按镜像打印）：
+
+| 输入（镜像） | `frexpl` 结果 | 往返 | `modfl` 的分数部分 |
+|---|---|---|---|
+| `ffffffffffffffff 3fff`（≈2 − 2⁻⁶³） | `8000000000000000 3ffe`，**e = 2**（应为 1） | **不等** | `0000000000000000 0000`（应为 `fffffffffffffffe 3ffe`） |
+| `8000000000000001 3fff`（1 + 2⁻⁶³） | `8000000000000000 3ffe` | **不等** | `0000000000000000 0000`（应为 `8000000000000000 3fc0`） |
+| `8010000000000001 3fff`（1 + 2⁻¹¹ + 2⁻⁶³） | `8010000000000000 3ffe` | **不等** | `8000000000000000 3ff4`（丢了 2⁻⁶³ 那一位） |
+| `c90fdaa22168c235 3fff`（≈π/2） | `c90fdaa22168c000 3ffe` | **不等** | `921fb54442d18000 3ffe`（低 12 位清零） |
+| `c90fdaa22168c235 bfff`（同上，负） | `c90fdaa22168c000 bffe` | **不等** | `921fb54442d18000 bffe` |
+| `ffffffffffffffff 403e`（2⁶⁴−1，整数） | `8000000000000000 3ffe`，**e = 65**（应为 64） | **不等** | `0000000000000000 0000`（整数，正确） |
+
+**结论：模拟层上这三个函数同样丢位。**
+
+* `frexpl`：结果的有效数被截到 53 位（低 11 位清零）；当舍入正好跨过 2 的幂时，
+  连返回的指数都会差 1（上表前两行的 `e`）。
+* `ldexpl`：在已被舍入的值上做缩放，`ldexpl(frexpl(x), e)` 回不到 `x`；`ldexpl(x, ±3)`
+  同样保留不了低位。
+* `modfl`：整数部分被舍入（`2⁶⁴−1` 变成 `0x8000000000000000 403f`，即 2⁶⁴），
+  分数部分把 `2⁻⁶³` 这类位直接丢掉。
+
+注意 `ip + fp == x` 在模拟层上仍然打印 `1`——因为两边都是同一个已舍入的值，这个等式
+**不能**当作精度判据，必须比较镜像字节。
+
+> 这正是基线报告里"**软件 `long double` 必须实现真实 x87 语义，不能照抄模拟器行为**"那条
+> 结论的又一个实例：模拟层既不能当作 `frexpl`/`ldexpl`/`modfl` 的参考实现，也解释了为什么
+> 这三个函数必须在 ARM64EC 上走纯整数路径。
+>
+> 反过来说，ARM64EC 侧没有 x87 硬件，这三个函数由 `arm-common` 的整数实现在内存镜像上完成，
+> 其正确性已由 `logs/ldtest/ldtest.c` 的 92 项检查（含 10 万次随机往返）在 5 个优化级别下
+> 全部通过来保证，此处无需再作对照。
+
+### 6.3 全部 `long double` 函数的逐函数精度扫描
+
+为了回答"哪些 `long double` 函数在 WoA 的 x64 模拟层上真的会掉精度"这个问题，把 §6.2 的
+判据推广到整套 `long double` 函数（`logs/ldrange/ldfuncs.c`，输出见
+`logs/ldrange/ldfuncs_x64.txt`）。
+
+**判据。** 构造 64 位有效数字全满的 x87 镜像作为输入（全部落在 binary64 的**量程**之内，因此
+只可能暴露**精度**损失，不会混入上溢/下溢）：`0x8000000000000001`、`0xc90fdaa22168c235`
+（π/2）、`0xaaaaaaaaaaaaaaab`、`0x9e3779b97f4a7c15`、`0xffffffffffffffff`，分别配
+`0x3ffe`（0.5≤x<1）、`0x3fff`（1≤x<2）、`0x4000`（2≤x<4）三组指数。读出结果镜像后统计
+**有效数字尾部零位数**（`ctz`）：binary64 只有 53 位有效数字，写进 64 位尾数后必然
+`ctz ≥ 11`；只要某个函数能给出 `ctz < 11` 的结果，就说明它真的用到了 80 位精度。
+
+**测量方式的关键细节。** 必须把被测函数**经由函数指针**调用、输入声明为 `volatile`。
+直接用 `-O2` 调用 `fabsl` / `truncl` 等内建函数时，clang 会自己把它们降成整数位运算或做
+常量折叠，量到的是**编译器**的 x87 语义（所以 `fabsl(-x)`、`truncl(2-2⁻⁶³)` 这种直接调用
+反而"正确"）；只有绕过内联，量到的才是 ucrtbase 的真实实现。
+
+**结果：46 个函数全部退化为 binary64，没有一个保留 80 位精度。**
+
+| 分组 | 函数 | `ctz≥11` | 判定 |
+|---|---|---|---|
+| 超越 / 代数（31） | `sqrtl` `cbrtl` `expl` `exp2l` `expm1l` `logl` `log10l` `log2l` `log1pl` `sinl` `cosl` `tanl` `asinl` `acosl` `atanl` `sinhl` `coshl` `tanhl` `asinhl` `acoshl` `atanhl` `erfl` `erfcl` `tgammal` `lgammal` `atan2l` `powl` `fmodl` `remainderl` `fdiml` `hypotl` | 5/5 全部 | BINARY64 |
+| 位操作（4） | `fabsl` `copysignl` `fmaxl` `fminl` | 5/5 全部 | BINARY64 |
+| 拆分 / 缩放 / 相邻值（5） | `frexpl`+`ldexpl`、`modfl`、`scalbnl`、`nextafterl`、`nexttowardl` | 5/5 全部 | BINARY64 |
+| 取整（6） | `ceill` `floorl` `roundl` `truncl` `rintl` `nearbyintl` | 5/5 全部 | BINARY64 |
+| 指数提取 | `ilogbl` | — | 见下 |
+
+取整族的 `ctz` 恒为 63（结果本来就是整数），单靠 `ctz` 无法区分，因此对边界值
+`x = 2 - 2⁻⁶³` 单独做了对照：
+
+| 调用（函数指针，真实库） | 模拟层结果 | 正确 x87 结果 |
+|---|---|---|
+| `truncl(x)` | `8000000000000000 4000`（=2） | `8000000000000000 3fff`（=1） |
+| `floorl(x)` | `8000000000000000 4000`（=2） | `8000000000000000 3fff`（=1） |
+| `fabsl(-x)` | 尾数 `8000000000000000`（已丢掉低位） | 尾数 `ffffffffffffffff` |
+
+即取整族、位操作族同样是"先把值舍入到 binary64 再计算"，只是这些函数的结果形态有时掩盖了
+损失。`ilogbl` 对 `1+2⁻⁶³` 返回 `0`（与 x87 一致），但在 `1≤x<2` 这一组的区间是 `[0,1]`
+而不是恒 `0`——`0xffffffffffffffff 3fff` 被舍入成 2.0，`ilogbl` 因此返回 `1`。
+
+`same_as_double` 只有 1/5～4/5 的行（如 `expm1l`、`atanhl`、`erfcl`）并不矛盾：ucrtbase
+内部可能用更高精度算完再舍入成 binary64，与"先转 `double` 再算"结果不完全相同，但有效数字
+位宽仍然只有 53 位。
+
+**对 CRT 的含义。** 从"与模拟层行为一致"这个角度看，**没有任何一个 `long double` 函数需要在
+mingw-w64 CRT 里做精确实现**；现有 `math/{fabsl,frexpl,modfl,rintl,lrintl,truncl,signbitl,fpclassifyl}.c`、
+`math/arm-common/{ldexpl,copysignl,log1pl,logbl,remainderl}.c`、`math/arm64/nearbyintl.c`、
+`math/arm-common/ld_fallbacks.c` 里的 `__arm64ec__` 分支都只是**质量提升**，不是兼容性要求。
+但其中有三类**不能按精度理由删除**：
+
+* **链接必需**：`F_LD64()` 把 ucrtbase 里这些 80 位入口的导出全部屏蔽了，`copysignl`、
+  `log1pl`、`logbl`、`remainderl`、`nextafterl`、`nexttoward*` 以及 `ld_fallbacks.c` 里的
+  13 个函数如果删掉，程序根本链接不过去（与精度无关）。
+* **量程必需**：`gdtoa/strtopx.c` 的 `__arm64ec__` 分支决定 `strtold("1e4000")` 能否解析成
+  80 位值。删掉它丢的是**量程**（超过 `DBL_MAX` 就变 `inf`），不是精度，模拟层也只是靠
+  编译器把字面量存成 80 位镜像才"看起来正常"。
+* **`CRT_fp10.c`**：ARM64EC 没有 x87 控制字，`_fpreset` 必须改写，否则 CRT 自检会崩。
+
 ---
 
 ## 7. 与基线的回归对比
