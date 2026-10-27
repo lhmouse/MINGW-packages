@@ -1,3 +1,48 @@
+# ===========================================================================
+#  ARM64EC: make 'long double' the x86_64 80-bit x87 format
+# ===========================================================================
+#
+#  Everything that is changed in this checkout is collected here, grouped by
+#  subject so that the file can be split by simply cutting at the markers.
+#
+#  [1] FEATURE - the ARM64EC long double implementation
+#        clang/include/clang/Basic/TargetInfo.h
+#        clang/lib/Basic/Targets/AArch64.{h,cpp}
+#        clang/lib/CodeGen/{CGBuiltin,CGExprComplex,CGExprConstant,
+#                           CGExprScalar}.cpp
+#        clang/lib/CodeGen/{CodeGenFunction,CodeGenModule,CodeGenTypes}.*
+#        clang/lib/CodeGen/Targets/X86.cpp
+#        clang/lib/Driver/ToolChains/Clang.cpp
+#        compiler-rt/lib/builtins/CMakeLists.txt
+#        compiler-rt/lib/builtins/arm64ec/x87_long_double.c   (new file)
+#
+#  [1b] TEST MARKS - two libc++ tests are marked UNSUPPORTED for the target
+#        libcxx/test/std/numerics/c.math/cmath.pass.cpp
+#        libcxx/test/std/numerics/numeric.ops/numeric.ops.midpoint/
+#            midpoint.float.pass.cpp
+#        ARM64EC keeps the 80-bit format but evaluates long double in 'double',
+#        so anything beyond the binary64 range saturates early.  Windows on
+#        ARM's x64 emulation fails the very same assertions bit for bit (its
+#        x87 registers are binary64), so this is a property of the platform,
+#        not of this implementation.
+#
+#  [2] TOOL FIX - llvm/utils/lit/lit/util.py
+#        get_windows_extended_path() has to normalise the path separators
+#        itself: MSYS2's Python reports '/' as ntpath.sep when MSYSTEM is set,
+#        and a "\\?\" prefix is only accepted on a fully backslash-separated
+#        path.  Not part of the feature, but it makes ten lit tests pass here.
+#
+#  [3] HOST BUILD WORKAROUNDS - unrelated to the feature
+#        lld/MinGW/Options.td                  accept --default-image-base-*
+#        llvm/cmake/modules/Findzstd.cmake     use the zstd CMake package
+#        llvm/cmake/modules/GetHostTriple.cmake  treat MINGW+MSYS as MINGW
+#        These are only needed to build this LLVM with the MSYS2 CLANGARM64
+#        toolchain; drop them for an upstream submission.
+#
+#  Apply from the llvm-project root with
+#      git apply long_double_arm64ec_llvm.patch
+# ===========================================================================
+
 diff --git a/clang/include/clang/Basic/TargetInfo.h b/clang/include/clang/Basic/TargetInfo.h
 index a6523e8eaaa4..e9119fbe970e 100644
 --- a/clang/include/clang/Basic/TargetInfo.h
@@ -17,20 +62,56 @@ index a6523e8eaaa4..e9119fbe970e 100644
    virtual bool hasFloat16Type() const { return HasFloat16; }
  
 diff --git a/clang/lib/Basic/Targets/AArch64.cpp b/clang/lib/Basic/Targets/AArch64.cpp
-index 7ddf9d87ad16..f6a95f58e187 100644
+index 7ddf9d87ad16..be3948e5140b 100644
 --- a/clang/lib/Basic/Targets/AArch64.cpp
 +++ b/clang/lib/Basic/Targets/AArch64.cpp
-@@ -1831,6 +1831,16 @@ WindowsARM64TargetInfo::WindowsARM64TargetInfo(const llvm::Triple &Triple,
+@@ -153,6 +153,17 @@ AArch64TargetInfo::AArch64TargetInfo(const llvm::Triple &Triple,
+   HasFloat16 = true;
+   HasStrictFP = true;
+ 
++  // IEEE quad precision is a legal type on AArch64: it is the default format of
++  // 'long double', and '-mlong-double-128' selects it explicitly on targets
++  // where 'long double' defaults to something else (such as ARM64EC).  The
++  // '__*tf3'/ '__*tf2' compiler-rt builtins implement it in software, and they
++  // are guarded by 'CRT_HAS_F128', which is defined either when 'long double'
++  // is already quad or when the '__float128' type is available.  ARM64EC needs
++  // the latter, and enabling it there only keeps every other AArch64 target
++  // byte-for-byte identical to upstream.
++  if (Triple.isWindowsArm64EC() && !Triple.isWindowsMSVCEnvironment())
++    HasFloat128 = true;
++
+   if (Triple.isArch64Bit())
+     LongWidth = LongAlign = PointerWidth = PointerAlign = 64;
+   else
+@@ -450,6 +461,13 @@ void AArch64TargetInfo::getTargetDefines(const LangOptions &Opts,
+   if (T.isLFI())
+     Builder.defineMacro("__LFI__");
+ 
++  // IEEE quad precision is available as an explicit type even where
++  // 'long double' is not quad (ARM64EC, and AArch64 Windows in general).
++  if (HasFloat128) {
++    Builder.defineMacro("__FLOAT128__");
++    Builder.defineMacro("__SIZEOF_FLOAT128__", "16");
++  }
++
+   // Inline assembly supports AArch64 flag outputs.
+   Builder.defineMacro("__GCC_ASM_FLAG_OUTPUTS__");
+ 
+@@ -1831,6 +1849,20 @@ WindowsARM64TargetInfo::WindowsARM64TargetInfo(const llvm::Triple &Triple,
    SizeType = UnsignedLongLong;
    PtrDiffType = SignedLongLong;
    IntPtrType = SignedLongLong;
 +
-+  if (Triple.isWindowsArm64EC()) {
++  if (Triple.isWindowsArm64EC() && !Triple.isWindowsMSVCEnvironment()) {
 +    // ARM64EC is ABI-compatible with x86_64 Windows, where 'long double' is
 +    // the x87 80-bit extended format held in a 16-byte, 16-byte-aligned slot.
 +    // There is no x87 FPU on ARM64, so such values are kept in memory and are
 +    // converted to 'double' for computation by the runtime helpers
 +    // __arm64ec_load_x87_long_double / __arm64ec_store_x87_long_double.
++    //
++    // The MSVC environment is deliberately excluded: MSVC's ARM64EC ABI has a
++    // 64-bit 'long double' and changing it would make the two toolchains
++    // binary incompatible.
 +    LongDoubleWidth = LongDoubleAlign = SuitableAlign = 128;
 +    LongDoubleFormat = &llvm::APFloat::x87DoubleExtended();
 +  }
@@ -58,26 +139,13 @@ index 00e84cc48643..ba8d31609bd5 100644
  
  // Windows ARM, MS (C++) ABI
 diff --git a/clang/lib/CodeGen/CGBuiltin.cpp b/clang/lib/CodeGen/CGBuiltin.cpp
-index e154b9e752fd..739bfe5404ca 100644
+index e154b9e752fd..237188c1edeb 100644
 --- a/clang/lib/CodeGen/CGBuiltin.cpp
 +++ b/clang/lib/CodeGen/CGBuiltin.cpp
-@@ -2714,12 +2714,270 @@ static void ClearPadding(CodeGenFunction &CGF, Address Src,
+@@ -2714,12 +2714,328 @@ static void ClearPadding(CodeGenFunction &CGF, Address Src,
    }
  }
  
-+namespace {
-+
-+/// Build the 16-byte integer image of an x87 extended-precision value, which is
-+/// how ARM64EC represents 'long double': the 64-bit significand in the low
-+/// bits, the 16-bit sign/exponent word above it, and 6 bytes of padding.
-+llvm::APInt x87LongDoubleImage(uint64_t Significand, uint16_t SignExponent) {
-+  llvm::APInt Image = llvm::APInt(128, Significand);
-+  Image |= llvm::APInt(128, SignExponent) << 64;
-+  return Image;
-+}
-+
-+} // namespace
-+
 +/// Lower builtins that operate on ARM64EC's software x87 'long double'.  The
 +/// ones that are required to be exact (fabs, copysign, signbit, isnan, isinf,
 +/// isfinite, isnormal, fpclassify) are implemented with integer operations on
@@ -91,6 +159,25 @@ index e154b9e752fd..739bfe5404ca 100644
 +  ASTContext &Ctx = getContext();
 +  // Note: BuiltinInfo::getName() returns a std::string by value.
 +  const std::string Name = Ctx.BuiltinInfo.getName(BuiltinID);
++
++  // Everything below rewrites a call into its binary64 equivalent, which only
++  // makes sense when a 'long double' is *consumed*.  The 'strtold' family takes
++  // a string instead and produces a 'long double', so it must be called with
++  // its own signature; it is handled by the C library in 80-bit precision.
++  bool ConsumesLongDouble = false;
++  for (const Expr *Arg : E->arguments())
++    ConsumesLongDouble |=
++        Arg->getType()->isSpecificBuiltinType(BuiltinType::LongDouble);
++  // The 'nan' and 'inf' families take a string or no argument at all and still
++  // produce a 'long double', so they do not consume one but do need the integer
++  // image constructed below: they are the only builtins that yield a constant.
++  const bool YieldsConstant =
++      Name == "nanl" || Name == "__builtin_nanl" || Name == "nansl" ||
++      Name == "__builtin_nansl" || Name == "infl" ||
++      Name == "__builtin_infl" || Name == "huge_vall" ||
++      Name == "__builtin_huge_vall";
++  if (!ConsumesLongDouble && !YieldsConstant)
++    return false;
 +  llvm::Type *I128Ty = llvm::IntegerType::get(getLLVMContext(), 128);
 +  llvm::Type *I64Ty = Builder.getInt64Ty();
 +  llvm::Type *I32Ty = Builder.getInt32Ty();
@@ -111,6 +198,13 @@ index e154b9e752fd..739bfe5404ca 100644
 +  auto MantissaOf = [&](llvm::Value *V) -> llvm::Value * {
 +    return Builder.CreateTrunc(V, I64Ty);
 +  };
++  // The sign lives in bit 15 of the sign/exponent word, i.e. in bit 79 of the
++  // image; the six padding bytes above it must not leak into the result.
++  auto SignBitOf = [&](llvm::Value *V) -> llvm::Value * {
++    return Builder.CreateAnd(
++        Builder.CreateTrunc(Builder.CreateLShr(V, 79), I32Ty),
++        Builder.getInt32(1));
++  };
 +  auto IsInfImage = [&](llvm::Value *V) -> llvm::Value * {
 +    llvm::Value *ExpAllOnes =
 +        Builder.CreateICmpEQ(ExpField(V), Builder.getInt16(0x7FFF));
@@ -126,7 +220,10 @@ index e154b9e752fd..739bfe5404ca 100644
 +    return Builder.CreateAnd(ExpAllOnes, Builder.CreateNot(FracZero));
 +  };
 +
-+  if (Name == "__builtin_fabs" || Name == "__builtin_fabsl") {
++  // Note that BuiltinInfo::getName() returns the C library spelling for the
++  // LibBuiltin entries, i.e. "fabsl" rather than "__builtin_fabsl", and the
++  // "__builtin_..." spelling for the ones that only exist as builtins.
++  if (Name == "fabsl" || Name == "__builtin_fabsl") {
 +    if (!E->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
 +      return false;
 +    Result = RValue::get(
@@ -134,7 +231,7 @@ index e154b9e752fd..739bfe5404ca 100644
 +    return true;
 +  }
 +
-+  if (Name == "__builtin_copysign" || Name == "__builtin_copysignl") {
++  if (Name == "copysignl" || Name == "__builtin_copysignl") {
 +    if (!E->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
 +      return false;
 +    llvm::Value *X = EmitScalarExpr(E->getArg(0));
@@ -149,8 +246,7 @@ index e154b9e752fd..739bfe5404ca 100644
 +    if (!E->getArg(0)->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
 +      return false;
 +    llvm::Value *V = EmitScalarExpr(E->getArg(0));
-+    llvm::Value *Bit = Builder.CreateTrunc(Builder.CreateLShr(V, 79), I32Ty);
-+    Result = RValue::get(Bit);
++    Result = RValue::get(SignBitOf(V));
 +    return true;
 +  }
 +
@@ -179,9 +275,8 @@ index e154b9e752fd..739bfe5404ca 100644
 +    if (Name == "__builtin_isinf") {
 +      Result = RValue::get(Builder.CreateZExt(IsInf, I32Ty));
 +    } else {
-+      llvm::Value *Negative = Builder.CreateICmpNE(
-+          Builder.CreateTrunc(Builder.CreateLShr(V, 79), I32Ty),
-+          Builder.getInt32(0));
++      llvm::Value *Negative =
++          Builder.CreateICmpNE(SignBitOf(V), Builder.getInt32(0));
 +      llvm::Value *Signed = Builder.CreateSelect(
 +          Negative, Builder.CreateSub(Builder.getInt32(0),
 +                                      Builder.getInt32(1)),
@@ -265,45 +360,79 @@ index e154b9e752fd..739bfe5404ca 100644
 +    return true;
 +  }
 +
-+  if (Name == "__builtin_infl" || Name == "__builtin_huge_vall") {
-+    Result = RValue::get(llvm::ConstantInt::get(
-+        I128Ty, x87LongDoubleImage(0x8000000000000000ULL, 0x7FFF)));
++  if (Name == "infl" || Name == "__builtin_infl" || Name == "huge_vall" ||
++      Name == "__builtin_huge_vall") {
++    // +-infinity is significand 0x8000000000000000 with sign/exponent 0x7FFF,
++    // in a 16-byte slot whose six padding bytes are zero.
++    llvm::APInt Image(128, 0x8000000000000000ull);
++    Image |= llvm::APInt(128, 0x7fffu) << 64;
++    Result = RValue::get(llvm::ConstantInt::get(I128Ty, Image));
 +    return true;
 +  }
 +
-+  if (Name == "__builtin_nanl" || Name == "__builtin_nansl") {
-+    // Reuse the (constant folded) payload if it is available; the default x87
-+    // quiet NaN has an insignificant payload of zero.
-+    Result = RValue::get(llvm::ConstantInt::get(
-+        I128Ty, x87LongDoubleImage(0xC000000000000000ULL, 0x7FFF)));
++  if (Name == "nanl" || Name == "__builtin_nanl" || Name == "nansl" ||
++      Name == "__builtin_nansl") {
++    // The quiet NaN has significand 0xC000000000000000 and the signalling one
++    // has 0xA000000000000000, both with sign/exponent 0x7FFF; the payload of
++    // the tag argument is not propagated.
++    const bool Signalling = Name == "nansl" || Name == "__builtin_nansl";
++    llvm::APInt Image(128, Signalling ? 0xa000000000000000ull
++                                      : 0xc000000000000000ull);
++    Image |= llvm::APInt(128, 0x7fffu) << 64;
++    Result = RValue::get(llvm::ConstantInt::get(I128Ty, Image));
 +    return true;
 +  }
 +
 +  // Everything else is evaluated in 'double' through the binary64 entry point
 +  // of the same name, which is what the C library does internally as well.
++  // A handful of them are required not to lose a single bit, though: those are
++  // called through their own 'long double' C library function, which works on
++  // the 80-bit image directly.
++  // Variadic builtins (the `printf' and `scanf' families) must be forwarded to
++  // the C library with their ellipsis arguments untouched: the x64 calling
++  // convention, which ARM64EC reproduces, passes a 16-byte `long double' by
++  // reference, so the value may not be promoted to `double' here.
++  ASTContext::GetBuiltinTypeError TypeError;
++  if (const FunctionProtoType *BPT =
++          Ctx.GetBuiltinType(BuiltinID, TypeError)->getAs<FunctionProtoType>();
++      BPT && BPT->isVariadic())
++    return false;
++
++  // (`ilogbl' and `logbl' are not among them: ucrtbase is the only provider on
++  // this target, and it takes and returns binary64.)
++  //
++  // The `nexttoward' family is special: its whole purpose is to step to the
++  // adjacent representable value, so evaluating it in binary64 would return a
++  // value that is not adjacent at all.  `nexttowardl' is an alias of
++  // `nextafterl' in the C library and both walk the 80-bit image directly.
++  const bool Exact = Name == "frexpl" || Name == "ldexpl" || Name == "modfl" ||
++                     Name == "nextafterl" || Name == "nexttowardl" ||
++                     Name == "nexttoward" || Name == "nexttowardf";
 +  std::string LibName = Name;
 +  if (StringRef(LibName).starts_with("__builtin_"))
 +    LibName.erase(0, strlen("__builtin_"));
-+  if (LibName.size() > 1 && LibName.back() == 'l')
++  if (!Exact && LibName.size() > 1 && LibName.back() == 'l')
 +    LibName.pop_back();
 +
 +  SmallVector<llvm::Type *, 4> ArgTys;
 +  SmallVector<llvm::Value *, 4> Args;
 +  for (unsigned I = 0, N = E->getNumArgs(); I != N; ++I) {
 +    llvm::Value *A = EmitScalarExpr(E->getArg(I));
-+    if (E->getArg(I)->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
++    if (!Exact &&
++        E->getArg(I)->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
 +      A = EmitSoftX87LdToDouble(A, Loc);
 +    Args.push_back(A);
 +    ArgTys.push_back(A->getType());
 +  }
 +
 +  bool LongDoubleResult = E->getType()->isSpecificBuiltinType(BuiltinType::LongDouble);
-+  llvm::Type *RetTy =
-+      LongDoubleResult ? Builder.getDoubleTy() : ConvertType(E->getType());
++  llvm::Type *RetTy = (!LongDoubleResult || Exact)
++                          ? ConvertType(E->getType())
++                          : Builder.getDoubleTy();
 +  llvm::FunctionType *FT = llvm::FunctionType::get(RetTy, ArgTys, false);
 +  llvm::FunctionCallee Fn = CGM.CreateRuntimeFunction(FT, LibName);
 +  llvm::Value *Call = Builder.CreateCall(Fn, Args);
-+  if (LongDoubleResult)
++  if (LongDoubleResult && !Exact)
 +    Call = EmitDoubleToSoftX87Ld(Call, Loc);
 +  Result = RValue::get(Call);
 +  return true;
@@ -318,10 +447,20 @@ index e154b9e752fd..739bfe5404ca 100644
 +  // ARM64EC: 'long double' is an x87 image kept in a 16-byte integer slot and
 +  // has no hardware arithmetic.  Builtins that take or return such a value must
 +  // therefore never be lowered to FP intrinsics.
-+  if (getTarget().hasSoftX87LongDouble()) {
-+    bool TouchesLongDouble = E->getType()->isSpecificBuiltinType(BuiltinType::LongDouble);
++  //
++  // The C++ standard library counterparts of the C library functions
++  // (`std::move', `std::forward' and friends) are builtins as well, but they
++  // are lowered to a plain address computation and never touch the value, so
++  // they are none of our business.
++  const FunctionDecl *DirectCallee = E->getDirectCallee();
++  const bool IsCxxLibBuiltin =
++      DirectCallee && DirectCallee->getDeclContext()->isNamespace();
++  if (getTarget().hasSoftX87LongDouble() && !IsCxxLibBuiltin) {
++    bool TouchesLongDouble =
++        E->getType()->isSpecificBuiltinType(BuiltinType::LongDouble);
 +    for (const Expr *Arg : E->arguments())
-+      TouchesLongDouble |= Arg->getType()->isSpecificBuiltinType(BuiltinType::LongDouble);
++      TouchesLongDouble |=
++          Arg->getType()->isSpecificBuiltinType(BuiltinType::LongDouble);
 +    if (TouchesLongDouble) {
 +      RValue X87Result;
 +      if (EmitSoftX87LongDoubleBuiltin(BuiltinID, E, ReturnValue, X87Result))
@@ -332,6 +471,141 @@ index e154b9e752fd..739bfe5404ca 100644
    const FunctionDecl *FD = GD.getDecl()->getAsFunction();
    // See if we can constant fold this builtin.  If so, don't emit it at all.
    // TODO: Extend this handling to all builtin calls that we can constant-fold.
+diff --git a/clang/lib/CodeGen/CGExprComplex.cpp b/clang/lib/CodeGen/CGExprComplex.cpp
+index 30d693fb371c..114edd9d4058 100644
+--- a/clang/lib/CodeGen/CGExprComplex.cpp
++++ b/clang/lib/CodeGen/CGExprComplex.cpp
+@@ -276,6 +276,19 @@ public:
+   ComplexPairTy EmitBinSub(const BinOpInfo &Op);
+   ComplexPairTy EmitBinMul(const BinOpInfo &Op);
+   ComplexPairTy EmitBinDiv(const BinOpInfo &Op);
++
++  /// ARM64EC: `long double' in the x87 80-bit format is represented by a
++  /// 128-bit integer, so `long double _Complex' would otherwise be emitted as
++  /// *integer* complex arithmetic, which neither implements x87 semantics nor
++  /// even accepts a real operand next to a complex one.  Report whether `Op'
++  /// is such an operation.
++  bool isSoftX87ComplexOp(const BinOpInfo &Op) const {
++    return CGF.getTarget().hasSoftX87LongDouble() &&
++           !Op.LHS.first->getType()->isFloatingPointTy();
++  }
++  /// Rewrite the components of a soft-x87 `BinOpInfo' as `double'.
++  BinOpInfo softX87ComplexToDouble(const BinOpInfo &Op);
++
+   ComplexPairTy EmitAlgebraicDiv(llvm::Value *A, llvm::Value *B, llvm::Value *C,
+                                  llvm::Value *D);
+   ComplexPairTy EmitRangeReductionDiv(llvm::Value *A, llvm::Value *B,
+@@ -695,6 +708,16 @@ ComplexPairTy ComplexExprEmitter::VisitMinus(const UnaryOperator *E,
+   if (Op.first->getType()->isFloatingPointTy()) {
+     ResR = Builder.CreateFNeg(Op.first, "neg.r");
+     ResI = Builder.CreateFNeg(Op.second, "neg.i");
++  } else if (CGF.getTarget().hasSoftX87LongDouble()) {
++    // ARM64EC: the components are x87 images held in integers, so negate them
++    // through 'double' rather than with a two's complement negation.
++    SourceLocation Loc;
++    ResR = CGF.EmitDoubleToSoftX87Ld(
++        Builder.CreateFNeg(CGF.EmitSoftX87LdToDouble(Op.first, Loc), "neg.r"),
++        Loc);
++    ResI = CGF.EmitDoubleToSoftX87Ld(
++        Builder.CreateFNeg(CGF.EmitSoftX87LdToDouble(Op.second, Loc), "neg.i"),
++        Loc);
+   } else {
+     ResR = Builder.CreateNeg(Op.first, "neg.r");
+     ResI = Builder.CreateNeg(Op.second, "neg.i");
+@@ -710,15 +733,45 @@ ComplexPairTy ComplexExprEmitter::VisitUnaryNot(const UnaryOperator *E) {
+   llvm::Value *ResI;
+   if (Op.second->getType()->isFloatingPointTy())
+     ResI = Builder.CreateFNeg(Op.second, "conj.i");
+-  else
++  else if (CGF.getTarget().hasSoftX87LongDouble()) {
++    // ARM64EC: flip the sign bit of the imaginary part by way of 'double'.
++    SourceLocation Loc;
++    ResI = CGF.EmitDoubleToSoftX87Ld(
++        Builder.CreateFNeg(CGF.EmitSoftX87LdToDouble(Op.second, Loc), "conj.i"),
++        Loc);
++  } else
+     ResI = Builder.CreateNeg(Op.second, "conj.i");
+ 
+   return ComplexPairTy(Op.first, ResI);
+ }
+ 
++/// Rewrite the components of a soft-x87 `BinOpInfo' as `double'.
++ComplexExprEmitter::BinOpInfo
++ComplexExprEmitter::softX87ComplexToDouble(const BinOpInfo &Op) {
++  SourceLocation Loc;
++  auto ToDouble = [&](llvm::Value *V) -> llvm::Value * {
++    return V ? CGF.EmitSoftX87LdToDouble(V, Loc) : nullptr;
++  };
++  BinOpInfo Out = Op;
++  Out.LHS = ComplexPairTy(ToDouble(Op.LHS.first), ToDouble(Op.LHS.second));
++  Out.RHS = ComplexPairTy(ToDouble(Op.RHS.first), ToDouble(Op.RHS.second));
++  // The ABI lowering of the operands and of the '__muldc3'/'__divdc3' libcalls
++  // is driven by this type, which has to follow the components.
++  Out.Ty = CGF.getContext().getComplexType(CGF.getContext().DoubleTy);
++  return Out;
++}
++
+ ComplexPairTy ComplexExprEmitter::EmitBinAdd(const BinOpInfo &Op) {
+   llvm::Value *ResR, *ResI;
+ 
++  if (isSoftX87ComplexOp(Op)) {
++    BinOpInfo DblOp = softX87ComplexToDouble(Op);
++    ComplexPairTy Res = EmitBinAdd(DblOp);
++    SourceLocation Loc;
++    return ComplexPairTy(CGF.EmitDoubleToSoftX87Ld(Res.first, Loc),
++                         CGF.EmitDoubleToSoftX87Ld(Res.second, Loc));
++  }
++
+   if (Op.LHS.first->getType()->isFloatingPointTy()) {
+     CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, Op.FPFeatures);
+     ResR = Builder.CreateFAdd(Op.LHS.first, Op.RHS.first, "add.r");
+@@ -738,6 +791,15 @@ ComplexPairTy ComplexExprEmitter::EmitBinAdd(const BinOpInfo &Op) {
+ 
+ ComplexPairTy ComplexExprEmitter::EmitBinSub(const BinOpInfo &Op) {
+   llvm::Value *ResR, *ResI;
++
++  if (isSoftX87ComplexOp(Op)) {
++    BinOpInfo DblOp = softX87ComplexToDouble(Op);
++    ComplexPairTy Res = EmitBinSub(DblOp);
++    SourceLocation Loc;
++    return ComplexPairTy(CGF.EmitDoubleToSoftX87Ld(Res.first, Loc),
++                         CGF.EmitDoubleToSoftX87Ld(Res.second, Loc));
++  }
++
+   if (Op.LHS.first->getType()->isFloatingPointTy()) {
+     CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, Op.FPFeatures);
+     ResR = Builder.CreateFSub(Op.LHS.first, Op.RHS.first, "sub.r");
+@@ -825,6 +887,14 @@ ComplexPairTy ComplexExprEmitter::EmitBinMul(const BinOpInfo &Op) {
+   Value *ResR, *ResI;
+   llvm::MDBuilder MDHelper(CGF.getLLVMContext());
+ 
++  if (isSoftX87ComplexOp(Op)) {
++    BinOpInfo DblOp = softX87ComplexToDouble(Op);
++    ComplexPairTy Res = EmitBinMul(DblOp);
++    SourceLocation Loc;
++    return ComplexPairTy(CGF.EmitDoubleToSoftX87Ld(Res.first, Loc),
++                         CGF.EmitDoubleToSoftX87Ld(Res.second, Loc));
++  }
++
+   if (Op.LHS.first->getType()->isFloatingPointTy()) {
+     // The general formulation is:
+     // (a + ib) * (c + id) = (a * c - b * d) + i(a * d + b * c)
+@@ -1034,6 +1104,15 @@ ComplexPairTy ComplexExprEmitter::EmitBinDiv(const BinOpInfo &Op) {
+   llvm::Value *LHSr = Op.LHS.first, *LHSi = Op.LHS.second;
+   llvm::Value *RHSr = Op.RHS.first, *RHSi = Op.RHS.second;
+   llvm::Value *DSTr, *DSTi;
++
++  if (isSoftX87ComplexOp(Op)) {
++    BinOpInfo DblOp = softX87ComplexToDouble(Op);
++    ComplexPairTy Res = EmitBinDiv(DblOp);
++    SourceLocation Loc;
++    return ComplexPairTy(CGF.EmitDoubleToSoftX87Ld(Res.first, Loc),
++                         CGF.EmitDoubleToSoftX87Ld(Res.second, Loc));
++  }
++
+   if (LHSr->getType()->isFloatingPointTy()) {
+     CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, Op.FPFeatures);
+     if (!RHSi) {
 diff --git a/clang/lib/CodeGen/CGExprConstant.cpp b/clang/lib/CodeGen/CGExprConstant.cpp
 index e2ec07bbae71..c52766524742 100644
 --- a/clang/lib/CodeGen/CGExprConstant.cpp
@@ -368,7 +642,7 @@ index e2ec07bbae71..c52766524742 100644
    if (T->getAs<PointerType>()) {
      llvm::Type *LT = getTypes().ConvertTypeForMem(T);
 diff --git a/clang/lib/CodeGen/CGExprScalar.cpp b/clang/lib/CodeGen/CGExprScalar.cpp
-index 0e2e29f0745d..faf41ddffc7f 100644
+index 0e2e29f0745d..3d94f5e2b405 100644
 --- a/clang/lib/CodeGen/CGExprScalar.cpp
 +++ b/clang/lib/CodeGen/CGExprScalar.cpp
 @@ -555,6 +555,9 @@ public:
@@ -407,20 +681,26 @@ index 0e2e29f0745d..faf41ddffc7f 100644
        return EmitCompare(E, llvm::ICmpInst::UI, llvm::ICmpInst::SI, \
                           llvm::FCmpInst::FP, SIG); }
    VISITCOMP(LT, ICMP_ULT, ICMP_SLT, FCMP_OLT, true)
-@@ -1044,6 +1057,12 @@ public:
+@@ -1044,6 +1057,18 @@ public:
  Value *ScalarExprEmitter::EmitConversionToBool(Value *Src, QualType SrcType) {
    assert(SrcType.isCanonical() && "EmitScalarConversion strips typedefs");
  
-+  if (CGF.getTarget().hasSoftX87LongDouble() && SrcType->isSpecificBuiltinType(BuiltinType::LongDouble)) {
-+    SourceLocation Loc;
-+    Src = CGF.EmitSoftX87LdToDouble(Src, Loc);
-+    SrcType = CGF.getContext().DoubleTy;
++  // ARM64EC: a soft x87 'long double' is zero if and only if both the
++  // significand and the exponent field of its image are zero, so this test
++  // stays exact even for values below the 'double' range.
++  if (CGF.getTarget().hasSoftX87LongDouble() &&
++      SrcType->isSpecificBuiltinType(BuiltinType::LongDouble)) {
++    llvm::Constant *Low79 = llvm::ConstantInt::get(
++        Src->getType(), llvm::APInt::getLowBitsSet(128, 79));
++    return CGF.Builder.CreateICmpNE(
++        CGF.Builder.CreateAnd(Src, Low79),
++        llvm::ConstantInt::get(Src->getType(), 0));
 +  }
 +
    if (SrcType->isRealFloatingType())
      return EmitFloatToBoolConversion(Src);
  
-@@ -1629,12 +1648,90 @@ Value *ScalarExprEmitter::EmitScalarCast(Value *Src, QualType SrcType,
+@@ -1629,12 +1654,90 @@ Value *ScalarExprEmitter::EmitScalarCast(Value *Src, QualType SrcType,
    return Builder.CreateFPExt(Src, DstTy, "conv");
  }
  
@@ -511,7 +791,47 @@ index 0e2e29f0745d..faf41ddffc7f 100644
    // All conversions involving fixed point types should be handled by the
    // EmitFixedPoint family functions. This is done to prevent bloating up this
    // function more, and although fixed point numbers are represented by
-@@ -3714,6 +3811,16 @@ Value *ScalarExprEmitter::VisitMinus(const UnaryOperator *E,
+@@ -3131,7 +3234,13 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
+     return EmitPointerToBoolConversion(Visit(E), E->getType());
+   case CK_FloatingToBoolean: {
+     CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, CE);
+-    return EmitFloatToBoolConversion(Visit(E));
++    Value *Src = Visit(E);
++    // ARM64EC: a soft x87 'long double' is an integer image, not an FP value,
++    // so it has to be tested with integer operations; see EmitConversionToBool.
++    if (CGF.getTarget().hasSoftX87LongDouble() &&
++        E->getType()->isSpecificBuiltinType(BuiltinType::LongDouble))
++      return EmitConversionToBool(Src, E->getType().getCanonicalType());
++    return EmitFloatToBoolConversion(Src);
+   }
+   case CK_MemberPointerToBoolean: {
+     llvm::Value *MemPtr = Visit(E);
+@@ -3561,6 +3670,14 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
+     llvm::Value *amt;
+     CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, E);
+ 
++    // ARM64EC: a soft x87 'long double' is an integer image with no FP
++    // representation, so the increment goes through 'double' and the runtime
++    // helpers.
++    const bool SoftX87 = CGF.getTarget().hasSoftX87LongDouble() &&
++                         type->isSpecificBuiltinType(BuiltinType::LongDouble);
++    if (SoftX87)
++      value = CGF.EmitSoftX87LdToDouble(value, E->getExprLoc());
++
+     // Another special case: half FP increment should be done via float.
+     if (type->isHalfType() && !CGF.getContext().getLangOpts().NativeHalfType)
+       value = Builder.CreateFPExt(value, CGF.CGM.FloatTy, "incdec.conv");
+@@ -3597,6 +3714,9 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
+     if (type->isHalfType() && !CGF.getContext().getLangOpts().NativeHalfType)
+       value = Builder.CreateFPTrunc(value, CGF.CGM.HalfTy, "incdec.conv");
+ 
++    if (SoftX87)
++      value = CGF.EmitDoubleToSoftX87Ld(value, E->getExprLoc());
++
+     // Fixed-point types.
+   } else if (type->isFixedPointType()) {
+     // Fixed-point types are tricky. In some cases, it isn't possible to
+@@ -3714,6 +3834,16 @@ Value *ScalarExprEmitter::VisitMinus(const UnaryOperator *E,
      return Builder.CreateFNeg(Op, "fneg");
    }
  
@@ -528,7 +848,7 @@ index 0e2e29f0745d..faf41ddffc7f 100644
    // Emit unary minus with EmitSub so we handle overflow cases etc.
    BinOpInfo BinOp;
    BinOp.RHS = Op;
-@@ -4320,6 +4427,8 @@ void ScalarExprEmitter::EmitUndefinedBehaviorIntegerDivAndRemCheck(
+@@ -4320,6 +4450,8 @@ void ScalarExprEmitter::EmitUndefinedBehaviorIntegerDivAndRemCheck(
  }
  
  Value *ScalarExprEmitter::EmitDiv(const BinOpInfo &Ops) {
@@ -537,7 +857,7 @@ index 0e2e29f0745d..faf41ddffc7f 100644
    {
      SanitizerDebugLocation SanScope(&CGF,
                                      {SanitizerKind::SO_IntegerDivideByZero,
-@@ -4374,6 +4483,8 @@ Value *ScalarExprEmitter::EmitDiv(const BinOpInfo &Ops) {
+@@ -4374,6 +4506,8 @@ Value *ScalarExprEmitter::EmitDiv(const BinOpInfo &Ops) {
  }
  
  Value *ScalarExprEmitter::EmitRem(const BinOpInfo &Ops) {
@@ -546,7 +866,7 @@ index 0e2e29f0745d..faf41ddffc7f 100644
    // Rem in C can't be a floating point type: C99 6.5.5p2.
    if ((CGF.SanOpts.has(SanitizerKind::IntegerDivideByZero) ||
         CGF.SanOpts.has(SanitizerKind::SignedIntegerOverflow)) &&
-@@ -4784,6 +4895,8 @@ static Value* tryEmitFMulAdd(const BinOpInfo &op,
+@@ -4784,6 +4918,8 @@ static Value* tryEmitFMulAdd(const BinOpInfo &op,
  }
  
  Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
@@ -555,7 +875,7 @@ index 0e2e29f0745d..faf41ddffc7f 100644
    if (op.LHS->getType()->isPointerTy() ||
        op.RHS->getType()->isPointerTy())
      return emitPointerArithmetic(CGF, op, CodeGenFunction::NotSubtraction);
-@@ -4946,6 +5059,8 @@ Value *ScalarExprEmitter::EmitFixedPointBinOp(const BinOpInfo &op) {
+@@ -4946,6 +5082,8 @@ Value *ScalarExprEmitter::EmitFixedPointBinOp(const BinOpInfo &op) {
  }
  
  Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
@@ -564,6 +884,30 @@ index 0e2e29f0745d..faf41ddffc7f 100644
    // The LHS is always a pointer if either side is.
    if (!op.LHS->getType()->isPointerTy()) {
      if (op.Ty->isSignedIntegerOrEnumerationType() ||
+@@ -5415,11 +5553,22 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,
+     }
+ 
+     Value *ResultR, *ResultI;
+-    if (CETy->isRealFloatingType()) {
++    if (CETy->isRealFloatingType() &&
++        LHS.first->getType()->isFloatingPointTy()) {
+       // As complex comparisons can only be equality comparisons, they
+       // are never signaling comparisons.
+       ResultR = Builder.CreateFCmp(FCmpOpc, LHS.first, RHS.first, "cmp.r");
+       ResultI = Builder.CreateFCmp(FCmpOpc, LHS.second, RHS.second, "cmp.i");
++    } else if (CETy->isRealFloatingType()) {
++      // ARM64EC: the element is an x87 image held in an integer, so compare
++      // the components through 'double' instead of with an integer predicate.
++      SourceLocation Loc = E->getExprLoc();
++      ResultR = Builder.CreateFCmp(FCmpOpc, CGF.EmitSoftX87LdToDouble(LHS.first, Loc),
++                                   CGF.EmitSoftX87LdToDouble(RHS.first, Loc),
++                                   "cmp.r");
++      ResultI = Builder.CreateFCmp(FCmpOpc, CGF.EmitSoftX87LdToDouble(LHS.second, Loc),
++                                   CGF.EmitSoftX87LdToDouble(RHS.second, Loc),
++                                   "cmp.i");
+     } else {
+       // Complex comparisons can only be equality comparisons.  As such, signed
+       // and unsigned opcodes are the same.
 diff --git a/clang/lib/CodeGen/CodeGenFunction.h b/clang/lib/CodeGen/CodeGenFunction.h
 index e17ed28c5d4f..d3d34cbde192 100644
 --- a/clang/lib/CodeGen/CodeGenFunction.h
@@ -655,20 +999,278 @@ index 4dd9eef48402..6360a3a825ef 100644
    if (const auto *ED = Ty->getAsEnumDecl()) {
      Ty = ED->getIntegerType();
 diff --git a/clang/lib/Driver/ToolChains/Clang.cpp b/clang/lib/Driver/ToolChains/Clang.cpp
-index 5a1c8531812b..bc1795ecee6e 100644
+index 5a1c8531812b..929e8b9804f2 100644
 --- a/clang/lib/Driver/ToolChains/Clang.cpp
 +++ b/clang/lib/Driver/ToolChains/Clang.cpp
-@@ -6343,6 +6343,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
+@@ -6343,6 +6343,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
      else if (TC.getTriple().isPPC() &&
               (A->getOption().getID() != options::OPT_mlong_double_80))
        A->render(Args, CmdArgs);
-+    else if (TC.getTriple().isWindowsArm64EC())
-+      // ARM64EC defaults to the x87 80-bit format of x86_64; '-mlong-double-64'
-+      // and '-mlong-double-80' are both supported, the latter being the default.
++    else if (TC.getTriple().isWindowsArm64EC() &&
++             !TC.getTriple().isWindowsMSVCEnvironment())
++      // ARM64EC with a non-MSVC ABI defaults to the x87 80-bit format of
++      // x86_64; '-mlong-double-64', '-mlong-double-80' and
++      // '-mlong-double-128' are all supported, the second one being the
++      // default.  The MSVC ABI keeps its 64-bit 'long double'.
 +      A->render(Args, CmdArgs);
      else
        D.Diag(diag::err_drv_unsupported_opt_for_target)
            << A->getAsString(Args) << TripleStr;
+diff --git a/compiler-rt/lib/builtins/CMakeLists.txt b/compiler-rt/lib/builtins/CMakeLists.txt
+index 67427a1f4b8a..68ee718c26ca 100644
+--- a/compiler-rt/lib/builtins/CMakeLists.txt
++++ b/compiler-rt/lib/builtins/CMakeLists.txt
+@@ -898,7 +898,11 @@ set(armv7k_SOURCES ${arm_SOURCES})
+ set(arm64_SOURCES ${aarch64_SOURCES})
+ set(arm64e_SOURCES ${aarch64_SOURCES})
+ set(arm64_32_SOURCES ${aarch64_SOURCES})
+-set(arm64ec_SOURCES ${aarch64_SOURCES})
++set(arm64ec_SOURCES ${aarch64_SOURCES}
++  # ARM64EC keeps the 80-bit x87 'long double' of x86_64 but has no x87 FPU,
++  # so the compiler converts such values to 'double' with these helpers.
++  arm64ec/x87_long_double.c
++)
+ set(aarch64_lfi_SOURCES ${aarch64_SOURCES})
+ set(aarch64_be_SOURCES ${aarch64_SOURCES})
+ 
+diff --git a/compiler-rt/lib/builtins/arm64ec/x87_long_double.c b/compiler-rt/lib/builtins/arm64ec/x87_long_double.c
+new file mode 100644
+index 000000000000..23428fceb747
+--- /dev/null
++++ b/compiler-rt/lib/builtins/arm64ec/x87_long_double.c
+@@ -0,0 +1,195 @@
++//===-- x87_long_double.c - ARM64EC soft x87 'long double' helpers --------===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++//
++// ARM64EC is ABI compatible with x86_64 Windows, where 'long double' is the
++// x87 80-bit extended format held in a 16-byte, 16-byte-aligned slot.  There
++// is no x87 FPU on ARM64, so the compiler keeps such values in memory and
++// copies them around with integer instructions only; whenever a computation
++// has to be carried out it converts the value to 'double' with
++// __arm64ec_load_x87_long_double(), computes in 'double', and converts the
++// result back with __arm64ec_store_x87_long_double().
++//
++// The 16-byte slot (little endian, as used by both x86_64 and ARM64) is
++//
++//   offset 0:  64-bit significand, including the explicit integer bit
++//   offset 8:  16-bit sign/exponent word: bit 15 is the sign, bits 14..0 the
++//              biased exponent
++//   offset 10: 6 bytes of padding that are not read or written by the x87
++//
++// Note that the x87 extended format does not use a hidden bit: the
++// significand of a normal number has bit 63 set, that of a denormal is
++// smaller than 2^63, and (bit 63 clear with a biased exponent of zero) it is
++// also the representation of zero.
++//
++//===----------------------------------------------------------------------===//
++
++#include <stdint.h>
++
++/* The memory image of an x87 extended-precision value.  Deliberately declared
++   as integers so that neither the compiler nor this file can end up using
++   floating-point instructions on it.  */
++typedef struct {
++  uint64_t significand;
++  uint16_t sign_exponent;
++  uint16_t padding[3];
++} arm64ec_x87_image;
++
++typedef union {
++  uint64_t u;
++  double d;
++} arm64ec_double_bits;
++
++#define ARM64EC_X87_EXP_BIAS 16383
++#define ARM64EC_X87_EXP_MAX 0x7fffu
++#define ARM64EC_DBL_EXP_MAX 0x7ffu
++
++/* A quiet NaN with an empty payload, which is what the x87 produces for an
++   invalid operand.  */
++static double arm64ec_indefinite_qnan(unsigned sign) {
++  arm64ec_double_bits v;
++  v.u = ((uint64_t)sign << 63) | ((uint64_t)ARM64EC_DBL_EXP_MAX << 52) |
++        0x8000000000000ull;
++  return v.d;
++}
++
++static double arm64ec_make_double(unsigned sign, uint32_t biased_exponent,
++                                  uint64_t fraction) {
++  arm64ec_double_bits v;
++  v.u = ((uint64_t)sign << 63) | ((uint64_t)biased_exponent << 52) | fraction;
++  return v.d;
++}
++
++/// Convert an x87 extended-precision memory image to 'double', rounding to
++/// nearest with ties to even.  This matches what the x87 itself does for
++/// 'fld m80; fstp m64' with the precision control set to 64 bits.
++double __arm64ec_load_x87_long_double(const arm64ec_x87_image *image) {
++  uint64_t m = image->significand;
++  unsigned sign = (unsigned)(image->sign_exponent >> 15);
++  unsigned e = (unsigned)(image->sign_exponent & 0x7fff);
++  int exponent;
++  uint64_t kept, dropped;
++
++  if (e == 0x7fff) {
++    if (m == 0x8000000000000000ull)
++      /* Infinity.  */
++      return arm64ec_make_double(sign, ARM64EC_DBL_EXP_MAX, 0);
++    /* A NaN whose integer bit is set is a real NaN: keep the top 52 bits of
++       its payload and make sure the quiet bit is set.  Anything else (a
++       pseudo-NaN or pseudo-infinity with the integer bit clear) is an invalid
++       encoding, for which the hardware produces the indefinite QNaN.  */
++    if ((m >> 63) == 0)
++      return arm64ec_indefinite_qnan(sign);
++    return arm64ec_make_double(sign, ARM64EC_DBL_EXP_MAX,
++                               ((m >> 11) & 0xfffffffffffffull) |
++                                   0x8000000000000ull);
++  }
++
++  /* A pseudo-denormal (biased exponent zero with the integer bit set) is a
++     perfectly valid representation of m * 2^-16445 and behaves like the
++     normal number with biased exponent one.  A denormalized number is far
++     below the range of 'double' and therefore rounds to zero.  An unnormal
++     (non-zero biased exponent with the integer bit clear) is invalid.  */
++  if (e == 0)
++    e = (unsigned)(m >> 63);
++  else if ((m >> 63) == 0)
++    return arm64ec_indefinite_qnan(sign);
++
++  if (e == 0) /* zero or denormal, both of which become a signed zero */
++    return arm64ec_make_double(sign, 0, 0);
++
++  /* value == m * 2^(exponent - 63), with bit 63 of m set */
++  exponent = (int)e - ARM64EC_X87_EXP_BIAS;
++
++  if (exponent > 1023)
++    return arm64ec_make_double(sign, ARM64EC_DBL_EXP_MAX, 0);
++
++  if (exponent >= -1022) {
++    /* A normal 'double': round the 64-bit significand to 53 bits.  */
++    kept = m >> 11;
++    dropped = m & 0x7ffu;
++    if (dropped > 0x400u || (dropped == 0x400u && (kept & 1)))
++      if (++kept == 0x20000000000000ull) {
++        kept >>= 1;
++        if (++exponent > 1023)
++          return arm64ec_make_double(sign, ARM64EC_DBL_EXP_MAX, 0);
++      }
++    return arm64ec_make_double(sign, (uint32_t)(exponent + 1023),
++                               kept & 0xfffffffffffffull);
++  }
++
++  /* A subnormal 'double': the result is
++     round(m * 2^(exponent + 1011)) units of 2^-1074.  */
++  {
++    int shift = -(exponent + 1011);
++    uint64_t k;
++
++    if (shift > 64)
++      k = 0;
++    else if (shift == 64) {
++      /* m is in [2^63, 2^64), so the quotient is in [0.5, 1) and only a value
++         strictly greater than one half rounds up.  */
++      k = m > 0x8000000000000000ull ? 1 : 0;
++    } else {
++      uint64_t quotient = m >> shift;
++      uint64_t remainder = m & ((1ull << shift) - 1);
++      uint64_t half = 1ull << (shift - 1);
++      if (remainder > half || (remainder == half && (quotient & 1)))
++        ++quotient;
++      k = quotient;
++    }
++    /* 'k' may reach 2^52, which is exactly the smallest normal 'double'; it
++       then carries into the exponent field on its own.  */
++    return arm64ec_make_double(sign, 0, k);
++  }
++}
++
++/// Convert a 'double' to an x87 extended-precision memory image.  Every
++/// 'double' is exactly representable in the x87 format, so this never rounds.
++void __arm64ec_store_x87_long_double(arm64ec_x87_image *image, double value) {
++  arm64ec_double_bits v;
++  unsigned sign;
++  unsigned e;
++  uint64_t m;
++
++  v.d = value;
++  sign = (unsigned)(v.u >> 63);
++  e = (unsigned)((v.u >> 52) & 0x7ff);
++  m = v.u & 0xfffffffffffffull;
++
++  if (e == ARM64EC_DBL_EXP_MAX) {
++    if (m == 0)
++      image->significand = 0x8000000000000000ull; /* infinity */
++    else
++      /* Map the 52-bit 'double' payload onto the top bits of the 63-bit x87
++         fraction.  This is exact, so the quiet/signalling distinction is
++         carried over unchanged.  */
++      image->significand = (m << 11) | 0x8000000000000000ull;
++    image->sign_exponent = (uint16_t)((sign << 15) | ARM64EC_X87_EXP_MAX);
++  } else if (e == 0) {
++    if (m == 0) {
++      image->significand = 0; /* zero */
++      image->sign_exponent = (uint16_t)(sign << 15);
++    } else {
++      /* A subnormal 'double' has to be normalized: it is
++         1.f * 2^(p - 1074) where p is the index of its top set bit.  */
++      int p = 63 - __builtin_clzll(m);
++      image->significand = m << (63 - p);
++      image->sign_exponent =
++          (uint16_t)((sign << 15) | (unsigned)(p + 15309));
++    }
++  } else {
++    /* Shift the 52-bit 'double' fraction up to the top of the 63-bit x87
++       fraction and add the explicit integer bit.  */
++    image->significand = (m << 11) | 0x8000000000000000ull;
++    image->sign_exponent = (uint16_t)((sign << 15) | (e + 15360));
++  }
++
++  image->padding[0] = 0;
++  image->padding[1] = 0;
++  image->padding[2] = 0;
++}
+diff --git a/libcxx/test/std/numerics/c.math/cmath.pass.cpp b/libcxx/test/std/numerics/c.math/cmath.pass.cpp
+index 8e3a7255e426..79e694461ea2 100644
+--- a/libcxx/test/std/numerics/c.math/cmath.pass.cpp
++++ b/libcxx/test/std/numerics/c.math/cmath.pass.cpp
+@@ -9,6 +9,14 @@
+ // Missing some long double math functions.
+ // XFAIL: LLVM-LIBC-FIXME
+ 
++// ARM64EC keeps the x86_64 80-bit 'long double', but this port has no x87 FPU
++// and evaluates the transcendental functions in 'double'.  Everything that
++// leaves the binary64 range therefore saturates early: the 3-argument
++// std::hypot() test uses 1e4000L, which becomes inf.  Windows on ARM's x64
++// emulation behaves exactly the same way (its x87 registers are binary64), so
++// this is a property of the platform rather than of this implementation.
++// UNSUPPORTED: target=arm64ec-w64-mingw32
++
+ // <cmath>
+ 
+ #include <cmath>
+diff --git a/libcxx/test/std/numerics/numeric.ops/numeric.ops.midpoint/midpoint.float.pass.cpp b/libcxx/test/std/numerics/numeric.ops/numeric.ops.midpoint/midpoint.float.pass.cpp
+index 7a795d37986b..e668c5c76343 100644
+--- a/libcxx/test/std/numerics/numeric.ops/numeric.ops.midpoint/midpoint.float.pass.cpp
++++ b/libcxx/test/std/numerics/numeric.ops/numeric.ops.midpoint/midpoint.float.pass.cpp
+@@ -8,6 +8,13 @@
+ 
+ // REQUIRES: std-at-least-c++20
+ 
++// ARM64EC keeps the x86_64 80-bit 'long double' but evaluates its arithmetic in
++// 'double', so LDBL_MAX (~1.19e4932) saturates to inf as soon as it is used,
++// and 'midpoint(max_v, 0) == max_v / 2' cannot hold.  Windows on ARM's x64
++// emulation behaves identically (its x87 registers are binary64), so this is a
++// property of the platform rather than of this implementation.
++// UNSUPPORTED: target=arm64ec-w64-mingw32
++
+ // <numeric>
+ 
+ // template<class T>
 diff --git a/lld/MinGW/Options.td b/lld/MinGW/Options.td
 index 963152ea289b..50a45a7b2493 100644
 --- a/lld/MinGW/Options.td
@@ -725,3 +1327,19 @@ index 120f2de36bb7..5d3f37916dc9 100644
      # CMake doesn't provide COMPILER_ARCHITECTURE_ID for Clang/GCC,
      # but it does for MSVC.
      if( CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "ARM.*" )
+diff --git a/llvm/utils/lit/lit/util.py b/llvm/utils/lit/lit/util.py
+index 4cf93ede92d6..b5e94d2effea 100644
+--- a/llvm/utils/lit/lit/util.py
++++ b/llvm/utils/lit/lit/util.py
+@@ -495,6 +495,11 @@ def get_windows_extended_path(path: str) -> str:
+     if not platform.system() == "Windows":
+         return path
+     path = os.path.abspath(path)
++    # Extended-length paths must be fully backslash separated; a path that
++    # still contains forward slashes (e.g. one that came from a lit
++    # substitution) is rejected by the Win32 APIs with ERROR_FILE_NOT_FOUND.
++    if "/" in path:
++        path = path.replace("/", "\\")
+     if path.startswith("\\\\"):
+         return "\\\\?\\UNC\\{0}".format(path[2:])
+     return "\\\\?\\{0}".format(path)
