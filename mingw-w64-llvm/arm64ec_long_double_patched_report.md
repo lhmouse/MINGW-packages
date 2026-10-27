@@ -511,6 +511,66 @@ mingw-w64 CRT 里做精确实现**；现有 `math/{fabsl,frexpl,modfl,rintl,lrin
   编译器把字面量存成 80 位镜像才"看起来正常"。
 * **`CRT_fp10.c`**：ARM64EC 没有 x87 控制字，`_fpreset` 必须改写，否则 CRT 自检会崩。
 
+### 6.4 最终结构：符号集与 x86-64 完全一致
+
+按"ARM64EC 与 x86-64 必须提供完全相同的数学函数，不能多也不能少"的要求，CRT 侧最终改成
+如下结构。判据不是拍脑袋列的清单，而是拿两套 CRT 的实际导出符号做差集：取
+`lib-common/*.def.in` 里 110 个 `F_LD64(...)` 符号名，分别求
+`libmingwex.a + libucrt.a + libucrtbase.a + libmsvcrt*.a` 的定义集，再比对。
+
+* **`math/arm64ec/`（新目录，一个函数一个文件，共 26 个）**
+  `acosl asinl atanl atan2l cosl sinl tanl expl logl log10l log2l exp2l expm1l acoshl asinhl
+  atanhl powl fmodl floorl ceill nearbyintl remquol scalbnl scalblnl fmal ilogbl`。
+  这些是 x86_64 用 `math/x86/*.S` 汇编实现的入口；因为该目录只会为 ARM64EC 编译，文件里
+  **没有任何 `__arm64ec__` 或 `__SIZEOF_LONG_DOUBLE__` 判断**，直接无条件转换。
+* **复用通用 `.c`（13 个）**：`cbrtl erfl（含 erfcl） fdiml fmaxl fminl llrintl llroundl
+  lrintl lroundl rintl roundl tgammal truncl`。它们本来就是纯 C，且已经能处理 80 位
+  `long double`，所以直接加进 ARM64EC 的源列表，不再复制一份。
+* **折进现有条件（4 个）**：`fabsl lrintl rintl truncl` 的
+  `#if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__` 改成 `... || defined(__arm64ec__)`，
+  ARM64EC 与 aarch64 共用同一个分支，不再另开 `#elif`。
+* **`nextafterl` / `nexttoward` / `nexttowardf` 改放 libucrt**：x86_64 就是从
+  `libucrt.a` 拿到它们的（`F_LD64()` 屏蔽了 ucrtbase 的 binary64 版本），ARM64EC 现在
+  也放进 `src_ucrtbasearm64`，位置完全对齐。
+
+**撤销的精确实现**：`ldexpl`、`modfl`、`ld_fallbacks.c` 的整数版本，以及
+`math/arm64/{nearbyintl}.c`、`math/fpclassifyl.c`、`math/frexpl.c`、
+`gdtoa/strtopx.c`、`crt/CRT_fp10.c` 上的 `__arm64ec__` 改动全部回退到基线。理由是 §6.3 的
+实测：它们在模拟层上同样掉到 binary64，做精确实现只会让 ARM64EC 与同机 x64 程序表现不一致。
+
+**保留的精确实现（可用整数指令完成的那一类）**：
+`fabsl`（`__builtin_fabsl`，clang 折成清符号位的整数运算）、`signbitl`、`copysignl`、
+`fpclassifyl`、`isnanl`、`frexpl`、`ilogbl`。这些操作只读写字镜像中的符号位/指数/尾数字段，
+`logs/ldprobe` 用函数指针绕过编译器内建折叠后逐个核对，结果全部保持 80 位精度：
+
+```
+v                  ffffffffffffffff 3fff
+fabsl(-v)          ffffffffffffffff 3fff
+copysignl(v,sy)    ffffffffffffffff bfff
+signbitl(-v)=1  signbitl(v)=0
+fpclassifyl(v)=1024 (FP_NORMAL)
+frexpl ctz=0  e=1          <- 尾数一位不丢
+ilogbl(v)=0  ilogbl(2^-16445 的次正规数)=-16445
+all bit-manipulation functions EXACT
+```
+
+**`misc/fesetenv.c`** 也随之一并调整：ARM64EC 用的是 x86_64 的浮点环境，因此
+`__mingw_fe_dfl_env` 和 `_fpreset` 一样由 `crt/CRT_fp10.c` 提供（该文件保持基线不改），
+`misc/fesetenv.c` 中那条 ARM64EC 专用的 `{ 0x3f00003f, 0 }` 定义被去掉，否则两者会在
+同一个归档里重复定义 `__mingw_fe_dfl_env`，`t_fesetenv` 链接失败。
+
+**验证结果**：
+
+| 项目 | 结果 |
+|---|---|
+| 110 个 `long double` 符号，ARM64EC vs x86-64 | **缺失 0，多余 0** |
+| CRT 自检（`logs/run-crt-tests.sh`） | 110/119 可构建，**FAIL/ERROR/XPASS 全 0** |
+| `logs/ldtest`（92 项） | O0/O1/O2/O3/Os 全部 **92/92** |
+| 位操作类函数精确性 | 7/7 保持 80 位精度 |
+
+`ldtest` 里原先断言"`ldexpl`/`modfl` 精确"的 3 项，已改成断言"与二进 double 路径一致"，
+与新的实现约定对应。
+
 ---
 
 ## 7. 与基线的回归对比

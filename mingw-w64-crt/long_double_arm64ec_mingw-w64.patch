@@ -2,459 +2,99 @@
 #  ARM64EC: make 'long double' the x86_64 80-bit x87 format (mingw-w64 CRT)
 # ===========================================================================
 #
-#  Companion to long_double_arm64ec_llvm.patch.  ARM64EC has to keep the
-#  x86_64 ABI for 'long double' (a 16-byte slot holding an 80-bit x87 image),
-#  but it has no x87 FPU, and ucrtbase exports all of its 'long double'
-#  entry points with a binary64 'long double'.  These files therefore provide
-#  the missing entry points, or route the ARM64EC build to a version that
-#  works on the x87 image directly.
+#  Companion to long_double_arm64ec_llvm.patch.  ARM64EC keeps the x86_64 ABI
+#  for 'long double' -- a 16-byte slot holding an 80-bit x87 image -- but it has
+#  no x87 FPU, and ucrtbase exports every 'long double' entry point with a
+#  binary64 'long double'.  Consequently def-include/func.def.in no longer
+#  expands F_LD64() on ARM64EC, so the CRT has to supply the whole long double
+#  math set itself, exactly as x86_64 does.
 #
-#  mingw-w64-crt/Makefile.am / Makefile.in
-#      crt/CRT_fp10.c into libmingwex (F_LD80 imports `_fpreset' as data),
-#      plus the `nextafter'/'nexttoward' family, which def-include/func.def.in
-#      hides behind F_LD64() because ucrtbase's copies are binary64.
-#  mingw-w64-crt/crt/CRT_fp10.c
-#      the wrapper that resets the x87 control word.
-#  mingw-w64-crt/gdtoa/strtopx.c
-#      strtold() must build a 16-byte 80-bit image on ARM64EC.
-#  mingw-w64-crt/math/arm-common/ld_fallbacks.c   (new file)
-#      acosl/asinl/atanl/atan2l/cosl/sinl/tanl/expl/logl/log10l/floorl/
-#      fmodl/scalbnl evaluated in double: the C library own long double
-#      _Complex entry points call them and they are not folded away
-#      because complex/ is built with -fno-builtin.
-#  mingw-w64-crt/math/arm-common/{copysignl,ldexpl}.c
-#  mingw-w64-crt/math/arm64/nearbyintl.c
-#  mingw-w64-crt/math/{fabsl,fpclassifyl,frexpl,lrintl,modfl,rintl,signbitl,truncl}.c
-#      integer-image implementations of the functions that clang requires not
-#      to lose a single bit (`Exact' in EmitSoftX87LongDoubleBuiltin).
+#  mingw-w64-crt/Makefile.am
+#      the ARM64EC section of libmingwex: the new math/arm64ec/ files, plus the
+#      plain-C long double sources that used to be x86-only, plus CRT_fp10.c.
+#      `math/nextafterl.c', `math/nexttoward.c' and `math/nexttowardf.c' go into
+#      libucrt for ARM64EC, matching where x86_64 gets them from.
+#  mingw-w64-crt/math/arm64ec/  (new directory, one function per file)
+#      acoshl asinhl atanhl ceill exp2l expm1l fmal ilogbl log2l nearbyintl
+#      powl remquol scalblnl, and the transcendentals acosl asinl atanl atan2l
+#      cosl sinl tanl expl logl log10l plus fmodl floorl scalbnl.
+#      These replace the x86_64 assembly in math/x86/; because the directory is
+#      only ever compiled for ARM64EC the files carry no conditional at all.
+#      `ilogbl' is exact: the exponent is a field of the image.
+#  mingw-w64-crt/math/{fabsl,lrintl,rintl,truncl}.c
+#      ARM64EC folded into the existing `__SIZEOF_LONG_DOUBLE__ ==
+#      __SIZEOF_DOUBLE__' test.  `fabsl' becomes `__builtin_fabsl', which the
+#      compiler lowers to an integer sign-bit clear and is therefore exact.
+#  mingw-w64-crt/math/signbitl.c
+#      ARM64EC takes the x86_64 integer branch: the sign is the top bit of the
+#      second word of the image, so it must not go through `__signbit'.
+#  mingw-w64-crt/math/arm-common/copysignl.c
+#      integer-image copy of the sign bit for ARM64EC.
+#  mingw-w64-crt/misc/fesetenv.c
+#      ARM64EC keeps the x86_64 floating point environment, so
+#      `__mingw_fe_dfl_env' is defined next to `_fpreset' in CRT_fp10.c
+#      instead, exactly as for x86_64.
 #  mingw-w64-headers/crt/math.h
-#      the inline fabsl() needs an ARM64EC branch.
+#      the inline fabsl() uses __builtin_fabsl on ARM64EC as well.
+#
+#  Note: Makefile.in is deliberately not patched; re-run automake.
 #
 #  Apply from the mingw-w64 root with
 #      git apply long_double_arm64ec_mingw-w64.patch
 # ===========================================================================
 
 diff --git a/mingw-w64-crt/Makefile.am b/mingw-w64-crt/Makefile.am
-index 082f13da1..b06a74709 100644
+index 082f13da1..832f414ec 100644
 --- a/mingw-w64-crt/Makefile.am
 +++ b/mingw-w64-crt/Makefile.am
-@@ -1390,6 +1390,24 @@ src_libmingwexarm64=\
+@@ -574,6 +574,11 @@ src_ucrtbasearm64=\
+ 
+ if ARM64EC
+ src_ucrtbasearm64+=math/fabsf.c
++# x86_64 also gets the `nextafter' and `nexttoward' families from libucrt rather
++# than libmingwex, because ucrtbase exports them with a binary64 `long double'
++# and F_LD64() hides those.  They are generic code operating on the x87 memory
++# image, so the very same sources serve ARM64EC.
++src_ucrtbasearm64+=math/nextafterl.c math/nexttoward.c math/nexttowardf.c
+ endif
+ 
+ # Files included in libmsvcrt-os.a (for msvcrt.dll) on x86_32
+@@ -1390,6 +1395,30 @@ src_libmingwexarm64=\
  
  if ARM64EC
  src_libmingwexarm64+=crt/chpe.S
-+# `long double` is the 80-bit x87 format on ARM64EC, so def-include/func.def.in
-+# expands F_LD80() and imports ucrtbase's `_fpreset` as data; this file then has
-+# to provide the wrapper that resets the x87 control word.
++# `long double` is the 80-bit x87 format on ARM64EC, so ucrtbase's binary64
++# entry points are hidden behind F_LD64() and the whole long double math set has
++# to come from this library, exactly as it does for x86_64.  The files under
++# math/arm64ec/ replace the x86_64 assembly in math/x86/ and are only ever
++# compiled for ARM64EC, so they carry no conditional of their own.
++src_libmingwexarm64+=math/arm64ec/acoshl.c math/arm64ec/acosl.c \
++  math/arm64ec/asinhl.c math/arm64ec/asinl.c math/arm64ec/atan2l.c \
++  math/arm64ec/atanhl.c math/arm64ec/atanl.c math/arm64ec/ceill.c \
++  math/arm64ec/cosl.c math/arm64ec/expl.c math/arm64ec/exp2l.c \
++  math/arm64ec/expm1l.c math/arm64ec/fmal.c math/arm64ec/fmodl.c \
++  math/arm64ec/floorl.c math/arm64ec/ilogbl.c math/arm64ec/logl.c \
++  math/arm64ec/log10l.c math/arm64ec/log2l.c math/arm64ec/nearbyintl.c \
++  math/arm64ec/powl.c math/arm64ec/remquol.c math/arm64ec/scalblnl.c \
++  math/arm64ec/scalbnl.c math/arm64ec/sinl.c math/arm64ec/tanl.c
++# These are plain C that already cope with an 80-bit `long double', so they are
++# shared with the x86_64 build instead of being duplicated in math/arm64ec/.
++src_libmingwexarm64+=math/cbrtl.c math/erfl.c math/fdiml.c math/fmaxl.c \
++  math/fminl.c math/llrintl.c math/llroundl.c math/lrintl.c \
++  math/lroundl.c math/rintl.c math/roundl.c math/tgammal.c math/truncl.c
++# `def-include/func.def.in' imports ucrtbase's `_fpreset' as data once F_LD80()
++# expands, which `crt2.o' cannot call, so the wrapper in this file is needed
++# here exactly as on x86_64.  It also supplies `__mingw_fe_dfl_env', which
++# misc/fesetenv.c therefore does not define for ARM64EC.
 +src_libmingwexarm64+=crt/CRT_fp10.c
-+# ucrtbase exports the `nextafter' and `nexttoward' families with a binary64
-+# `long double', so their entry points are useless here and def-include/
-+# func.def.in hides them behind F_LD64().  The two generic implementations below
-+# already operate on the x87 memory image and only need to be compiled in;
-+# `nexttowardl' is an alias of `nextafterl' declared in the same file.
-+src_libmingwexarm64+=math/nextafterl.c math/nexttoward.c math/nexttowardf.c
-+# The same F_LD64() gate hides the long double math functions that the C
-+# library's own `long double _Complex' entry points call (they are compiled with
-+# -fno-builtin, so the compiler does not fold them).  `arm-common' has exact
-+# implementations for four of them; the transcendentals are evaluated in
-+# `double' by math/arm-common/ld_fallbacks.c.
-+src_libmingwexarm64+=math/arm-common/copysignl.c math/arm-common/log1pl.c \
-+  math/arm-common/logbl.c math/arm-common/remainderl.c \
-+  math/arm-common/ld_fallbacks.c
  src_libmingwexarm64_x64=libarm64/cfguard/guard_dispatch.x86_64.o
  endif
  
-diff --git a/mingw-w64-crt/Makefile.in b/mingw-w64-crt/Makefile.in
-index cac9ee053..dcba65638 100644
---- a/mingw-w64-crt/Makefile.in
-+++ b/mingw-w64-crt/Makefile.in
-@@ -108,7 +108,25 @@ host_triplet = @host@
- @DELAY_IMPORT_LIBS_TRUE@am__append_5 = --output-delaylib $(basename $@).delayimp.a
- @ARM64EC_TRUE@am__append_6 = math/fabsf.c
- @ARM64EC_TRUE@am__append_7 = math/fabsf.c
--@ARM64EC_TRUE@am__append_8 = crt/chpe.S
-+# `long double` is the 80-bit x87 format on ARM64EC, so def-include/func.def.in
-+# expands F_LD80() and imports ucrtbase's `_fpreset` as data; this file then has
-+# to provide the wrapper that resets the x87 control word.
-+# ucrtbase exports the `nextafter' and `nexttoward' families with a binary64
-+# `long double', so their entry points are useless here and def-include/
-+# func.def.in hides them behind F_LD64().  The two generic implementations below
-+# already operate on the x87 memory image and only need to be compiled in;
-+# `nexttowardl' is an alias of `nextafterl' declared in the same file.
-+# The same F_LD64() gate hides the long double math functions that the C
-+# library's own `long double _Complex' entry points call (they are compiled with
-+# -fno-builtin, so the compiler does not fold them).  `arm-common' has exact
-+# implementations for four of them; the transcendentals are evaluated in
-+# `double' by math/arm-common/ld_fallbacks.c.
-+@ARM64EC_TRUE@am__append_8 = crt/chpe.S crt/CRT_fp10.c \
-+@ARM64EC_TRUE@	math/nextafterl.c math/nexttoward.c \
-+@ARM64EC_TRUE@	math/nexttowardf.c math/arm-common/copysignl.c \
-+@ARM64EC_TRUE@	math/arm-common/log1pl.c math/arm-common/logbl.c \
-+@ARM64EC_TRUE@	math/arm-common/remainderl.c \
-+@ARM64EC_TRUE@	math/arm-common/ld_fallbacks.c
- @LIB32_TRUE@@W32API_FALSE@am__append_9 = lib32/libmsvcrt.a \
- @LIB32_TRUE@@W32API_FALSE@	lib32/libmsvcrt-os.a
- @LIB32_TRUE@@W32API_FALSE@am__append_10 = lib32/libdelayimp.a \
-@@ -7262,7 +7280,11 @@ am__libarm64_libmingwex_a_SOURCES_DIST = crt/loadcfg.S \
- 	stdio/vsnwprintf.c stdio/wtoll.c stdio/mingw_asprintf.c \
- 	stdio/mingw_vasprintf.c math/sincos.c math/sincosf.c \
- 	math/arm-common/sincosl.c math/arm64/rint.c math/arm64/rintf.c \
--	math/arm-common/ldexpl.c crt/chpe.S math/DFP/dfp_internal.h \
-+	math/arm-common/ldexpl.c crt/chpe.S crt/CRT_fp10.c \
-+	math/nextafterl.c math/nexttoward.c math/nexttowardf.c \
-+	math/arm-common/copysignl.c math/arm-common/log1pl.c \
-+	math/arm-common/logbl.c math/arm-common/remainderl.c \
-+	math/arm-common/ld_fallbacks.c math/DFP/dfp_internal.h \
- 	math/DFP/__fpclassifyd32.c math/DFP/__fpclassifyd64.c \
- 	math/DFP/__fpclassifyd128.c math/DFP/__isnand32.c \
- 	math/DFP/__isnand64.c math/DFP/__isnand128.c \
-@@ -7535,7 +7557,16 @@ am__objects_347 = crt/libarm64_libmingwex_a-loadcfg.$(OBJEXT) \
- 	stdio/libarm64_libmingwex_a-mingw_asprintf.$(OBJEXT) \
- 	stdio/libarm64_libmingwex_a-mingw_vasprintf.$(OBJEXT)
- @ARM64EC_TRUE@am__objects_348 =  \
--@ARM64EC_TRUE@	crt/libarm64_libmingwex_a-chpe.$(OBJEXT)
-+@ARM64EC_TRUE@	crt/libarm64_libmingwex_a-chpe.$(OBJEXT) \
-+@ARM64EC_TRUE@	crt/libarm64_libmingwex_a-CRT_fp10.$(OBJEXT) \
-+@ARM64EC_TRUE@	math/libarm64_libmingwex_a-nextafterl.$(OBJEXT) \
-+@ARM64EC_TRUE@	math/libarm64_libmingwex_a-nexttoward.$(OBJEXT) \
-+@ARM64EC_TRUE@	math/libarm64_libmingwex_a-nexttowardf.$(OBJEXT) \
-+@ARM64EC_TRUE@	math/arm-common/libarm64_libmingwex_a-copysignl.$(OBJEXT) \
-+@ARM64EC_TRUE@	math/arm-common/libarm64_libmingwex_a-log1pl.$(OBJEXT) \
-+@ARM64EC_TRUE@	math/arm-common/libarm64_libmingwex_a-logbl.$(OBJEXT) \
-+@ARM64EC_TRUE@	math/arm-common/libarm64_libmingwex_a-remainderl.$(OBJEXT) \
-+@ARM64EC_TRUE@	math/arm-common/libarm64_libmingwex_a-ld_fallbacks.$(OBJEXT)
- am__objects_349 = math/libarm64_libmingwex_a-sincos.$(OBJEXT) \
- 	math/libarm64_libmingwex_a-sincosf.$(OBJEXT) \
- 	math/arm-common/libarm64_libmingwex_a-sincosl.$(OBJEXT) \
-@@ -8670,6 +8701,7 @@ am__depfiles_remade = ./$(DEPDIR)/lib32_libm_a-_libm_dummy.Po \
- 	crt/$(DEPDIR)/libarm64_libmingw32_a-xncommod.Po \
- 	crt/$(DEPDIR)/libarm64_libmingw32_a-xthdloc.Po \
- 	crt/$(DEPDIR)/libarm64_libmingw32_a-xtxtmode.Po \
-+	crt/$(DEPDIR)/libarm64_libmingwex_a-CRT_fp10.Po \
- 	crt/$(DEPDIR)/libarm64_libmingwex_a-chpe.Po \
- 	crt/$(DEPDIR)/libarm64_libmingwex_a-loadcfg.Po \
- 	ctype/$(DEPDIR)/lib32_libcrtdll_extra_a-__iswcsym.Po \
-@@ -10214,6 +10246,9 @@ am__depfiles_remade = ./$(DEPDIR)/lib32_libm_a-_libm_dummy.Po \
- 	math/$(DEPDIR)/libarm64_libmingwex_a-lgammaf.Po \
- 	math/$(DEPDIR)/libarm64_libmingwex_a-lgammal.Po \
- 	math/$(DEPDIR)/libarm64_libmingwex_a-modfl.Po \
-+	math/$(DEPDIR)/libarm64_libmingwex_a-nextafterl.Po \
-+	math/$(DEPDIR)/libarm64_libmingwex_a-nexttoward.Po \
-+	math/$(DEPDIR)/libarm64_libmingwex_a-nexttowardf.Po \
- 	math/$(DEPDIR)/libarm64_libmingwex_a-powi.Po \
- 	math/$(DEPDIR)/libarm64_libmingwex_a-powif.Po \
- 	math/$(DEPDIR)/libarm64_libmingwex_a-powil.Po \
-@@ -10380,7 +10415,12 @@ am__depfiles_remade = ./$(DEPDIR)/lib32_libm_a-_libm_dummy.Po \
- 	math/arm-common/$(DEPDIR)/libarm32_libmsvcrt_extra_a-s_remquo.Po \
- 	math/arm-common/$(DEPDIR)/libarm32_libmsvcrt_extra_a-s_remquof.Po \
- 	math/arm-common/$(DEPDIR)/libarm32_libmsvcrt_extra_a-scalbn.Po \
-+	math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-copysignl.Po \
-+	math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-ld_fallbacks.Po \
- 	math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-ldexpl.Po \
-+	math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-log1pl.Po \
-+	math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-logbl.Po \
-+	math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-remainderl.Po \
- 	math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-sincosl.Po \
- 	math/arm-common/$(DEPDIR)/libarm64_libmsvcrt_extra_a-acosh.Po \
- 	math/arm-common/$(DEPDIR)/libarm64_libmsvcrt_extra_a-acoshf.Po \
-@@ -27161,6 +27201,29 @@ math/arm-common/libarm64_libmingwex_a-ldexpl.$(OBJEXT):  \
- 	math/arm-common/$(DEPDIR)/$(am__dirstamp)
- crt/libarm64_libmingwex_a-chpe.$(OBJEXT): crt/$(am__dirstamp) \
- 	crt/$(DEPDIR)/$(am__dirstamp)
-+crt/libarm64_libmingwex_a-CRT_fp10.$(OBJEXT): crt/$(am__dirstamp) \
-+	crt/$(DEPDIR)/$(am__dirstamp)
-+math/libarm64_libmingwex_a-nextafterl.$(OBJEXT): math/$(am__dirstamp) \
-+	math/$(DEPDIR)/$(am__dirstamp)
-+math/libarm64_libmingwex_a-nexttoward.$(OBJEXT): math/$(am__dirstamp) \
-+	math/$(DEPDIR)/$(am__dirstamp)
-+math/libarm64_libmingwex_a-nexttowardf.$(OBJEXT):  \
-+	math/$(am__dirstamp) math/$(DEPDIR)/$(am__dirstamp)
-+math/arm-common/libarm64_libmingwex_a-copysignl.$(OBJEXT):  \
-+	math/arm-common/$(am__dirstamp) \
-+	math/arm-common/$(DEPDIR)/$(am__dirstamp)
-+math/arm-common/libarm64_libmingwex_a-log1pl.$(OBJEXT):  \
-+	math/arm-common/$(am__dirstamp) \
-+	math/arm-common/$(DEPDIR)/$(am__dirstamp)
-+math/arm-common/libarm64_libmingwex_a-logbl.$(OBJEXT):  \
-+	math/arm-common/$(am__dirstamp) \
-+	math/arm-common/$(DEPDIR)/$(am__dirstamp)
-+math/arm-common/libarm64_libmingwex_a-remainderl.$(OBJEXT):  \
-+	math/arm-common/$(am__dirstamp) \
-+	math/arm-common/$(DEPDIR)/$(am__dirstamp)
-+math/arm-common/libarm64_libmingwex_a-ld_fallbacks.$(OBJEXT):  \
-+	math/arm-common/$(am__dirstamp) \
-+	math/arm-common/$(DEPDIR)/$(am__dirstamp)
- math/DFP/libarm64_libmingwex_a-__fpclassifyd32.$(OBJEXT):  \
- 	math/DFP/$(am__dirstamp) math/DFP/$(DEPDIR)/$(am__dirstamp)
- math/DFP/libarm64_libmingwex_a-__fpclassifyd64.$(OBJEXT):  \
-@@ -28602,6 +28665,7 @@ distclean-compile:
- @AMDEP_TRUE@@am__include@ @am__quote@crt/$(DEPDIR)/libarm64_libmingw32_a-xncommod.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@crt/$(DEPDIR)/libarm64_libmingw32_a-xthdloc.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@crt/$(DEPDIR)/libarm64_libmingw32_a-xtxtmode.Po@am__quote@ # am--include-marker
-+@AMDEP_TRUE@@am__include@ @am__quote@crt/$(DEPDIR)/libarm64_libmingwex_a-CRT_fp10.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@crt/$(DEPDIR)/libarm64_libmingwex_a-chpe.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@crt/$(DEPDIR)/libarm64_libmingwex_a-loadcfg.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@ctype/$(DEPDIR)/lib32_libcrtdll_extra_a-__iswcsym.Po@am__quote@ # am--include-marker
-@@ -30146,6 +30210,9 @@ distclean-compile:
- @AMDEP_TRUE@@am__include@ @am__quote@math/$(DEPDIR)/libarm64_libmingwex_a-lgammaf.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@math/$(DEPDIR)/libarm64_libmingwex_a-lgammal.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@math/$(DEPDIR)/libarm64_libmingwex_a-modfl.Po@am__quote@ # am--include-marker
-+@AMDEP_TRUE@@am__include@ @am__quote@math/$(DEPDIR)/libarm64_libmingwex_a-nextafterl.Po@am__quote@ # am--include-marker
-+@AMDEP_TRUE@@am__include@ @am__quote@math/$(DEPDIR)/libarm64_libmingwex_a-nexttoward.Po@am__quote@ # am--include-marker
-+@AMDEP_TRUE@@am__include@ @am__quote@math/$(DEPDIR)/libarm64_libmingwex_a-nexttowardf.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@math/$(DEPDIR)/libarm64_libmingwex_a-powi.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@math/$(DEPDIR)/libarm64_libmingwex_a-powif.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@math/$(DEPDIR)/libarm64_libmingwex_a-powil.Po@am__quote@ # am--include-marker
-@@ -30312,7 +30379,12 @@ distclean-compile:
- @AMDEP_TRUE@@am__include@ @am__quote@math/arm-common/$(DEPDIR)/libarm32_libmsvcrt_extra_a-s_remquo.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@math/arm-common/$(DEPDIR)/libarm32_libmsvcrt_extra_a-s_remquof.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@math/arm-common/$(DEPDIR)/libarm32_libmsvcrt_extra_a-scalbn.Po@am__quote@ # am--include-marker
-+@AMDEP_TRUE@@am__include@ @am__quote@math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-copysignl.Po@am__quote@ # am--include-marker
-+@AMDEP_TRUE@@am__include@ @am__quote@math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-ld_fallbacks.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-ldexpl.Po@am__quote@ # am--include-marker
-+@AMDEP_TRUE@@am__include@ @am__quote@math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-log1pl.Po@am__quote@ # am--include-marker
-+@AMDEP_TRUE@@am__include@ @am__quote@math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-logbl.Po@am__quote@ # am--include-marker
-+@AMDEP_TRUE@@am__include@ @am__quote@math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-remainderl.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-sincosl.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@math/arm-common/$(DEPDIR)/libarm64_libmsvcrt_extra_a-acosh.Po@am__quote@ # am--include-marker
- @AMDEP_TRUE@@am__include@ @am__quote@math/arm-common/$(DEPDIR)/libarm64_libmsvcrt_extra_a-acoshf.Po@am__quote@ # am--include-marker
-@@ -94369,6 +94441,132 @@ math/arm-common/libarm64_libmingwex_a-ldexpl.obj: math/arm-common/ldexpl.c
- @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
- @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/arm-common/libarm64_libmingwex_a-ldexpl.obj `if test -f 'math/arm-common/ldexpl.c'; then $(CYGPATH_W) 'math/arm-common/ldexpl.c'; else $(CYGPATH_W) '$(srcdir)/math/arm-common/ldexpl.c'; fi`
- 
-+crt/libarm64_libmingwex_a-CRT_fp10.o: crt/CRT_fp10.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT crt/libarm64_libmingwex_a-CRT_fp10.o -MD -MP -MF crt/$(DEPDIR)/libarm64_libmingwex_a-CRT_fp10.Tpo -c -o crt/libarm64_libmingwex_a-CRT_fp10.o `test -f 'crt/CRT_fp10.c' || echo '$(srcdir)/'`crt/CRT_fp10.c
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) crt/$(DEPDIR)/libarm64_libmingwex_a-CRT_fp10.Tpo crt/$(DEPDIR)/libarm64_libmingwex_a-CRT_fp10.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='crt/CRT_fp10.c' object='crt/libarm64_libmingwex_a-CRT_fp10.o' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o crt/libarm64_libmingwex_a-CRT_fp10.o `test -f 'crt/CRT_fp10.c' || echo '$(srcdir)/'`crt/CRT_fp10.c
-+
-+crt/libarm64_libmingwex_a-CRT_fp10.obj: crt/CRT_fp10.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT crt/libarm64_libmingwex_a-CRT_fp10.obj -MD -MP -MF crt/$(DEPDIR)/libarm64_libmingwex_a-CRT_fp10.Tpo -c -o crt/libarm64_libmingwex_a-CRT_fp10.obj `if test -f 'crt/CRT_fp10.c'; then $(CYGPATH_W) 'crt/CRT_fp10.c'; else $(CYGPATH_W) '$(srcdir)/crt/CRT_fp10.c'; fi`
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) crt/$(DEPDIR)/libarm64_libmingwex_a-CRT_fp10.Tpo crt/$(DEPDIR)/libarm64_libmingwex_a-CRT_fp10.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='crt/CRT_fp10.c' object='crt/libarm64_libmingwex_a-CRT_fp10.obj' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o crt/libarm64_libmingwex_a-CRT_fp10.obj `if test -f 'crt/CRT_fp10.c'; then $(CYGPATH_W) 'crt/CRT_fp10.c'; else $(CYGPATH_W) '$(srcdir)/crt/CRT_fp10.c'; fi`
-+
-+math/libarm64_libmingwex_a-nextafterl.o: math/nextafterl.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/libarm64_libmingwex_a-nextafterl.o -MD -MP -MF math/$(DEPDIR)/libarm64_libmingwex_a-nextafterl.Tpo -c -o math/libarm64_libmingwex_a-nextafterl.o `test -f 'math/nextafterl.c' || echo '$(srcdir)/'`math/nextafterl.c
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/$(DEPDIR)/libarm64_libmingwex_a-nextafterl.Tpo math/$(DEPDIR)/libarm64_libmingwex_a-nextafterl.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/nextafterl.c' object='math/libarm64_libmingwex_a-nextafterl.o' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/libarm64_libmingwex_a-nextafterl.o `test -f 'math/nextafterl.c' || echo '$(srcdir)/'`math/nextafterl.c
-+
-+math/libarm64_libmingwex_a-nextafterl.obj: math/nextafterl.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/libarm64_libmingwex_a-nextafterl.obj -MD -MP -MF math/$(DEPDIR)/libarm64_libmingwex_a-nextafterl.Tpo -c -o math/libarm64_libmingwex_a-nextafterl.obj `if test -f 'math/nextafterl.c'; then $(CYGPATH_W) 'math/nextafterl.c'; else $(CYGPATH_W) '$(srcdir)/math/nextafterl.c'; fi`
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/$(DEPDIR)/libarm64_libmingwex_a-nextafterl.Tpo math/$(DEPDIR)/libarm64_libmingwex_a-nextafterl.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/nextafterl.c' object='math/libarm64_libmingwex_a-nextafterl.obj' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/libarm64_libmingwex_a-nextafterl.obj `if test -f 'math/nextafterl.c'; then $(CYGPATH_W) 'math/nextafterl.c'; else $(CYGPATH_W) '$(srcdir)/math/nextafterl.c'; fi`
-+
-+math/libarm64_libmingwex_a-nexttoward.o: math/nexttoward.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/libarm64_libmingwex_a-nexttoward.o -MD -MP -MF math/$(DEPDIR)/libarm64_libmingwex_a-nexttoward.Tpo -c -o math/libarm64_libmingwex_a-nexttoward.o `test -f 'math/nexttoward.c' || echo '$(srcdir)/'`math/nexttoward.c
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/$(DEPDIR)/libarm64_libmingwex_a-nexttoward.Tpo math/$(DEPDIR)/libarm64_libmingwex_a-nexttoward.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/nexttoward.c' object='math/libarm64_libmingwex_a-nexttoward.o' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/libarm64_libmingwex_a-nexttoward.o `test -f 'math/nexttoward.c' || echo '$(srcdir)/'`math/nexttoward.c
-+
-+math/libarm64_libmingwex_a-nexttoward.obj: math/nexttoward.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/libarm64_libmingwex_a-nexttoward.obj -MD -MP -MF math/$(DEPDIR)/libarm64_libmingwex_a-nexttoward.Tpo -c -o math/libarm64_libmingwex_a-nexttoward.obj `if test -f 'math/nexttoward.c'; then $(CYGPATH_W) 'math/nexttoward.c'; else $(CYGPATH_W) '$(srcdir)/math/nexttoward.c'; fi`
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/$(DEPDIR)/libarm64_libmingwex_a-nexttoward.Tpo math/$(DEPDIR)/libarm64_libmingwex_a-nexttoward.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/nexttoward.c' object='math/libarm64_libmingwex_a-nexttoward.obj' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/libarm64_libmingwex_a-nexttoward.obj `if test -f 'math/nexttoward.c'; then $(CYGPATH_W) 'math/nexttoward.c'; else $(CYGPATH_W) '$(srcdir)/math/nexttoward.c'; fi`
-+
-+math/libarm64_libmingwex_a-nexttowardf.o: math/nexttowardf.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/libarm64_libmingwex_a-nexttowardf.o -MD -MP -MF math/$(DEPDIR)/libarm64_libmingwex_a-nexttowardf.Tpo -c -o math/libarm64_libmingwex_a-nexttowardf.o `test -f 'math/nexttowardf.c' || echo '$(srcdir)/'`math/nexttowardf.c
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/$(DEPDIR)/libarm64_libmingwex_a-nexttowardf.Tpo math/$(DEPDIR)/libarm64_libmingwex_a-nexttowardf.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/nexttowardf.c' object='math/libarm64_libmingwex_a-nexttowardf.o' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/libarm64_libmingwex_a-nexttowardf.o `test -f 'math/nexttowardf.c' || echo '$(srcdir)/'`math/nexttowardf.c
-+
-+math/libarm64_libmingwex_a-nexttowardf.obj: math/nexttowardf.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/libarm64_libmingwex_a-nexttowardf.obj -MD -MP -MF math/$(DEPDIR)/libarm64_libmingwex_a-nexttowardf.Tpo -c -o math/libarm64_libmingwex_a-nexttowardf.obj `if test -f 'math/nexttowardf.c'; then $(CYGPATH_W) 'math/nexttowardf.c'; else $(CYGPATH_W) '$(srcdir)/math/nexttowardf.c'; fi`
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/$(DEPDIR)/libarm64_libmingwex_a-nexttowardf.Tpo math/$(DEPDIR)/libarm64_libmingwex_a-nexttowardf.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/nexttowardf.c' object='math/libarm64_libmingwex_a-nexttowardf.obj' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/libarm64_libmingwex_a-nexttowardf.obj `if test -f 'math/nexttowardf.c'; then $(CYGPATH_W) 'math/nexttowardf.c'; else $(CYGPATH_W) '$(srcdir)/math/nexttowardf.c'; fi`
-+
-+math/arm-common/libarm64_libmingwex_a-copysignl.o: math/arm-common/copysignl.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/arm-common/libarm64_libmingwex_a-copysignl.o -MD -MP -MF math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-copysignl.Tpo -c -o math/arm-common/libarm64_libmingwex_a-copysignl.o `test -f 'math/arm-common/copysignl.c' || echo '$(srcdir)/'`math/arm-common/copysignl.c
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-copysignl.Tpo math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-copysignl.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/arm-common/copysignl.c' object='math/arm-common/libarm64_libmingwex_a-copysignl.o' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/arm-common/libarm64_libmingwex_a-copysignl.o `test -f 'math/arm-common/copysignl.c' || echo '$(srcdir)/'`math/arm-common/copysignl.c
-+
-+math/arm-common/libarm64_libmingwex_a-copysignl.obj: math/arm-common/copysignl.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/arm-common/libarm64_libmingwex_a-copysignl.obj -MD -MP -MF math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-copysignl.Tpo -c -o math/arm-common/libarm64_libmingwex_a-copysignl.obj `if test -f 'math/arm-common/copysignl.c'; then $(CYGPATH_W) 'math/arm-common/copysignl.c'; else $(CYGPATH_W) '$(srcdir)/math/arm-common/copysignl.c'; fi`
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-copysignl.Tpo math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-copysignl.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/arm-common/copysignl.c' object='math/arm-common/libarm64_libmingwex_a-copysignl.obj' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/arm-common/libarm64_libmingwex_a-copysignl.obj `if test -f 'math/arm-common/copysignl.c'; then $(CYGPATH_W) 'math/arm-common/copysignl.c'; else $(CYGPATH_W) '$(srcdir)/math/arm-common/copysignl.c'; fi`
-+
-+math/arm-common/libarm64_libmingwex_a-log1pl.o: math/arm-common/log1pl.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/arm-common/libarm64_libmingwex_a-log1pl.o -MD -MP -MF math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-log1pl.Tpo -c -o math/arm-common/libarm64_libmingwex_a-log1pl.o `test -f 'math/arm-common/log1pl.c' || echo '$(srcdir)/'`math/arm-common/log1pl.c
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-log1pl.Tpo math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-log1pl.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/arm-common/log1pl.c' object='math/arm-common/libarm64_libmingwex_a-log1pl.o' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/arm-common/libarm64_libmingwex_a-log1pl.o `test -f 'math/arm-common/log1pl.c' || echo '$(srcdir)/'`math/arm-common/log1pl.c
-+
-+math/arm-common/libarm64_libmingwex_a-log1pl.obj: math/arm-common/log1pl.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/arm-common/libarm64_libmingwex_a-log1pl.obj -MD -MP -MF math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-log1pl.Tpo -c -o math/arm-common/libarm64_libmingwex_a-log1pl.obj `if test -f 'math/arm-common/log1pl.c'; then $(CYGPATH_W) 'math/arm-common/log1pl.c'; else $(CYGPATH_W) '$(srcdir)/math/arm-common/log1pl.c'; fi`
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-log1pl.Tpo math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-log1pl.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/arm-common/log1pl.c' object='math/arm-common/libarm64_libmingwex_a-log1pl.obj' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/arm-common/libarm64_libmingwex_a-log1pl.obj `if test -f 'math/arm-common/log1pl.c'; then $(CYGPATH_W) 'math/arm-common/log1pl.c'; else $(CYGPATH_W) '$(srcdir)/math/arm-common/log1pl.c'; fi`
-+
-+math/arm-common/libarm64_libmingwex_a-logbl.o: math/arm-common/logbl.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/arm-common/libarm64_libmingwex_a-logbl.o -MD -MP -MF math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-logbl.Tpo -c -o math/arm-common/libarm64_libmingwex_a-logbl.o `test -f 'math/arm-common/logbl.c' || echo '$(srcdir)/'`math/arm-common/logbl.c
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-logbl.Tpo math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-logbl.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/arm-common/logbl.c' object='math/arm-common/libarm64_libmingwex_a-logbl.o' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/arm-common/libarm64_libmingwex_a-logbl.o `test -f 'math/arm-common/logbl.c' || echo '$(srcdir)/'`math/arm-common/logbl.c
-+
-+math/arm-common/libarm64_libmingwex_a-logbl.obj: math/arm-common/logbl.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/arm-common/libarm64_libmingwex_a-logbl.obj -MD -MP -MF math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-logbl.Tpo -c -o math/arm-common/libarm64_libmingwex_a-logbl.obj `if test -f 'math/arm-common/logbl.c'; then $(CYGPATH_W) 'math/arm-common/logbl.c'; else $(CYGPATH_W) '$(srcdir)/math/arm-common/logbl.c'; fi`
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-logbl.Tpo math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-logbl.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/arm-common/logbl.c' object='math/arm-common/libarm64_libmingwex_a-logbl.obj' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/arm-common/libarm64_libmingwex_a-logbl.obj `if test -f 'math/arm-common/logbl.c'; then $(CYGPATH_W) 'math/arm-common/logbl.c'; else $(CYGPATH_W) '$(srcdir)/math/arm-common/logbl.c'; fi`
-+
-+math/arm-common/libarm64_libmingwex_a-remainderl.o: math/arm-common/remainderl.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/arm-common/libarm64_libmingwex_a-remainderl.o -MD -MP -MF math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-remainderl.Tpo -c -o math/arm-common/libarm64_libmingwex_a-remainderl.o `test -f 'math/arm-common/remainderl.c' || echo '$(srcdir)/'`math/arm-common/remainderl.c
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-remainderl.Tpo math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-remainderl.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/arm-common/remainderl.c' object='math/arm-common/libarm64_libmingwex_a-remainderl.o' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/arm-common/libarm64_libmingwex_a-remainderl.o `test -f 'math/arm-common/remainderl.c' || echo '$(srcdir)/'`math/arm-common/remainderl.c
-+
-+math/arm-common/libarm64_libmingwex_a-remainderl.obj: math/arm-common/remainderl.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/arm-common/libarm64_libmingwex_a-remainderl.obj -MD -MP -MF math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-remainderl.Tpo -c -o math/arm-common/libarm64_libmingwex_a-remainderl.obj `if test -f 'math/arm-common/remainderl.c'; then $(CYGPATH_W) 'math/arm-common/remainderl.c'; else $(CYGPATH_W) '$(srcdir)/math/arm-common/remainderl.c'; fi`
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-remainderl.Tpo math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-remainderl.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/arm-common/remainderl.c' object='math/arm-common/libarm64_libmingwex_a-remainderl.obj' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/arm-common/libarm64_libmingwex_a-remainderl.obj `if test -f 'math/arm-common/remainderl.c'; then $(CYGPATH_W) 'math/arm-common/remainderl.c'; else $(CYGPATH_W) '$(srcdir)/math/arm-common/remainderl.c'; fi`
-+
-+math/arm-common/libarm64_libmingwex_a-ld_fallbacks.o: math/arm-common/ld_fallbacks.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/arm-common/libarm64_libmingwex_a-ld_fallbacks.o -MD -MP -MF math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-ld_fallbacks.Tpo -c -o math/arm-common/libarm64_libmingwex_a-ld_fallbacks.o `test -f 'math/arm-common/ld_fallbacks.c' || echo '$(srcdir)/'`math/arm-common/ld_fallbacks.c
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-ld_fallbacks.Tpo math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-ld_fallbacks.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/arm-common/ld_fallbacks.c' object='math/arm-common/libarm64_libmingwex_a-ld_fallbacks.o' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/arm-common/libarm64_libmingwex_a-ld_fallbacks.o `test -f 'math/arm-common/ld_fallbacks.c' || echo '$(srcdir)/'`math/arm-common/ld_fallbacks.c
-+
-+math/arm-common/libarm64_libmingwex_a-ld_fallbacks.obj: math/arm-common/ld_fallbacks.c
-+@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/arm-common/libarm64_libmingwex_a-ld_fallbacks.obj -MD -MP -MF math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-ld_fallbacks.Tpo -c -o math/arm-common/libarm64_libmingwex_a-ld_fallbacks.obj `if test -f 'math/arm-common/ld_fallbacks.c'; then $(CYGPATH_W) 'math/arm-common/ld_fallbacks.c'; else $(CYGPATH_W) '$(srcdir)/math/arm-common/ld_fallbacks.c'; fi`
-+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-ld_fallbacks.Tpo math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-ld_fallbacks.Po
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='math/arm-common/ld_fallbacks.c' object='math/arm-common/libarm64_libmingwex_a-ld_fallbacks.obj' libtool=no @AMDEPBACKSLASH@
-+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o math/arm-common/libarm64_libmingwex_a-ld_fallbacks.obj `if test -f 'math/arm-common/ld_fallbacks.c'; then $(CYGPATH_W) 'math/arm-common/ld_fallbacks.c'; else $(CYGPATH_W) '$(srcdir)/math/arm-common/ld_fallbacks.c'; fi`
-+
- math/DFP/libarm64_libmingwex_a-__fpclassifyd32.o: math/DFP/__fpclassifyd32.c
- @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libarm64_libmingwex_a_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT math/DFP/libarm64_libmingwex_a-__fpclassifyd32.o -MD -MP -MF math/DFP/$(DEPDIR)/libarm64_libmingwex_a-__fpclassifyd32.Tpo -c -o math/DFP/libarm64_libmingwex_a-__fpclassifyd32.o `test -f 'math/DFP/__fpclassifyd32.c' || echo '$(srcdir)/'`math/DFP/__fpclassifyd32.c
- @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) math/DFP/$(DEPDIR)/libarm64_libmingwex_a-__fpclassifyd32.Tpo math/DFP/$(DEPDIR)/libarm64_libmingwex_a-__fpclassifyd32.Po
-@@ -101266,6 +101464,7 @@ distclean: distclean-recursive
- 	-rm -f crt/$(DEPDIR)/libarm64_libmingw32_a-xncommod.Po
- 	-rm -f crt/$(DEPDIR)/libarm64_libmingw32_a-xthdloc.Po
- 	-rm -f crt/$(DEPDIR)/libarm64_libmingw32_a-xtxtmode.Po
-+	-rm -f crt/$(DEPDIR)/libarm64_libmingwex_a-CRT_fp10.Po
- 	-rm -f crt/$(DEPDIR)/libarm64_libmingwex_a-chpe.Po
- 	-rm -f crt/$(DEPDIR)/libarm64_libmingwex_a-loadcfg.Po
- 	-rm -f ctype/$(DEPDIR)/lib32_libcrtdll_extra_a-__iswcsym.Po
-@@ -102810,6 +103009,9 @@ distclean: distclean-recursive
- 	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-lgammaf.Po
- 	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-lgammal.Po
- 	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-modfl.Po
-+	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-nextafterl.Po
-+	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-nexttoward.Po
-+	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-nexttowardf.Po
- 	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-powi.Po
- 	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-powif.Po
- 	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-powil.Po
-@@ -102976,7 +103178,12 @@ distclean: distclean-recursive
- 	-rm -f math/arm-common/$(DEPDIR)/libarm32_libmsvcrt_extra_a-s_remquo.Po
- 	-rm -f math/arm-common/$(DEPDIR)/libarm32_libmsvcrt_extra_a-s_remquof.Po
- 	-rm -f math/arm-common/$(DEPDIR)/libarm32_libmsvcrt_extra_a-scalbn.Po
-+	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-copysignl.Po
-+	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-ld_fallbacks.Po
- 	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-ldexpl.Po
-+	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-log1pl.Po
-+	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-logbl.Po
-+	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-remainderl.Po
- 	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-sincosl.Po
- 	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmsvcrt_extra_a-acosh.Po
- 	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmsvcrt_extra_a-acoshf.Po
-@@ -106120,6 +106327,7 @@ maintainer-clean: maintainer-clean-recursive
- 	-rm -f crt/$(DEPDIR)/libarm64_libmingw32_a-xncommod.Po
- 	-rm -f crt/$(DEPDIR)/libarm64_libmingw32_a-xthdloc.Po
- 	-rm -f crt/$(DEPDIR)/libarm64_libmingw32_a-xtxtmode.Po
-+	-rm -f crt/$(DEPDIR)/libarm64_libmingwex_a-CRT_fp10.Po
- 	-rm -f crt/$(DEPDIR)/libarm64_libmingwex_a-chpe.Po
- 	-rm -f crt/$(DEPDIR)/libarm64_libmingwex_a-loadcfg.Po
- 	-rm -f ctype/$(DEPDIR)/lib32_libcrtdll_extra_a-__iswcsym.Po
-@@ -107664,6 +107872,9 @@ maintainer-clean: maintainer-clean-recursive
- 	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-lgammaf.Po
- 	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-lgammal.Po
- 	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-modfl.Po
-+	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-nextafterl.Po
-+	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-nexttoward.Po
-+	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-nexttowardf.Po
- 	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-powi.Po
- 	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-powif.Po
- 	-rm -f math/$(DEPDIR)/libarm64_libmingwex_a-powil.Po
-@@ -107830,7 +108041,12 @@ maintainer-clean: maintainer-clean-recursive
- 	-rm -f math/arm-common/$(DEPDIR)/libarm32_libmsvcrt_extra_a-s_remquo.Po
- 	-rm -f math/arm-common/$(DEPDIR)/libarm32_libmsvcrt_extra_a-s_remquof.Po
- 	-rm -f math/arm-common/$(DEPDIR)/libarm32_libmsvcrt_extra_a-scalbn.Po
-+	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-copysignl.Po
-+	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-ld_fallbacks.Po
- 	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-ldexpl.Po
-+	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-log1pl.Po
-+	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-logbl.Po
-+	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-remainderl.Po
- 	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmingwex_a-sincosl.Po
- 	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmsvcrt_extra_a-acosh.Po
- 	-rm -f math/arm-common/$(DEPDIR)/libarm64_libmsvcrt_extra_a-acoshf.Po
-diff --git a/mingw-w64-crt/crt/CRT_fp10.c b/mingw-w64-crt/crt/CRT_fp10.c
-index 94b0ca26f..adeaa9782 100644
---- a/mingw-w64-crt/crt/CRT_fp10.c
-+++ b/mingw-w64-crt/crt/CRT_fp10.c
-@@ -8,9 +8,13 @@
- #include <fenv.h>
- #include <float.h>
- 
-+#if (defined(__i386__) || defined(__x86_64__)) && !defined(__arm64ec__)
- /* FE_DFL_ENV as fegetenv encodes the state after this _fpreset (x87
--   control word 0x037f, MXCSR 0x1f80).  */
-+   control word 0x037f, MXCSR 0x1f80).  On ARM64EC the same object is
-+   provided by misc/fesetenv.c instead, because this file is linked into
-+   libmingwex there only for the _fpreset wrapper below.  */
- const fenv_t __mingw_fe_dfl_env = { 0x3f3f003f, 0 };
-+#endif
- 
- extern void (* __MINGW_IMP_SYMBOL(_fpreset))(void);
- void _fpreset (void);
-diff --git a/mingw-w64-crt/gdtoa/strtopx.c b/mingw-w64-crt/gdtoa/strtopx.c
-index b80a79476..4a79a2ac2 100644
---- a/mingw-w64-crt/gdtoa/strtopx.c
-+++ b/mingw-w64-crt/gdtoa/strtopx.c
-@@ -64,9 +64,12 @@ strtold (const char * __restrict__ src, char ** __restrict__ endptr)
-   return __mingw_strtod(src, endptr);
- }
- 
--/* This is specific to the x86 80 bit long doubles. */
-+/* This is specific to the x86 80 bit long doubles.  ARM64EC uses the same
-+ * format (it has to be ABI-compatible with x86_64), so it needs the same
-+ * 80-bit conversion even though it has no x87 instructions: the bit patterns
-+ * are stored and loaded with integer instructions only. */
- #elif defined(_AMD64_) || defined(__x86_64__) || \
--  defined(_X86_) || defined(__i386__)
-+  defined(_X86_) || defined(__i386__) || defined(__arm64ec__)
- 
- typedef union lD {
- 	UShort L[5];
 diff --git a/mingw-w64-crt/math/arm-common/copysignl.c b/mingw-w64-crt/math/arm-common/copysignl.c
-index ea66215f2..f2f2aa3a1 100644
+index ea66215f2..27e42c6be 100644
 --- a/mingw-w64-crt/math/arm-common/copysignl.c
 +++ b/mingw-w64-crt/math/arm-common/copysignl.c
-@@ -7,5 +7,18 @@
+@@ -7,5 +7,19 @@
  
  long double copysignl(long double x, long double y)
  {
@@ -464,269 +104,663 @@ index ea66215f2..f2f2aa3a1 100644
 +     * memory image: converting `x` to `double` and back would lose the low
 +     * eleven bits of the significand. */
 +    __mingw_ldbl_type_t sx, sy;
++
 +    sx.x = x;
 +    sy.x = y;
-+    sx.lh.sign_exponent = (short)(((unsigned int)sx.lh.sign_exponent & 0x7fff)
-+                                  | ((unsigned int)sy.lh.sign_exponent & 0x8000));
++    sx.lh.sign_exponent &= 0x7fff;
++    sx.lh.sign_exponent |= sy.lh.sign_exponent & ~0x7fff;
 +    return sx.x;
 +#else
      return copysign(x, y);
 +#endif
  }
-diff --git a/mingw-w64-crt/math/arm-common/ld_fallbacks.c b/mingw-w64-crt/math/arm-common/ld_fallbacks.c
+diff --git a/mingw-w64-crt/math/arm64ec/acoshl.c b/mingw-w64-crt/math/arm64ec/acoshl.c
 new file mode 100644
-index 000000000..885930356
+index 000000000..554ce0573
 --- /dev/null
-+++ b/mingw-w64-crt/math/arm-common/ld_fallbacks.c
-@@ -0,0 +1,96 @@
++++ b/mingw-w64-crt/math/arm64ec/acoshl.c
+@@ -0,0 +1,18 @@
 +/**
 + * This file has no copyright assigned and is placed in the Public Domain.
 + * This file is part of the mingw-w64 runtime package.
 + * No warranty is given; refer to the file DISCLAIMER.PD within this package.
 + */
 +/*
-+ * ARM64EC keeps the x86_64 ABI for 'long double', i.e. the 80-bit x87 extended
-+ * format, but neither the compiler backend nor this C library implement the
-+ * transcendental functions for it: they are evaluated in 'double' and the
-+ * result is converted back, which is what the compiler does for the same
-+ * expressions written in C.
-+ *
-+ * The functions below therefore exist only so that the C library itself can be
-+ * linked.  `def-include/func.def.in' hides ucrtbase's binary64 versions behind
-+ * F_LD64(), which no longer expands once 'long double' is 80 bits wide, and the
-+ * 'long double _Complex' entry points in `complex/' call these symbols because
-+ * they are compiled with -fno-builtin.  Without them, `std::complex<long
-+ * double>' cannot be linked at all.
-+ *
-+ * Only ARM64EC needs them: on every other target either ucrtbase provides the
-+ * binary64 versions or `arm-common/' already has a real implementation.
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
 + */
 +
 +#include <math.h>
 +
-+#ifdef __arm64ec__
++long double acoshl(long double x)
++{
++    return (long double)acosh((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/acosl.c b/mingw-w64-crt/math/arm64ec/acosl.c
+new file mode 100644
+index 000000000..ff1cb70e8
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/acosl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
 +
 +long double acosl(long double x)
 +{
 +    return (long double)acos((double)x);
 +}
+diff --git a/mingw-w64-crt/math/arm64ec/asinhl.c b/mingw-w64-crt/math/arm64ec/asinhl.c
+new file mode 100644
+index 000000000..19cdf6ab9
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/asinhl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
++
++long double asinhl(long double x)
++{
++    return (long double)asinh((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/asinl.c b/mingw-w64-crt/math/arm64ec/asinl.c
+new file mode 100644
+index 000000000..2cfc8d29e
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/asinl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
 +
 +long double asinl(long double x)
 +{
 +    return (long double)asin((double)x);
 +}
+diff --git a/mingw-w64-crt/math/arm64ec/atan2l.c b/mingw-w64-crt/math/arm64ec/atan2l.c
+new file mode 100644
+index 000000000..aedd09081
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/atan2l.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
 +
-+long double atanl(long double x)
-+{
-+    return (long double)atan((double)x);
-+}
++#include <math.h>
 +
 +long double atan2l(long double y, long double x)
 +{
 +    return (long double)atan2((double)y, (double)x);
 +}
+diff --git a/mingw-w64-crt/math/arm64ec/atanhl.c b/mingw-w64-crt/math/arm64ec/atanhl.c
+new file mode 100644
+index 000000000..940d5c5f1
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/atanhl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
++
++long double atanhl(long double x)
++{
++    return (long double)atanh((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/atanl.c b/mingw-w64-crt/math/arm64ec/atanl.c
+new file mode 100644
+index 000000000..181932126
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/atanl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
++
++long double atanl(long double x)
++{
++    return (long double)atan((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/ceill.c b/mingw-w64-crt/math/arm64ec/ceill.c
+new file mode 100644
+index 000000000..a8351c0d9
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/ceill.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
++
++long double ceill(long double x)
++{
++    return (long double)ceil((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/cosl.c b/mingw-w64-crt/math/arm64ec/cosl.c
+new file mode 100644
+index 000000000..8d27a5edc
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/cosl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
 +
 +long double cosl(long double x)
 +{
 +    return (long double)cos((double)x);
 +}
+diff --git a/mingw-w64-crt/math/arm64ec/exp2l.c b/mingw-w64-crt/math/arm64ec/exp2l.c
+new file mode 100644
+index 000000000..ac1b5b761
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/exp2l.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
 +
-+long double sinl(long double x)
-+{
-+    return (long double)sin((double)x);
-+}
++#include <math.h>
 +
-+long double tanl(long double x)
++long double exp2l(long double x)
 +{
-+    return (long double)tan((double)x);
++    return (long double)exp2((double)x);
 +}
+diff --git a/mingw-w64-crt/math/arm64ec/expl.c b/mingw-w64-crt/math/arm64ec/expl.c
+new file mode 100644
+index 000000000..ac8ab0638
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/expl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
 +
 +long double expl(long double x)
 +{
 +    return (long double)exp((double)x);
 +}
+diff --git a/mingw-w64-crt/math/arm64ec/expm1l.c b/mingw-w64-crt/math/arm64ec/expm1l.c
+new file mode 100644
+index 000000000..90d2d0554
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/expm1l.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
 +
-+long double logl(long double x)
++#include <math.h>
++
++long double expm1l(long double x)
 +{
-+    return (long double)log((double)x);
++    return (long double)expm1((double)x);
 +}
+diff --git a/mingw-w64-crt/math/arm64ec/floorl.c b/mingw-w64-crt/math/arm64ec/floorl.c
+new file mode 100644
+index 000000000..e4de31207
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/floorl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
 +
-+long double log10l(long double x)
-+{
-+    return (long double)log10((double)x);
-+}
++#include <math.h>
 +
-+/* `floor' is exact in 'double' well past the point where the conversion to
-+   'double' has already rounded, so the result is either right or, for values
-+   beyond the binary64 range, saturated -- the same as any other fallback.  */
 +long double floorl(long double x)
 +{
 +    return (long double)floor((double)x);
 +}
+diff --git a/mingw-w64-crt/math/arm64ec/fmal.c b/mingw-w64-crt/math/arm64ec/fmal.c
+new file mode 100644
+index 000000000..a4170c35b
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/fmal.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
++
++long double fmal(long double x, long double y, long double z)
++{
++    return (long double)fma((double)x, (double)y, (double)z);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/fmodl.c b/mingw-w64-crt/math/arm64ec/fmodl.c
+new file mode 100644
+index 000000000..235c7625f
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/fmodl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
 +
 +long double fmodl(long double x, long double y)
 +{
 +    return (long double)fmod((double)x, (double)y);
 +}
+diff --git a/mingw-w64-crt/math/arm64ec/ilogbl.c b/mingw-w64-crt/math/arm64ec/ilogbl.c
+new file mode 100644
+index 000000000..954ec4210
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/ilogbl.c
+@@ -0,0 +1,36 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ *
++ * The exponent is a field of the x87 image, so it is read back with integer
++ * instructions and every result is exact.
++ */
++
++#include <math.h>
++
++int ilogbl(long double x)
++{
++    __mingw_ldbl_type_t ld;
++    unsigned long long m;
++    unsigned int e;
++
++    ld.x = x;
++    e = (unsigned int)ld.lh.sign_exponent & 0x7fff;
++    m = ((unsigned long long)(unsigned int)ld.lh.high << 32)
++        | (unsigned int)ld.lh.low;
++
++    if (e == 0x7fff)
++      return FP_ILOGBNAN;   /* infinity or NaN */
++    if (e == 0)
++      /* Zero, or a denormal whose binary point sits at -16382 with the
++         integer bit shifted out: normalize by counting leading zeros.  */
++      return m == 0 ? FP_ILOGB0 : -(int)__builtin_clzll(m) - 16382;
++    return (int)e - 16383;
++}
+diff --git a/mingw-w64-crt/math/arm64ec/log10l.c b/mingw-w64-crt/math/arm64ec/log10l.c
+new file mode 100644
+index 000000000..d21e8ce08
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/log10l.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
++
++long double log10l(long double x)
++{
++    return (long double)log10((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/log2l.c b/mingw-w64-crt/math/arm64ec/log2l.c
+new file mode 100644
+index 000000000..bcff8ec4e
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/log2l.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
++
++long double log2l(long double x)
++{
++    return (long double)log2((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/logl.c b/mingw-w64-crt/math/arm64ec/logl.c
+new file mode 100644
+index 000000000..24d7a04dd
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/logl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
++
++long double logl(long double x)
++{
++    return (long double)log((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/nearbyintl.c b/mingw-w64-crt/math/arm64ec/nearbyintl.c
+new file mode 100644
+index 000000000..400058c6f
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/nearbyintl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
++
++long double nearbyintl(long double x)
++{
++    return (long double)nearbyint((double)x);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/powl.c b/mingw-w64-crt/math/arm64ec/powl.c
+new file mode 100644
+index 000000000..73b0c4b63
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/powl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
++
++long double powl(long double x, long double y)
++{
++    return (long double)pow((double)x, (double)y);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/remquol.c b/mingw-w64-crt/math/arm64ec/remquol.c
+new file mode 100644
+index 000000000..ba68da9cb
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/remquol.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
++
++long double remquol(long double x, long double y, int *quo)
++{
++    return (long double)remquo((double)x, (double)y, quo);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/scalblnl.c b/mingw-w64-crt/math/arm64ec/scalblnl.c
+new file mode 100644
+index 000000000..aa83049fc
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/scalblnl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
++
++long double scalblnl(long double x, long exp)
++{
++    return (long double)scalbln((double)x, exp);
++}
+diff --git a/mingw-w64-crt/math/arm64ec/scalbnl.c b/mingw-w64-crt/math/arm64ec/scalbnl.c
+new file mode 100644
+index 000000000..3b4bc2c47
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/scalbnl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
 +
 +long double scalbnl(long double x, int exp)
 +{
 +    return (long double)scalbn((double)x, exp);
 +}
+diff --git a/mingw-w64-crt/math/arm64ec/sinl.c b/mingw-w64-crt/math/arm64ec/sinl.c
+new file mode 100644
+index 000000000..c8dc89a17
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/sinl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
 +
-+#endif /* __arm64ec__ */
-diff --git a/mingw-w64-crt/math/arm-common/ldexpl.c b/mingw-w64-crt/math/arm-common/ldexpl.c
-index 2a2a3771c..10e163ab5 100644
---- a/mingw-w64-crt/math/arm-common/ldexpl.c
-+++ b/mingw-w64-crt/math/arm-common/ldexpl.c
-@@ -5,8 +5,120 @@
-  */
- 
- #include <math.h>
-+#include <errno.h>
- 
- long double ldexpl(long double x, int n)
- {
-+#if defined(__arm64ec__) || defined(_ARM64EC_)
-+    /* ARM64EC keeps the 80-bit x87 'long double' of x86_64 but has no x87
-+     * FPU, so the scaling has to be done with integer instructions on the
-+     * memory image: `ldexp` would round the significand to 53 bits and would
-+     * not accept exponents outside the range of `double`.  The underflow path
-+     * performs gradual underflow with round-to-nearest-even. */
-+    __mingw_ldbl_type_t in, out;
-+    unsigned long long m;
-+    unsigned int e;
-+    int ne;
++#include <math.h>
 +
-+    in.x = x;
-+    m = ((unsigned long long)(unsigned int)in.lh.high << 32)
-+        | (unsigned int)in.lh.low;
-+    e = (unsigned int)in.lh.sign_exponent & 0x7fff;
-+
-+    if (e == 0x7fff)            /* infinity or NaN */
-+        return x;
-+    if (m == 0)                 /* zero, including the sign */
-+        return x;
-+
-+    if (e == 0)
-+    {
-+        /* Denormal or pseudo-denormal: normalize first.  A pseudo-denormal
-+         * already has the explicit integer bit set and is a normal number. */
-+        if ((m >> 63) == 0)
-+        {
-+            int lz = __builtin_clzll(m);
-+            m <<= lz;
-+            e = (unsigned int)(1 - lz);
-+        }
-+        else
-+            e = 1;
-+    }
-+
-+    ne = (int)e + n;
-+    if (ne >= 0x7fff)
-+    {
-+        /* Overflow to infinity. */
-+        errno = ERANGE;
-+        out.x = 0.0L;
-+        out.lh.low = 0;
-+        out.lh.high = (int)0x80000000U;
-+        out.lh.sign_exponent =
-+            (short)(((unsigned int)in.lh.sign_exponent & 0x8000) | 0x7fff);
-+        return out.x;
-+    }
-+
-+    out = in;
-+    out.lh.low = (unsigned int)m;
-+    out.lh.high = (int)(unsigned int)(m >> 32);
-+
-+    if (ne >= 1)
-+    {
-+        out.lh.sign_exponent =
-+            (short)(((unsigned int)in.lh.sign_exponent & 0x8000) | ne);
-+        return out.x;
-+    }
-+
-+    /* The result is a denormal: shift the significand right by (1 - ne)
-+     * bits, rounding to nearest with ties to even. */
-+    {
-+        unsigned int d = (unsigned int)(1 - ne);
-+        unsigned long long q, rem, half;
-+
-+        if (d > 64)
-+            q = 0;
-+        else if (d == 64)
-+            /* m is in [2^63, 2^64), so only a value strictly greater than one
-+             * half rounds up. */
-+            q = m > 0x8000000000000000ULL ? 1 : 0;
-+        else
-+        {
-+            q = m >> d;
-+            rem = m & ((1ULL << d) - 1);
-+            half = 1ULL << (d - 1);
-+            if (rem > half || (rem == half && (q & 1)))
-+                q++;
-+        }
-+
-+        if (q == 0)
-+        {
-+            errno = ERANGE;
-+            out.x = 0.0L;
-+            out.lh.low = 0;
-+            out.lh.high = 0;
-+            out.lh.sign_exponent =
-+                (short)((unsigned int)in.lh.sign_exponent & 0x8000);
-+            return out.x;
-+        }
-+
-+        errno = ERANGE;
-+        if (q >> 63)
-+        {
-+            /* Rounded up to the smallest normal number. */
-+            m = 0x8000000000000000ULL;
-+            out.lh.sign_exponent =
-+                (short)(((unsigned int)in.lh.sign_exponent & 0x8000) | 0x0001);
-+        }
-+        else
-+        {
-+            m = q;
-+            out.lh.sign_exponent =
-+                (short)((unsigned int)in.lh.sign_exponent & 0x8000);
-+        }
-+        out.lh.low = (unsigned int)m;
-+        out.lh.high = (int)(unsigned int)(m >> 32);
-+        return out.x;
-+    }
-+#else
-     return ldexp(x, n);
-+#endif
- }
-diff --git a/mingw-w64-crt/math/arm64/nearbyintl.c b/mingw-w64-crt/math/arm64/nearbyintl.c
-index 1d4dd2c58..89976b0d7 100644
---- a/mingw-w64-crt/math/arm64/nearbyintl.c
-+++ b/mingw-w64-crt/math/arm64/nearbyintl.c
-@@ -7,8 +7,17 @@
- #include <math.h>
- #include <internal.h>
- 
-+#if defined(__arm64ec__) || defined(_ARM64EC_)
-+long double nearbyintl(long double x)
++long double sinl(long double x)
 +{
-+    /* ARM64EC keeps the 80-bit x87 'long double' of x86_64, which does not
-+     * live in d0, so the rounding has to go through `double`. */
-+    return nearbyint((double)x);
++    return (long double)sin((double)x);
 +}
-+#else
- __ASM_DEFINE_FUNC(long double, nearbyintl, (long double x),
-                   "mrs x1, fpcr\n\t"
-                   "frintx d0, d0\n\t"
-                   "msr fpcr, x1\n\t"
-                   "ret")
-+#endif
+diff --git a/mingw-w64-crt/math/arm64ec/tanl.c b/mingw-w64-crt/math/arm64ec/tanl.c
+new file mode 100644
+index 000000000..adec2a7e9
+--- /dev/null
++++ b/mingw-w64-crt/math/arm64ec/tanl.c
+@@ -0,0 +1,18 @@
++/**
++ * This file has no copyright assigned and is placed in the Public Domain.
++ * This file is part of the mingw-w64 runtime package.
++ * No warranty is given; refer to the file DISCLAIMER.PD within this package.
++ */
++/*
++ * ARM64EC keeps the x86_64 'long double', i.e. the 80-bit x87 extended format,
++ * but it has no x87 FPU, so the x86_64 assembly implementations cannot be used.
++ * This file provides the entry point the x86_64 build gets from `math/x86/'.
++ * Because it is only ever compiled for ARM64EC, no conditional is needed here.
++ */
++
++#include <math.h>
++
++long double tanl(long double x)
++{
++    return (long double)tan((double)x);
++}
 diff --git a/mingw-w64-crt/math/fabsl.c b/mingw-w64-crt/math/fabsl.c
-index ed97ed017..22889092e 100644
+index ed97ed017..42f79df2d 100644
 --- a/mingw-w64-crt/math/fabsl.c
 +++ b/mingw-w64-crt/math/fabsl.c
-@@ -3,6 +3,8 @@
+@@ -3,12 +3,17 @@
   * This file is part of the mingw-w64 runtime package.
   * No warranty is given; refer to the file DISCLAIMER.PD within this package.
   */
@@ -735,214 +769,113 @@ index ed97ed017..22889092e 100644
  long double fabsl (long double x);
  
  long double
-@@ -10,6 +12,12 @@ fabsl (long double x)
+ fabsl (long double x)
  {
- #if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+-#if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
++#if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__ || defined(__arm64ec__)
++  /* On ARM64EC `long double' is the 80-bit x87 format, but the compiler
++     evaluates `__builtin_fabsl' by clearing the sign bit of the memory
++     image with integer instructions, so no x87 FPU is involved.  */
    return __builtin_fabsl (x);
-+#elif defined(__arm64ec__) || defined(_ARM64EC_)
-+  /* No x87 FPU: clear the sign bit of the 80-bit image with integer ops. */
-+  __mingw_ldbl_type_t ld;
-+  ld.x = x;
-+  ld.lh.sign_exponent = (short)((unsigned int)ld.lh.sign_exponent & 0x7fff);
-+  return ld.x;
  #elif defined(__x86_64__) || defined(_AMD64_) || defined(__i386__) || defined(_X86_)
    long double res = 0.0L;
-   asm volatile ("fabs;" : "=t" (res) : "0" (x));
-diff --git a/mingw-w64-crt/math/fpclassifyl.c b/mingw-w64-crt/math/fpclassifyl.c
-index 0c057bd1c..361f70463 100644
---- a/mingw-w64-crt/math/fpclassifyl.c
-+++ b/mingw-w64-crt/math/fpclassifyl.c
-@@ -8,7 +8,7 @@
- int __fpclassifyl (long double _x){
- #if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
-     return __fpclassify(_x);
--#elif defined(_AMD64_) || defined(__x86_64__)
-+#elif defined(_AMD64_) || defined(__x86_64__) || defined(__arm64ec__) || defined(_ARM64EC_)
-     __mingw_ldbl_type_t hlp;
-     unsigned int e;
-     hlp.x = _x;
-diff --git a/mingw-w64-crt/math/frexpl.c b/mingw-w64-crt/math/frexpl.c
-index f60b68bcd..541b37470 100644
---- a/mingw-w64-crt/math/frexpl.c
-+++ b/mingw-w64-crt/math/frexpl.c
-@@ -15,7 +15,7 @@ long double frexpl(long double value, int* exp)
-   return frexp(value, exp);
- }
- 
--#elif defined(_AMD64_) || defined(__x86_64__) || defined(_X86_) || defined(__i386__)
-+#elif defined(_AMD64_) || defined(__x86_64__) || defined(_X86_) || defined(__i386__) || defined(__arm64ec__) || defined(_ARM64EC_)
- 
- #include <stdint.h>
- 
 diff --git a/mingw-w64-crt/math/lrintl.c b/mingw-w64-crt/math/lrintl.c
-index 0bdd5784f..3ce9a3d1f 100644
+index 0bdd5784f..50131045c 100644
 --- a/mingw-w64-crt/math/lrintl.c
 +++ b/mingw-w64-crt/math/lrintl.c
-@@ -10,6 +10,10 @@ long lrintl (long double x)
+@@ -8,8 +8,8 @@
+ long lrintl (long double x) 
+ {
    long retval = 0l;
- #if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
-     retval = lrint(x);
-+#elif defined(__arm64ec__) || defined(_ARM64EC_)
-+    /* ARM64EC keeps the 80-bit x87 'long double' of x86_64 but has no x87
-+     * FPU, so there is no `fistpl` to emit. */
+-#if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+-    retval = lrint(x);
++#if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__ || defined(__arm64ec__)
 +    retval = lrint((double)x);
  #elif defined(_AMD64_) || defined(__x86_64__) || defined(_X86_) || defined(__i386__)
    __asm__ __volatile__ ("fistpl %0"  : "=m" (retval) : "t" (x) : "st");
  #endif
-diff --git a/mingw-w64-crt/math/modfl.c b/mingw-w64-crt/math/modfl.c
-index 60b9b81b9..55dd69b05 100644
---- a/mingw-w64-crt/math/modfl.c
-+++ b/mingw-w64-crt/math/modfl.c
-@@ -6,6 +6,7 @@
- #include <fenv.h>
- #include <math.h>
- #include <errno.h>
-+#include <stdint.h>
- 
- long double
- modfl (long double value, long double* iptr)
-@@ -32,6 +33,82 @@ modfl (long double value, long double* iptr)
-     "frndint\n"
-     "fldcw 4(%%esp)\n"
-     "addl $8, %%esp\n\tpop %%eax\n" : "=t" (int_part) : "0" (value) : "eax"); /* round */
-+#elif defined(__arm64ec__) || defined(_ARM64EC_)
-+  /* No x87 FPU: truncate by masking off the fractional significand bits. */
-+  {
-+    __mingw_ldbl_type_t in, ip, fp;
-+    uint64_t m, mask;
-+    unsigned int e, shift;
-+
-+    in.x = value;
-+    e = (unsigned int)in.lh.sign_exponent & 0x7fff;
-+    m = ((uint64_t)(uint32_t)in.lh.high << 32) | (uint32_t)in.lh.low;
-+
-+    if (e == 0x7fff)
-+      {
-+        /* infinity or NaN */
-+        __mingw_ldbl_type_t z;
-+        int_part = value;
-+        z.x = 0.0L;
-+        z.lh.sign_exponent = (short)((unsigned int)in.lh.sign_exponent & 0x8000);
-+        if (iptr)
-+          *iptr = int_part;
-+        /* The fractional part of an infinity is a signed zero; that of a NaN
-+           is a NaN. */
-+        return m == 0x8000000000000000ULL ? z.x : (value - value);
-+      }
-+    if (e < 16383)
-+      {
-+        /* |value| < 1 */
-+        __mingw_ldbl_type_t z;
-+        z.x = 0.0L;
-+        z.lh.sign_exponent = (short)((unsigned int)in.lh.sign_exponent & 0x8000);
-+        if (iptr)
-+          *iptr = z.x;
-+        return value;
-+      }
-+    shift = e - 16383;
-+    if (shift >= 63)
-+      {
-+        /* already integral */
-+        __mingw_ldbl_type_t z;
-+        z.x = 0.0L;
-+        z.lh.sign_exponent = (short)((unsigned int)in.lh.sign_exponent & 0x8000);
-+        if (iptr)
-+          *iptr = value;
-+        return z.x;
-+      }
-+    mask = ~((1ULL << (63 - shift)) - 1);
-+    ip = in;
-+    fp = in;
-+    {
-+      uint64_t ipm = m & mask, fpm = m & ~mask;
-+      ip.lh.low = (unsigned int)ipm;
-+      ip.lh.high = (int)(uint32_t)(ipm >> 32);
-+      if (fpm == 0)
-+        {
-+          fp.x = 0.0L;
-+          fp.lh.sign_exponent =
-+              (short)((unsigned int)in.lh.sign_exponent & 0x8000);
-+        }
-+      else
-+        {
-+          /* The fractional part has its explicit integer bit clear, which
-+             would be an invalid (unnormal) encoding, so shift it up until the
-+             integer bit is set and reduce the exponent accordingly. */
-+          unsigned int lz = (unsigned int)__builtin_clzll (fpm);
-+          fpm <<= lz;
-+          fp.lh.low = (unsigned int)fpm;
-+          fp.lh.high = (int)(uint32_t)(fpm >> 32);
-+          fp.lh.sign_exponent =
-+              (short)(((unsigned int)in.lh.sign_exponent & 0x8000) |
-+                      ((e - lz) & 0x7fff));
-+        }
-+    }
-+    if (iptr)
-+      *iptr = ip.x;
-+    return fp.x;
-+  }
- #else
-   int_part = truncl(value);
- #endif
 diff --git a/mingw-w64-crt/math/rintl.c b/mingw-w64-crt/math/rintl.c
-index da30c7aa2..ee0502962 100644
+index da30c7aa2..6b614fab4 100644
 --- a/mingw-w64-crt/math/rintl.c
 +++ b/mingw-w64-crt/math/rintl.c
-@@ -9,6 +9,10 @@ long double rintl (long double x) {
+@@ -7,8 +7,8 @@
+ 
+ long double rintl (long double x) {
    long double retval = 0.0L;
- #if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
-     retval = rint(x);
-+#elif defined(__arm64ec__) || defined(_ARM64EC_)
-+    /* ARM64EC keeps the 80-bit x87 'long double' of x86_64 but has no x87
-+     * FPU, so there is no `frndint` to emit. */
+-#if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+-    retval = rint(x);
++#if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__ || defined(__arm64ec__)
 +    retval = rint((double)x);
  #elif defined(_AMD64_) || defined(__x86_64__) || defined(_X86_) || defined(__i386__)
    __asm__ __volatile__ ("frndint;": "=t" (retval) : "0" (x));
  #endif
 diff --git a/mingw-w64-crt/math/signbitl.c b/mingw-w64-crt/math/signbitl.c
-index b4dba713b..5c4a487ce 100644
+index b4dba713b..067e1faeb 100644
 --- a/mingw-w64-crt/math/signbitl.c
 +++ b/mingw-w64-crt/math/signbitl.c
-@@ -13,7 +13,12 @@ int __signbitl (long double x) {
+@@ -9,12 +9,14 @@
+ 
+ 
+ int __signbitl (long double x) {
+-#if (defined(_AMD64_) && !defined(_ARM64EC_)) || (defined(__x86_64__) && !defined(__arm64ec__))
++#if defined(_AMD64_) || defined(__x86_64__)
++    /* ARM64EC also defines __x86_64__: it keeps the 80-bit x87 image, and the
++       sign is the top bit of the second word, so it must be read back with
++       integer instructions like on x86_64 rather than via `__signbit'. */
      __mingw_ldbl_type_t ld;
      ld.x = x;
      return ((ld.lh.sign_exponent & 0x8000) != 0);
 -#elif defined(__arm__) || defined(_ARM_) || defined(__aarch64__) || defined(_ARM64_) || defined(__arm64ec__) || defined(_ARM64EC_)
-+#elif defined(__arm64ec__) || defined(_ARM64EC_)
-+    /* No x87 FPU: read the sign bit of the 80-bit image with integer ops. */
-+    __mingw_ldbl_type_t ld;
-+    ld.x = x;
-+    return ((ld.lh.sign_exponent & 0x8000) != 0);
+-    return __signbit(x);
 +#elif defined(__arm__) || defined(_ARM_) || defined(__aarch64__) || defined(_ARM64_)
-     return __signbit(x);
  #elif defined(__i386__) || defined(_X86_)
    unsigned short sw;
+   __asm__ __volatile__ ("fxam; fstsw %%ax;"
 diff --git a/mingw-w64-crt/math/truncl.c b/mingw-w64-crt/math/truncl.c
-index a28fed3dc..cd57de7c7 100644
+index a28fed3dc..2f75b072d 100644
 --- a/mingw-w64-crt/math/truncl.c
 +++ b/mingw-w64-crt/math/truncl.c
-@@ -11,6 +11,10 @@ truncl (long double _x)
+@@ -9,8 +9,8 @@
+ long double
+ truncl (long double _x)
  {
- #if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
-   return trunc(_x);
-+#elif defined(__arm64ec__) || defined(_ARM64EC_)
-+  /* ARM64EC keeps the 80-bit x87 'long double' of x86_64 but has no x87
-+   * FPU, so the rounding has to go through `double`. */
+-#if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+-  return trunc(_x);
++#if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__ || defined(__arm64ec__)
 +  return trunc((double)_x);
  #else
    long double retval = 0.0L;
    unsigned short saved_cw;
+diff --git a/mingw-w64-crt/misc/fesetenv.c b/mingw-w64-crt/misc/fesetenv.c
+index e43c3f5ee..77c100a56 100644
+--- a/mingw-w64-crt/misc/fesetenv.c
++++ b/mingw-w64-crt/misc/fesetenv.c
+@@ -9,11 +9,10 @@
+ /* The FE_DFL_ENV macro is required by standard.
+    fesetenv recognizes it by address and installs the environment set at
+    app startup.  Its contents encode that environment, so a copy works too.
+-   On x86 it is defined next to _fpreset in CRT_fp*.c instead.  */
+-#if defined(__arm64ec__)
+-/* MXCSR 0x1f80.  */
+-const fenv_t __mingw_fe_dfl_env = { 0x3f00003f, 0 };
+-#elif !defined(__i386__) && !defined(__x86_64__)
++   On x86 it is defined next to _fpreset in CRT_fp*.c instead.  ARM64EC keeps
++   the x86_64 floating point environment, so it belongs on that side as well
++   and is supplied by crt/CRT_fp10.c together with the _fpreset wrapper.  */
++#if !defined(__i386__) && !defined(__x86_64__)
+ /* All exceptions masked, round to nearest.  */
+ const fenv_t __mingw_fe_dfl_env = { 0x3f, 0 };
+ #endif
 diff --git a/mingw-w64-headers/crt/math.h b/mingw-w64-headers/crt/math.h
-index 2bae73861..45b2947a7 100644
+index 2bae73861..6dd312c49 100644
 --- a/mingw-w64-headers/crt/math.h
 +++ b/mingw-w64-headers/crt/math.h
-@@ -210,6 +210,9 @@ _CRT_BEGIN_C_HEADER
+@@ -208,7 +208,7 @@ _CRT_BEGIN_C_HEADER
+ 
+   __CRT_INLINE long double __cdecl fabsl (long double x)
    {
- #if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
+-#if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__
++#if __SIZEOF_LONG_DOUBLE__ == __SIZEOF_DOUBLE__ || defined(__arm64ec__)
      return __builtin_fabsl (x);
-+#elif defined(__arm64ec__) || defined(_ARM64EC_)
-+    /* No x87 FPU: __builtin_fabsl clears the sign bit with integer ops. */
-+    return __builtin_fabsl (x);
  #else
      long double res = 0.0l;
-     __asm__ __volatile__ ("fabs;" : "=t" (res) : "0" (x));
