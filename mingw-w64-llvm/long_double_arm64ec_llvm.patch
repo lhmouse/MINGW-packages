@@ -606,22 +606,65 @@ index 30d693fb371c..114edd9d4058 100644
      CodeGenFunction::CGFPOptionsRAII FPOptsRAII(CGF, Op.FPFeatures);
      if (!RHSi) {
 diff --git a/clang/lib/CodeGen/CGExprConstant.cpp b/clang/lib/CodeGen/CGExprConstant.cpp
-index e2ec07bbae71..c52766524742 100644
+index e2ec07bbae71..4f04238b25c2 100644
 --- a/clang/lib/CodeGen/CGExprConstant.cpp
 +++ b/clang/lib/CodeGen/CGExprConstant.cpp
-@@ -2649,6 +2649,11 @@ ConstantEmitter::tryEmitPrivate(const APValue &Value, QualType DestType,
+@@ -56,6 +56,17 @@ llvm::Constant *getPadding(const CodeGenModule &CGM, CharUnits PadSize) {
+   return llvm::UndefValue::get(Ty);
+ }
+ 
++/// Emit a floating-point value as an IR constant.  ARM64EC keeps 'long double'
++/// in the software x87 format, where a value is an integer image and not an FP
++/// value, so it must not be emitted as an llvm::ConstantFP.
++llvm::Constant *emitFloatConstant(CodeGenModule &CGM,
++                                  const llvm::APFloat &Value) {
++  if (CGM.getTarget().hasSoftX87LongDouble() &&
++      &Value.getSemantics() == &llvm::APFloat::x87DoubleExtended())
++    return CGM.EmitSoftX87LdConstant(Value);
++  return llvm::ConstantFP::get(CGM.getLLVMContext(), Value);
++}
++
+ struct ConstantAggregateBuilderUtils {
+   CodeGenModule &CGM;
+ 
+@@ -2649,14 +2660,12 @@ ConstantEmitter::tryEmitPrivate(const APValue &Value, QualType DestType,
      return llvm::ConstantStruct::get(STy, Complex);
    }
    case APValue::Float:
-+    // ARM64EC: 'long double' constants are x87 images held in a 16-byte
-+    // integer slot.
-+    if (CGM.getTarget().hasSoftX87LongDouble() &&
-+        DestType->isSpecificBuiltinType(BuiltinType::LongDouble))
-+      return CGM.EmitSoftX87LdConstant(Value.getFloat());
-     return llvm::ConstantFP::get(CGM.getLLVMContext(), Value.getFloat());
+-    return llvm::ConstantFP::get(CGM.getLLVMContext(), Value.getFloat());
++    return emitFloatConstant(CGM, Value.getFloat());
    case APValue::ComplexFloat: {
      llvm::Constant *Complex[2];
-@@ -2922,6 +2927,18 @@ llvm::Constant *ConstantEmitter::emitNullForMemory(CodeGenModule &CGM,
+ 
+-    Complex[0] = llvm::ConstantFP::get(CGM.getLLVMContext(),
+-                                       Value.getComplexFloatReal());
+-    Complex[1] = llvm::ConstantFP::get(CGM.getLLVMContext(),
+-                                       Value.getComplexFloatImag());
++    Complex[0] = emitFloatConstant(CGM, Value.getComplexFloatReal());
++    Complex[1] = emitFloatConstant(CGM, Value.getComplexFloatImag());
+ 
+     // FIXME: the target may want to specify that this is packed.
+     llvm::StructType *STy =
+@@ -2672,7 +2681,7 @@ ConstantEmitter::tryEmitPrivate(const APValue &Value, QualType DestType,
+       if (Elt.isInt())
+         Inits[I] = llvm::ConstantInt::get(CGM.getLLVMContext(), Elt.getInt());
+       else if (Elt.isFloat())
+-        Inits[I] = llvm::ConstantFP::get(CGM.getLLVMContext(), Elt.getFloat());
++        Inits[I] = emitFloatConstant(CGM, Elt.getFloat());
+       else if (Elt.isIndeterminate())
+         Inits[I] = llvm::UndefValue::get(CGM.getTypes().ConvertType(
+             DestType->castAs<VectorType>()->getElementType()));
+@@ -2696,8 +2705,7 @@ ConstantEmitter::tryEmitPrivate(const APValue &Value, QualType DestType,
+           Inits[Idx] =
+               llvm::ConstantInt::get(CGM.getLLVMContext(), Elt.getInt());
+         else if (Elt.isFloat())
+-          Inits[Idx] =
+-              llvm::ConstantFP::get(CGM.getLLVMContext(), Elt.getFloat());
++          Inits[Idx] = emitFloatConstant(CGM, Elt.getFloat());
+         else if (Elt.isIndeterminate())
+           Inits[Idx] = llvm::PoisonValue::get(
+               CGM.getTypes().ConvertType(MT->getElementType()));
+@@ -2922,6 +2930,21 @@ llvm::Constant *ConstantEmitter::emitNullForMemory(CodeGenModule &CGM,
    return emitForMemory(CGM, CGM.EmitNullConstant(T), T);
  }
  
@@ -630,11 +673,14 @@ index e2ec07bbae71..c52766524742 100644
 +  // The memory image of an x87 extended-precision value is the 64-bit
 +  // significand followed by the 16-bit sign/exponent word; the remaining 6
 +  // bytes of the 16-byte slot are padding.  As a little-endian integer, the
-+  // image is therefore `significand | (sign_exponent << 64)`.
-+  llvm::APInt Bits = Value.bitcastToAPInt();
-+  assert(Bits.getBitWidth() == 80 && "expected x87 extended precision");
-+  return llvm::ConstantInt::get(llvm::IntegerType::get(getLLVMContext(), 128),
-+                                Bits.zext(128));
++  // image is therefore `significand | (sign_exponent << 64)`, which is exactly
++  // what APFloat::bitcastToAPInt() returns for this format: the constant is
++  // bit-exact, nothing is rounded here, and the padding bytes are zero.
++  assert(&Value.getSemantics() == &llvm::APFloat::x87DoubleExtended() &&
++         "expected the x87 extended format");
++  unsigned Width = getContext().getTypeSize(getContext().LongDoubleTy);
++  return llvm::ConstantInt::get(llvm::IntegerType::get(getLLVMContext(), Width),
++                                Value.bitcastToAPInt().zextOrTrunc(Width));
 +}
 +
  llvm::Constant *CodeGenModule::EmitNullConstant(QualType T) {
