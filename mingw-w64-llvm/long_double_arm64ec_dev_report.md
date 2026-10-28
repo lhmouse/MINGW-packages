@@ -4,6 +4,7 @@
 
 - 日期：2026-10-26
 - 主机：Intel Core i9-14900K（ASUS/AMI，Windows 11 26H2 build 26300.9711，x64）
+- 模拟器实测机（2.4 节，2026-10-28）：Qualcomm ARMv8 (64-bit) Family 8 Model D4B，Windows on ARM，8 核
 - LLVM 源码：`D:\lh_mouse\GitHub\MINGW-packages\mingw-w64-llvm\src\llvm-project`（`main` @ `44839f9c833f`）
 - mingw-w64 源码：`/d/lh_mouse/GitHub/mingw-w64`（`lhmouse` @ `8b8b4a167`）
 - 构建目录：`...\src\build-ld80`（Ninja，Release + assertions，`LLVM_TARGETS_TO_BUILD=X86;AArch64`）
@@ -16,13 +17,14 @@
 | 项目 | 状态 |
 | --- | --- |
 | x87 硬件行为 5 个待确认项 | **已完成**（第 2 章，含实测数据） |
+| Windows on ARM 的 x64 模拟器 x87 行为 | **已完成实测**（2.4 节，Qualcomm ARMv8 实机；与 2.2 的 Intel 实机数据不同） |
 | `__arm64ec_load_x87_long_double` / `__arm64ec_store_x87_long_double` 纯软件实现 | **已完成**，与真实 x87 硬件差分测试 **800,096 例 0 差异**（3.2 节） |
 | Clang：支持 `-mlong-double-64` / `-mlong-double-80`，**默认 80 位** | **已完成**（4.1 节，三种模式实测） |
 | Clang：`long double` 由 64 位改回 80 位（16 字节、16 字节对齐） | **已完成**（4.1 节，`sizeof`/`_Alignof` 静态断言通过） |
 | Clang：load/store 纯整数指令、算术转 `double`、两个辅助函数 | **已完成**（4.2–4.5 节，IR/汇编逐项核对） |
 | mingw-w64 CRT：7 个无误差函数整数实现 + 算术函数转 `double` | **已完成**（5 章，49 个源文件用新 clang 编译通过） |
 | 编译期回归测试（Clang Sema/CodeGen/Preprocessor/Driver，9554 项） | **已完成**，与基线逐项比对（6.2 节） |
-| 在 ARM64 实机运行 arm64ec 程序 | **未进行**（本机为 x64，无 Windows on ARM 设备）；替代验证见 6.3 节 |
+| 在 ARM64 实机运行 arm64ec 程序 | **未进行**（编写时无 WoA 设备；现已在 ARM64 实机上补测 x64 进程的模拟器 x87 行为，见 2.4 节，但尚未构建 arm64ec 产物）；替代验证见 6.3 节 |
 | 完整 mingw-w64 CRT 交叉构建（arm64ec 全套） | **未进行**（需 autoreconf + 完整 sysroot，超出本次时间预算），单文件编译验证已完成 |
 
 一句话结论：**80 位 `long double` 的语义与代码生成链路已经打通并逐项验证通过**；剩余工作是完整的 CRT 交叉构建与 ARM64 实机联调。
@@ -133,6 +135,153 @@ gcc -O1 -Wall -Wextra -o ldprobe.exe ldprobe.c ldprobe.s && ./ldprobe.exe > prob
 等价于"恒定 PC=53 + 每次运算都按 53 位舍入"。这与上述 `PC=53` 实测行为一致（含溢出/下溢/定向舍入），
 但与 64 位精度要求不一致——因此 x64 程序的 `long double` 在 ARM 上会静默损失 11 位尾数。
 本方案正是为了消除这一损失：**存储保持 64 位尾数，运算时才转换**。
+
+> **2026-10-28 更新**：上面这段是基于 `PC=53` 行为的推断。已在 Qualcomm ARM64 实机上用
+> CLANG64 探针直接实测（见 2.4 节），结论需要细化：模拟器并不是“恒定 PC=53”，而是
+> `fadd`/`fsub`/`fcompp` 固定按 53 位且完全忽略 PC，`fmul` 按 PC 在 24/53 位之间切换，
+> 64→53 的舍入是“平局远离零”，只有 `fld`/`fstp` 的直连路径保留完整 80 位。
+
+### 2.4 Windows on ARM 的 x64 模拟器实测（2026-10-28）
+
+2.2/2.3 的数据来自 Intel 实机的**真实 x87 硬件**。Windows on ARM 没有 x87，
+x64 进程里的 x87 指令全部由模拟器翻译执行，行为与硬件**并不相同**。下面是在 ARM64 实机上的直接实测。
+
+#### 2.4.1 环境与探针
+
+```text
+CPU        : Qualcomm ARMv8 (64-bit) Family 8 Model D4B，8 核（Windows on ARM）
+编译器     : MSYS2 CLANG64  /clang64/bin/clang.exe  clang 23.1.3
+目标三元组 : x86_64-w64-windows-gnu（产物是 x64 进程，由 WoA 的 x64 模拟执行）
+模拟器标识 : PROCESSOR_ARCHITECTURE=AMD64，PROCESSOR_IDENTIFIER=ARMv8 (64-bit) ...
+初始控制字 : CW = 0x037f（PC=11 扩展精度，RC=00）；每个用例前用 fldcw 显式装载
+```
+
+探针刻意**不出现任何 `long double` 对象**：80 位镜像全部用 `unsigned char[16]` + `memcpy`
+按 `significand | (sign_exponent << 64)` 的小端布局拼出，被测指令一律写成
+`fldt (%reg)` / `fstpt (%reg)`，结果按字节比较。这样既不受 Clang 常量折叠影响，
+也不经过 ABI 传参：
+
+```c
+/* fld num1 ; fld num2 ; fcompp ; fstsw ax —— 用户给出的序列 */
+static unsigned short cmp(const img *a, const img *b) {
+  unsigned short sw;
+  __asm__ __volatile__("fldt (%1)\n\t"
+                       "fldt (%2)\n\t"
+                       "fcompp\n\t"
+                       "fnstsw %0\n\t"
+                       "fclex\n\t"
+                       : "=m"(sw) : "r"(a), "r"(b)
+                       : "st", "memory");
+  return sw;                      /* C0 = bit8，C2 = bit9，C3 = bit10 */
+}
+```
+
+用例镜像（`significand:sign_exponent`）：
+
+| 名称 | 镜像 | 名称 | 镜像 |
+| --- | --- | --- | --- |
+| `1` | `8000000000000000:3fff` | `1+2⁻⁵³` | `8000000000000400:3fff` |
+| `1+2⁻³⁰` | `8000000200000000:3fff` | `1+2⁻⁶⁰` | `8000000000000008:3fff` |
+| `1+2⁻⁴⁰` | `8000000000800000:3fff` | `1+2⁻⁶³` | `8000000000000001:3fff` |
+| `1+2⁻⁴⁰+2⁻⁶⁰` | `8000000000800008:3fff` | `LDBL_MAX` / `LDBL_MAX/2` | `ffffffffffffffff:7ffe` / `:7ffd` |
+
+`-O0` 与 `-O2` 结果逐字节相同（`x87cmp4.c` 两种优化级别均跑过），重复运行也相同（原始输出见附录 E）。
+
+#### 2.4.2 比较（`fcompp` / `fucompp`）
+
+表头约定：`fld a; fld b` 后 **ST0 = b、ST1 = a**，表中给出的就是“ST0 ? ST1”。
+
+| `fld a; fld b` | PC=extended `037f` | PC=double `027f` | PC=single `007f` | 真 x87（任意 PC） |
+| --- | --- | --- | --- | --- |
+| `a=1`，`b=1+2⁻⁴⁰` | `ST0 > ST1` | `ST0 > ST1` | `ST0 > ST1` | `ST0 > ST1` |
+| `a=1+2⁻⁴⁰`，`b=1+2⁻⁴⁰+2⁻⁶⁰` | `ST0 == ST1` | `ST0 == ST1` | `ST0 == ST1` | `ST0 > ST1` |
+| `a=1`，`b=1+2⁻⁶⁰` | `ST0 == ST1` | `ST0 == ST1` | `ST0 == ST1` | `ST0 > ST1` |
+| `a=1+2⁻⁶⁰`，`b=1` | `ST0 == ST1` | `ST0 == ST1` | `ST0 == ST1` | `ST0 < ST1` |
+| `a=1`，`b=1+2⁻⁶³` | `ST0 == ST1` | `ST0 == ST1` | `ST0 == ST1` | `ST0 > ST1` |
+| `a=LDBL_MAX`，`b=LDBL_MAX/2` | `ST0 == ST1` | `ST0 == ST1` | `ST0 == ST1` | `ST0 < ST1` |
+| `a=1`，`b=QNaN` | unordered | unordered | unordered | unordered |
+
+- **比较结果与 CW 的 PC 字段无关**：三种 PC 完全相同，`fucompp` 与 `fcompp` 也相同。
+  这一点与真 x87 一致——PC 本来就不作用于比较；
+- 但比较本身**恒按 binary64 精度**执行：只有高 53 位参与，`1` 与 `1+2⁻⁶⁰` 判等；
+  `LDBL_MAX` 与其一半判等（两者转成 `double` 都是 `inf`）；
+- NaN 的 unordered 判定正常。
+
+#### 2.4.3 内存 ↔ 寄存器：`fld m80` / `fstp m80`
+
+| 输入 | `fld m80; fstp m80` 之后 |
+| --- | --- |
+| `1+2⁻⁶³` | `01 00 00 00 00 00 00 80 ff 3f`（位型不变） |
+| `1+2⁻⁶⁰` | `08 00 00 00 00 00 00 80 ff 3f`（位型不变） |
+| `LDBL_MAX` | `ff ff ff ff ff ff ff ff fe 7f`（位型不变，尽管远超 `double` 范围） |
+
+即：**只要不经过任何寄存器内运算，80 位镜像可以原样往返**（这也是 2.2 节"纯存储不变"的前提）。
+
+#### 2.4.4 寄存器操作会把值降为 53 位
+
+| 操作（输入 `1+2⁻⁶³` / `1+2⁻⁶⁰`） | 结果 |
+| --- | --- |
+| `fldt mem; fstpt mem` | 位型不变 |
+| `fldt mem; fld %st(0); fstpt mem` | `1.0`（复制出来的那份已被降精度） |
+| `fldt mem; fld1; fxch; fstpt mem` | `1.0` |
+| `fldt mem; fchs; fstpt mem` | `-1.0`（`fchs` **不是**位操作） |
+| `fldt mem; fabs; fstpt mem` | `1.0` |
+| `fldt a; fldt b; faddp; fstpt mem` | 53 位结果（见 2.4.5） |
+
+#### 2.4.5 算术与 PC
+
+| 操作 | PC=extended | PC=double | PC=single | 真 x87（PC=extended） |
+| --- | --- | --- | --- | --- |
+| `(1+2⁻³⁰) × 1` | `1+2⁻³⁰` | `1+2⁻³⁰` | **`1.0`** | `1+2⁻³⁰` |
+| `(1+2⁻⁵³) × 1` | `1+2⁻⁵²` | `1+2⁻⁵²` | **`1.0`** | `1+2⁻⁵³`（精确） |
+| `(1+2⁻³⁰) + 0` | `1+2⁻³⁰` | `1+2⁻³⁰` | `1+2⁻³⁰` | `1+2⁻³⁰` |
+| `(1+2⁻⁵³) + 0` | `1+2⁻⁵²` | `1+2⁻⁵²` | `1+2⁻⁵²` | `1+2⁻⁵³`（精确） |
+| `(1+2⁻⁶⁰) + 1` | `2.0` | `2.0` | `2.0` | `2+2⁻⁶⁰` |
+
+读法：
+
+- `fmul` **响应** PC：`PC=single` 时按 24 位舍入（表第 1、2 行）。
+- `fadd` / `fsub`（包括 `+0` 这种空操作）**完全忽略** PC，一律按 53 位（第 3–5 行）。
+- 64 → 53 位的舍入是"**平局远离零**"：`1+2⁻⁵³` 恰好是 `1.0` 与 `1+2⁻⁵²` 的中点，
+  模拟器给出 `1+2⁻⁵²`；IEEE 的 round-to-nearest-even 应给出 `1.0`。
+- 因此"PC=extended"在模拟器上**不等于** 64 位尾数，最多只是 53 位 + 平局远离零。
+
+#### 2.4.6 模型汇总
+
+| 通路 | 实测行为 |
+| --- | --- |
+| `fld m80` / `fstp m80` | 完整 80 位（内存 ↔ 寄存器直连） |
+| `fcompp` / `fucompp` | 53 位比较，忽略 PC |
+| `fadd` / `fsub` | 53 位，忽略 PC，平局远离零 |
+| `fmul` | 按 PC 舍入到 24 / 53 位，53 位时平局远离零 |
+| `fchs` / `fabs` / `fld %st(0)` / `fxch` | 先把值降到 53 位 |
+
+一句话：模拟器给不出 80 位运算，能给的最好也只是 binary64，而且比较与加法连 PC 都不看。
+
+#### 2.4.7 对编译器代码生成的影响（测试陷阱）
+
+Clang 物化 `long double` 常量或栈槽时会插入 `fld %st(0)`（`-O0` 尤其常见），
+这一条指令本身就够把值降到 53 位。同一份源码因此会"看优化级别给结果"：
+
+```c
+long double a = 1.0L + 0x1p-60L;   /* 80 位可精确表示，镜像 08 00 ... 80 ff 3f */
+dump_bytes(&a);                     /* 打印 16 字节 */
+```
+
+- 若生成的是 `fldt 常量; fstpt 槽`，打印 `08 00 … 80 ff 3f`（正确）；
+- 若中间夹了 `fld %st(0)`（编译器复制该值），打印 `00 00 … 80 ff 3f`（变成 `1.0`）。
+
+实测同一文件 `-O0` 与 `-O2` 分别命中这两种情况，反汇编确认 `.rdata` 里的常量本身**是对的**。
+所以本节所有数据都来自不经过 `long double` 对象的字节缓冲探针。
+
+#### 2.4.8 与本方案的关系
+
+- 本补丁的"**存储保持 80 位、运算转 `double`**"模型，正好与模拟器实际能达到的精度上限一致：
+  即使不用本方案，x86-64 程序在 WoA 上做任何 `long double` 运算也已经是 binary64；
+- 模拟器的比较与加法比 `double` 还差（不受 PC 控制、平局远离零），这解释了为什么
+  `cmath.pass.cpp` 的 `hypot(1e4000L, 0, 0)`、`midpoint.float.pass.cpp` 的
+  `midpoint(LDBL_MAX, 0)` 等用例在 WoA 上必然失败，只能跳过 `long double` 实例；
+- 反过来也说明：在 ARM64EC 上按同样语义实现 `long double`，不会比现状更差。
 
 ---
 
@@ -519,7 +668,7 @@ python3 build-ld80/bin/llvm-lit.py -q --timeout=300 -j 20 \
 | 项目 | 原因 | 替代验证 |
 | --- | --- | --- |
 | arm64ec 程序在 ARM64 实机运行 | 本机为 x64，无法执行 ARM64 代码 | ① 软件实现与**真实 x87 硬件**差分 80 万例一致；② IR/汇编逐条核对（无 FP 寄存器参与长双精度搬运）；③ ABI 自洽性检查 |
-| Windows on ARM 模拟器行为 | 同上 | 由 x87 实验（PC=53）推断，见 2.3 节 |
+| Windows on ARM 模拟器行为 | 原测试机为 x64，没有模拟器 | **已在 ARM64 实机直接实测**，见 2.4 节 |
 | 完整 CRT 构建与链接 | 需要 `autoreconf` 生成 `Makefile.in`、完整 arm64ec sysroot，耗时超预算 | 49 个源文件逐一编译通过 |
 
 ### 6.4 已知限制与后续工作
@@ -535,6 +684,11 @@ python3 build-ld80/bin/llvm-lit.py -q --timeout=300 -j 20 \
    完整构建后联调。
 6. **未运行 `check-llvm` 全量**：时间预算原因只覆盖 clang 前端；`llvm/test/CodeGen/AArch64`
    相关用例未受影响（补丁不改后端）。
+7. **模拟器陷阱**：WoA 的 x64 模拟器在 `fld %st(0)`/`fxch` 这类寄存器操作后会把 80 位值
+   降为 53 位，而 Clang 物化 `long double` 常量/栈槽时恰好会插入 `fld %st(0)`，
+   导致同一份源码在 `-O0` 与 `-O2` 下打印出不同结果（2.4.7 节）。
+   在本机做 `long double` 相关测试时必须用字节缓冲探针，不能依赖“编译器恰好生成
+   纯 `fld`/`fstp` 序列”。
 
 ### 6.5 两次运行的差异明细
 
@@ -658,4 +812,49 @@ mingw-w64-headers/crt/math.h                            （内联 fabsl）
 | x87 探针输出 | `C:\Windows\Temp\ldprobe\probe_out.txt` |
 | 差分测试输出 | `C:\Windows\Temp\ldprobe\difftest_out.txt` |
 | 构建日志 | `C:\Windows\Temp\ld80\build-patched.log` |
+| WoA 模拟器探针（比较 / load-store） | `C:\Users\lh_mouse\AppData\Local\Temp\x87cmp\x87cmp4.c` |
+| WoA 模拟器探针（算术与 PC） | `C:\Users\lh_mouse\AppData\Local\Temp\x87cmp\ops2.c` |
+| WoA 模拟器探针（寄存器操作降精度） | `C:\Users\lh_mouse\AppData\Local\Temp\x87cmp\dup2.c` |
+
+## 附录 E：Windows on ARM x64 模拟器探针输出（原文）
+
+```text
+$ cd /c/Users/lh_mouse/AppData/Local/Temp/x87cmp
+$ /clang64/bin/clang.exe -O0 -o x87cmp4.exe x87cmp4.c && ./x87cmp4.exe
+PC=extended 0x037f (reads back 0x037f)
+      fcompp 1        vs 1+2^-40       : ST0 >  ST1
+      fcompp 1+2^-40  vs 1+2^-40+2^-60 : ST0 == ST1
+      fcompp 1        vs 1+2^-60       : ST0 == ST1
+      fcompp 1        vs 1+2^-63       : ST0 == ST1
+      fcompp MAX      vs MAX/2         : ST0 == ST1
+      fld/fstp 1+2^-63         01 00 00 00 00 00 00 80 ff 3f
+      fld/fstp 1+2^-60         08 00 00 00 00 00 00 80 ff 3f
+      fadd 1 + (1+2^-60)       00 00 00 00 00 00 00 80 00 40
+      fadd 1 + 2^-30           00 00 00 00 01 00 00 80 00 40
+
+PC=double   0x027f (reads back 0x027f)      # 与 extended 逐行相同
+PC=single   0x007f (reads back 0x007f)      # 与 extended 逐行相同
+
+$ /clang64/bin/clang.exe -O0 -o ops2.exe ops2.c && ./ops2.exe
+PC=extended 0x037f
+      fld;fld1;fmulp  1+2^-30 00 00 00 00 02 00 00 80 ff 3f
+      fld;fldz;faddp  1+2^-30 00 00 00 00 02 00 00 80 ff 3f
+      fld;fld1;fmulp  1+2^-53 00 08 00 00 00 00 00 80 ff 3f
+      fld;fldz;faddp  1+2^-53 00 08 00 00 00 00 00 80 ff 3f
+
+PC=double   0x027f                            # 与 extended 逐行相同
+
+PC=single   0x007f
+      fld;fld1;fmulp  1+2^-30 00 00 00 00 00 00 00 80 ff 3f   # 舍到 24 位
+      fld;fldz;faddp  1+2^-30 00 00 00 00 02 00 00 80 ff 3f   # 未舍，PC 被忽略
+      fld;fld1;fmulp  1+2^-53 00 00 00 00 00 00 00 80 ff 3f   # 舍到 24 位
+      fld;fldz;faddp  1+2^-53 00 08 00 00 00 00 00 80 ff 3f   # 未舍，PC 被忽略
+
+$ /clang64/bin/clang.exe -O0 -o dup2.exe dup2.c && ./dup2.exe
+input                      08 00 00 00 00 00 00 80 ff 3f
+fxch                       00 00 00 00 00 00 00 80 ff 3f
+fchs;fchs                  00 00 00 00 00 00 00 80 ff 3f
+fld st(0)                  00 00 00 00 00 00 00 80 ff 3f
+plain fld;fstpt            08 00 00 00 00 00 00 80 ff 3f
+```
 

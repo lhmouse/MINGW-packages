@@ -16,28 +16,27 @@
 #        compiler-rt/lib/builtins/CMakeLists.txt
 #        compiler-rt/lib/builtins/arm64ec/x87_long_double.c   (new file)
 #
-#  [1b] TEST MARKS - two libc++ tests are marked UNSUPPORTED for the target
+#  [1b] TEST GUARDS - two libc++ tests skip their 'long double' instantiation
 #        libcxx/test/std/numerics/c.math/cmath.pass.cpp
 #        libcxx/test/std/numerics/numeric.ops/numeric.ops.midpoint/
 #            midpoint.float.pass.cpp
 #        ARM64EC keeps the 80-bit format but evaluates long double in 'double',
-#        so anything beyond the binary64 range saturates early.  Windows on
-#        ARM's x64 emulation fails the very same assertions bit for bit (its
-#        x87 registers are binary64), so this is a property of the platform,
-#        not of this implementation.
+#        so anything beyond the binary64 range saturates early.  The guards
+#        test __arm64ec__ && __LDBL_MANT_DIG__ == 64, i.e. they drop exactly
+#        the 80-bit instantiation and nothing else: 'float', 'double' and the
+#        long double of '-mlong-double-64'/'-mlong-double-128' still run.
+#        Windows on ARM's x64 emulation fails the very same assertions bit for
+#        bit (its x87 registers are binary64), so this is a property of the
+#        platform, not of this implementation.
 #
-#  [2] TOOL FIX - llvm/utils/lit/lit/util.py
-#        get_windows_extended_path() has to normalise the path separators
-#        itself: MSYS2's Python reports '/' as ntpath.sep when MSYSTEM is set,
-#        and a "\\?\" prefix is only accepted on a fully backslash-separated
-#        path.  Not part of the feature, but it makes ten lit tests pass here.
-#
-#  [3] HOST BUILD WORKAROUNDS - unrelated to the feature
-#        lld/MinGW/Options.td                  accept --default-image-base-*
-#        llvm/cmake/modules/Findzstd.cmake     use the zstd CMake package
-#        llvm/cmake/modules/GetHostTriple.cmake  treat MINGW+MSYS as MINGW
-#        These are only needed to build this LLVM with the MSYS2 CLANGARM64
-#        toolchain; drop them for an upstream submission.
+#  Deliberately *not* part of this patch:
+#    - lld's --default-image-base-* (0303), the zstd CMake package (0002) and
+#      GetHostTriple for MINGW+MSYS (0001): the package carries these as its
+#      own patches already.
+#    - llvm/utils/lit/lit/util.py: MSYS2's Python reports '/' as ntpath.sep
+#      while MSYSTEM is set, which makes get_windows_extended_path() build an
+#      extended-length path the Win32 APIs reject.  Reported to MSYS2; running
+#      the tests with an empty MSYSTEM avoids it, so no LLVM-side change here.
 #
 #  Apply from the llvm-project root with
 #      git apply long_double_arm64ec_llvm.patch
@@ -1235,111 +1234,47 @@ index 000000000000..23428fceb747
 +  image->padding[2] = 0;
 +}
 diff --git a/libcxx/test/std/numerics/c.math/cmath.pass.cpp b/libcxx/test/std/numerics/c.math/cmath.pass.cpp
-index 8e3a7255e426..79e694461ea2 100644
+index 8e3a7255e426..fc5e01784635 100644
 --- a/libcxx/test/std/numerics/c.math/cmath.pass.cpp
 +++ b/libcxx/test/std/numerics/c.math/cmath.pass.cpp
-@@ -9,6 +9,14 @@
- // Missing some long double math functions.
- // XFAIL: LLVM-LIBC-FIXME
- 
-+// ARM64EC keeps the x86_64 80-bit 'long double', but this port has no x87 FPU
-+// and evaluates the transcendental functions in 'double'.  Everything that
-+// leaves the binary64 range therefore saturates early: the 3-argument
-+// std::hypot() test uses 1e4000L, which becomes inf.  Windows on ARM's x64
-+// emulation behaves exactly the same way (its x87 registers are binary64), so
-+// this is a property of the platform rather than of this implementation.
-+// UNSUPPORTED: target=arm64ec-w64-mingw32
+@@ -1122,6 +1122,19 @@ void test_fmin()
+ struct TestHypot3 {
+   template <class Real>
+   void operator()() const {
++    // ARM64EC keeps the x86_64 80-bit 'long double' format but evaluates it in
++    // 'double', so the scaling below - which is derived from LDBL_MAX_EXP, or
++    // 16384 for the 80-bit format - cannot save 'x * x' from overflowing, and
++    // the 1e4000L operand of the check for overflow does not survive a round
++    // trip through 'double' either.  Windows on ARM's x64 emulation behaves the
++    // same way (its x87 registers are binary64).  Only that one instantiation
++    // is skipped; 'float', 'double' and, under '-mlong-double-64' or
++    // '-mlong-double-128', 'long double' are exercised as usual.
++#if defined(__arm64ec__) && __LDBL_MANT_DIG__ == 64
++    if constexpr (std::is_same_v<Real, long double>)
++      return;
++#endif
 +
- // <cmath>
- 
- #include <cmath>
+     const auto check = [](Real elem, Real abs_tol) {
+       assert(std::isfinite(std::hypot(elem, Real(0), Real(0))));
+       assert(fptest_close(std::hypot(elem, Real(0), Real(0)), elem, abs_tol));
 diff --git a/libcxx/test/std/numerics/numeric.ops/numeric.ops.midpoint/midpoint.float.pass.cpp b/libcxx/test/std/numerics/numeric.ops/numeric.ops.midpoint/midpoint.float.pass.cpp
-index 7a795d37986b..e668c5c76343 100644
+index 7a795d37986b..dbca70518540 100644
 --- a/libcxx/test/std/numerics/numeric.ops/numeric.ops.midpoint/midpoint.float.pass.cpp
 +++ b/libcxx/test/std/numerics/numeric.ops/numeric.ops.midpoint/midpoint.float.pass.cpp
-@@ -8,6 +8,13 @@
- 
- // REQUIRES: std-at-least-c++20
- 
-+// ARM64EC keeps the x86_64 80-bit 'long double' but evaluates its arithmetic in
-+// 'double', so LDBL_MAX (~1.19e4932) saturates to inf as soon as it is used,
-+// and 'midpoint(max_v, 0) == max_v / 2' cannot hold.  Windows on ARM's x64
-+// emulation behaves identically (its x87 registers are binary64), so this is a
-+// property of the platform rather than of this implementation.
-+// UNSUPPORTED: target=arm64ec-w64-mingw32
+@@ -150,7 +150,16 @@ constexpr bool test_floating_points() {
+ constexpr bool test() {
+   test_floating_points<float>();
+   test_floating_points<double>();
 +
- // <numeric>
++  // ARM64EC keeps the x86_64 80-bit 'long double' but evaluates its arithmetic
++  // in 'double', so LDBL_MAX (~1.19e4932) saturates to inf as soon as it is
++  // used and 'midpoint(max_v, 0) == max_v / 2' cannot hold.  Windows on ARM's
++  // x64 emulation behaves identically (its x87 registers are binary64).  Only
++  // this instantiation is skipped, and only while 'long double' is the 80-bit
++  // format: '-mlong-double-64' and '-mlong-double-128' keep it enabled.
++#if !defined(__arm64ec__) || __LDBL_MANT_DIG__ != 64
+   test_floating_points<long double>();
++#endif
  
- // template<class T>
-diff --git a/lld/MinGW/Options.td b/lld/MinGW/Options.td
-index 963152ea289b..50a45a7b2493 100644
---- a/lld/MinGW/Options.td
-+++ b/lld/MinGW/Options.td
-@@ -253,6 +253,8 @@ def alias_undefined_u: JoinedOrSeparate<["-"], "u">, Alias<undefined>;
- // Ignored options
- def: Joined<["-"], "O">;
- def: F<"as-needed">;
-+def: F<"default-image-base-high">;
-+def: F<"default-image-base-low">;
- def: F<"disable-auto-image-base">;
- def: F<"enable-auto-image-base">;
- def: F<"end-group">;
-diff --git a/llvm/cmake/modules/Findzstd.cmake b/llvm/cmake/modules/Findzstd.cmake
-index dbfaadb5de2b..19d88bf00c53 100644
---- a/llvm/cmake/modules/Findzstd.cmake
-+++ b/llvm/cmake/modules/Findzstd.cmake
-@@ -16,6 +16,8 @@ else()
-   set(zstd_STATIC_LIBRARY_SUFFIX "\\${CMAKE_STATIC_LIBRARY_SUFFIX}$")
- endif()
- 
-+find_package(zstd CONFIG QUIET)
-+if(NOT zstd_FOUND)
- find_path(zstd_INCLUDE_DIR NAMES zstd.h)
- find_library(zstd_LIBRARY NAMES zstd zstd_static)
- find_library(zstd_STATIC_LIBRARY NAMES
-@@ -27,6 +29,7 @@ find_package_handle_standard_args(
-     zstd DEFAULT_MSG
-     zstd_LIBRARY zstd_INCLUDE_DIR
- )
-+endif()
- 
- if(zstd_FOUND)
-   if(zstd_LIBRARY MATCHES "${zstd_STATIC_LIBRARY_SUFFIX}$" AND NOT zstd_LIBRARY MATCHES "\\.dll\\.a$")
-@@ -38,7 +41,7 @@ if(zstd_FOUND)
-       # IMPORTED_LOCATION is the path to the DLL and IMPORTED_IMPLIB is the "library".
-       get_filename_component(zstd_DIRNAME "${zstd_LIBRARY}" DIRECTORY)
-       if(NOT "${CMAKE_INSTALL_LIBDIR}" STREQUAL "" AND NOT "${CMAKE_INSTALL_BINDIR}" STREQUAL "")
--        string(REGEX REPLACE "${CMAKE_INSTALL_LIBDIR}$" "${CMAKE_INSTALL_BINDIR}" zstd_DIRNAME "${zstd_DIRNAME}")
-+        string(REGEX REPLACE "\\${CMAKE_INSTALL_LIBDIR}$" "${CMAKE_INSTALL_BINDIR}" zstd_DIRNAME "${zstd_DIRNAME}")
-       endif()
-       get_filename_component(zstd_BASENAME "${zstd_LIBRARY}" NAME)
-       string(REGEX REPLACE "\\${CMAKE_LINK_LIBRARY_SUFFIX}$" "${CMAKE_SHARED_LIBRARY_SUFFIX}" zstd_BASENAME "${zstd_BASENAME}")
-diff --git a/llvm/cmake/modules/GetHostTriple.cmake b/llvm/cmake/modules/GetHostTriple.cmake
-index 120f2de36bb7..5d3f37916dc9 100644
---- a/llvm/cmake/modules/GetHostTriple.cmake
-+++ b/llvm/cmake/modules/GetHostTriple.cmake
-@@ -16,7 +16,7 @@ function( get_host_triple var )
-     else()
-       set( value "i686-pc-windows-msvc" )
-     endif()
--  elseif( MINGW AND NOT MSYS )
-+  elseif( MINGW )
-     # CMake doesn't provide COMPILER_ARCHITECTURE_ID for Clang/GCC,
-     # but it does for MSVC.
-     if( CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "ARM.*" )
-diff --git a/llvm/utils/lit/lit/util.py b/llvm/utils/lit/lit/util.py
-index 4cf93ede92d6..b5e94d2effea 100644
---- a/llvm/utils/lit/lit/util.py
-+++ b/llvm/utils/lit/lit/util.py
-@@ -495,6 +495,11 @@ def get_windows_extended_path(path: str) -> str:
-     if not platform.system() == "Windows":
-         return path
-     path = os.path.abspath(path)
-+    # Extended-length paths must be fully backslash separated; a path that
-+    # still contains forward slashes (e.g. one that came from a lit
-+    # substitution) is rejected by the Win32 APIs with ERROR_FILE_NOT_FOUND.
-+    if "/" in path:
-+        path = path.replace("/", "\\")
-     if path.startswith("\\\\"):
-         return "\\\\?\\UNC\\{0}".format(path[2:])
-     return "\\\\?\\{0}".format(path)
+   return true;
+ }
